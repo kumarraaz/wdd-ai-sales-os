@@ -23,7 +23,7 @@
 - [x] Lead CRUD + lead table (search/filter/sort/pagination/bulk/export/import CSV)
 - [x] CRM kanban (NEW→…→WON/LOST) with drag-and-drop
 - [x] Audit log on mutations; rate limiting; security headers + CSP
-- [ ] Landing page v1 (hero + how-it-works + features + pricing + FAQ + footer) — in progress
+- [x] Landing page v1 (hero + how-it-works + features + pricing + FAQ + footer) — built by subagent, compiled in build
 - [x] `.env.example`, README (setup)
 - [x] Tests: unit (validators, SSRF, RBAC, rate-limit) + tenant isolation (needs DATABASE_URL)
 - [ ] Postgres (Neon) wired — BLOCKED: needs DATABASE_URL from Raj
