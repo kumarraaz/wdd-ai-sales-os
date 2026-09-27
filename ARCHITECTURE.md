@@ -233,7 +233,7 @@ visible in Admin + workspace job views. Prisma remains the source of truth.
 
 ## 17. API surface
 
-`/api/auth/*` (Auth.js), `/api/leads`, `/api/leads/discover`,
+`/api/auth/*` (better-auth), `/api/leads`, `/api/leads/discover`,
 `/api/leads/enrich|score|research`, `/api/companies`, `/api/contacts`,
 `/api/campaigns[/:id]`, `/api/outreach`, `/api/email`, `/api/whatsapp`,
 `/api/telegram`, `/api/integrations`, `/api/automation`, `/api/tasks`,

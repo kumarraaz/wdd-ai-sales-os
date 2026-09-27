@@ -10,22 +10,24 @@
 - [x] `ARCHITECTURE.md` (stack, tenancy, security, jobs)
 - [x] `ROADMAP.md` (this file)
 - [x] Database architecture → `prisma/schema.prisma`
-- [x] Implementation plan + repo decision (pivot, archive BioFuelRates branch)
-- [ ] Raj confirms: proceed to Phase 1
+- [x] Implementation plan + repo decision (NEW separate project `wdd-ai-sales-os`; BioFuelRates untouched)
+- [x] Raj confirmed: proceed to Phase 1 ("start new project", 2026-09-28)
 
-## Phase 1 — Foundation (weeks 1–2)
+## Phase 1 — Foundation (weeks 1–2) — IN PROGRESS
 **Goal:** real users, real auth, real DB, real dashboard.
-- Prisma schema + migrations; Postgres (Neon) wired; seed script (demo data)
-- Auth.js v5: email/password, Google OAuth (optional), verify/reset, sessions
-- Org/Workspace/Membership + roles (OWNER…VIEWER); tenant guard `withWorkspace()`
-- App shell: sidebar (30-module nav), topbar, command palette (Cmd+K), AI assistant dock
-- Dashboard: KPI cards + charts from REAL DB queries (empty states when no data)
-- Lead CRUD + lead table (search/filter/sort/pagination/bulk/export/import CSV)
-- CRM kanban (NEW→…→WON/LOST/NURTURE) with drag-and-drop
-- Audit log + activity center; rate limiting; security headers
-- Landing page v1 (hero + how-it-works + features + pricing + FAQ + footer)
-- `.env.example`, README (setup), PWA manifest
-- Tests: auth, tenant isolation (A can't touch B's leads), lead CRUD
+- [x] Prisma schema (better-auth-compatible auth models) + seed script (demo data)
+- [x] better-auth: email/password, Google OAuth (optional), verify/reset, sessions
+- [x] Org/Workspace/Membership + roles (OWNER…VIEWER); tenant guard `withWorkspace()`
+- [x] App shell: sidebar (30-module nav), topbar, command palette (Cmd+K), AI assistant placeholder
+- [x] Dashboard: KPI cards + charts from REAL DB queries (empty states when no data)
+- [x] Lead CRUD + lead table (search/filter/sort/pagination/bulk/export/import CSV)
+- [x] CRM kanban (NEW→…→WON/LOST) with drag-and-drop
+- [x] Audit log on mutations; rate limiting; security headers + CSP
+- [ ] Landing page v1 (hero + how-it-works + features + pricing + FAQ + footer) — in progress
+- [x] `.env.example`, README (setup)
+- [x] Tests: unit (validators, SSRF, RBAC, rate-limit) + tenant isolation (needs DATABASE_URL)
+- [ ] Postgres (Neon) wired — BLOCKED: needs DATABASE_URL from Raj
+- [ ] PWA manifest
 - **Acceptance:** signup → workspace → create lead → move card → logout; Vercel deploy green
 
 ## Phase 2 — Discovery & intelligence (weeks 3–4)
