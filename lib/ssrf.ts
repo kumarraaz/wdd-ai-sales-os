@@ -1,5 +1,6 @@
+import * as net from "node:net";
 import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import ipaddr from "ipaddr.js";
 
 /**
  * SSRF protection for user-supplied URLs (lead websites, enrichment targets…).
@@ -54,7 +55,12 @@ const BLOCKED_HOSTNAMES = new Set([
 
 function isBlockedIp(ip: string): boolean {
   if (ip === "::1" || ip.toLowerCase() === "::ffff:127.0.0.1") return true;
-  if (isIP(ip) === 6) return true; // conservative: block IPv6 literals for now
+  if (ipaddr.isValid(ip)) {
+    const parsed = ipaddr.parse(ip);
+    if (parsed.kind() === "ipv6") {
+      return parsed.range() !== "unicast";
+    }
+  }
   return BLOCKED_CIDRS.some((cidr) => inCidr(ip, cidr));
 }
 
@@ -75,7 +81,7 @@ export async function assertSafeUrl(raw: string, opts: { allowPrivate?: boolean 
 
   if (opts.allowPrivate) return url.toString();
 
-  if (isIP(hostname)) {
+  if (net.isIP(hostname)) {
     if (isBlockedIp(hostname)) throw new SafeUrlError("Internal addresses are blocked");
     return url.toString();
   }
