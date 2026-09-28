@@ -615,7 +615,7 @@ async function phaseLogout(smoke: Smoke): Promise<void> {
   await step("no secrets committed to git", async () => {
     const tracked = execSync(`git -C ${ROOT} ls-files | grep -xE '\\.env|\\.env\\.local|\\.env\\.development|\\.env\\.test|\\.env\\.production' || true`, { encoding: "utf8" }).trim();
     assert(!tracked, `secret-looking files tracked: ${tracked}`, ".env* committed", "git rm --cached the file; keep secrets in .env.local (gitignored) or Codespaces secrets.");
-    const hist = execSync(`git -C ${ROOT} log -p --all | grep -E 'DATABASE_URL=postgres|BETTER_AUTH_SECRET="[A-Za-z0-9+/=]{16,}"|sk-(live|test)-[A-Za-z0-9]{8,}' || true`, { encoding: "utf8" }).trim();
+    const hist = execSync(`git -C ${ROOT} log -p --all -- . ':(exclude)scripts/verify-phase1.ts' | grep -E 'DATABASE_URL=postgres|BETTER_AUTH_SECRET="[A-Za-z0-9+/=]{16,}"|sk-(live|test)-[A-Za-z0-9]{8,}' || true`, { encoding: "utf8" }).trim();
     assert(!hist, "secret pattern found in git history", "a real credential was committed at some point", "Rotate the credential immediately; purge with git-filter-repo.");
     return "only .env.example tracked (placeholders); history clean";
   });

@@ -8,14 +8,15 @@
  * They are always labeled DEMO_DATA and never mixed with real data.
  */
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const db = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const db = new PrismaClient({ adapter });
 
 const PLANS = [
   {
     name: "Free",
     tier: "FREE" as const,
-    priceCents: 0,
     maxLeads: 500,
     maxUsers: 3,
     aiTokensPerDay: 100_000,
@@ -25,7 +26,6 @@ const PLANS = [
   {
     name: "Pro",
     tier: "PRO" as const,
-    priceCents: 2900,
     maxLeads: 10_000,
     maxUsers: 10,
     aiTokensPerDay: 2_000_000,
@@ -35,7 +35,6 @@ const PLANS = [
   {
     name: "Business",
     tier: "BUSINESS" as const,
-    priceCents: 9900,
     maxLeads: 100_000,
     maxUsers: 50,
     aiTokensPerDay: 20_000_000,
@@ -45,7 +44,6 @@ const PLANS = [
   {
     name: "Enterprise",
     tier: "ENTERPRISE" as const,
-    priceCents: 0,
     maxLeads: 1_000_000,
     maxUsers: 500,
     aiTokensPerDay: 200_000_000,
