@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "./auth";
 import { db } from "./db";
-import type { Role } from "@prisma/client";
+import type { Prisma, Role } from "@prisma/client";
 
 /**
  * Tenant isolation core.
@@ -19,6 +19,11 @@ export interface WorkspaceContext {
   organization: { id: string; name: string; slug: string };
   membership: { id: string; role: Role };
 }
+
+// Exact shape of the membership query in requireWorkspace (include: organization).
+type MembershipWithOrg = Prisma.MembershipGetPayload<{
+  include: { organization: true };
+}>;
 
 const ROLE_RANK: Record<Role, number> = {
   VIEWER: 0,
@@ -57,7 +62,7 @@ export async function requireWorkspace(
 ): Promise<WorkspaceContext> {
   const user = await requireUser();
 
-  const memberships = await db.membership.findMany({
+  const memberships: MembershipWithOrg[] = await db.membership.findMany({
     where: { userId: user.id },
     include: { organization: true },
     orderBy: { createdAt: "asc" },

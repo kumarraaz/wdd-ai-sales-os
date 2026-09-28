@@ -1,5 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getUsage } from "@/lib/quotas";
@@ -8,6 +9,11 @@ import StatCard from "@/components/ui/StatCard";
 import { Users, UserCheck, Megaphone, TrendingUp } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+// Exact shape of the membership query in resolveOrgId (select: organizationId).
+type MembershipOrgId = Prisma.MembershipGetPayload<{
+  select: { organizationId: true };
+}>;
 
 // Time-window helper for the DB queries below. This is an async Server
 // Component, so Date.now() is request-scoped — no memoization hazard.
@@ -18,7 +24,7 @@ function daysAgo(days: number): Date {
 async function resolveOrgId(userId: string): Promise<string> {
   const jar = await cookies();
   const cookieOrg = jar.get("wdd.org_id")?.value;
-  const memberships = await db.membership.findMany({
+  const memberships: MembershipOrgId[] = await db.membership.findMany({
     where: { userId },
     orderBy: { createdAt: "asc" },
     select: { organizationId: true },

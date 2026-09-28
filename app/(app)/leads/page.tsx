@@ -1,10 +1,16 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { LeadsTable } from "@/components/app/LeadsTable";
 
 export const dynamic = "force-dynamic";
+
+// Exact shape of the membership query below (select: organizationId, role).
+type MembershipOrgRole = Prisma.MembershipGetPayload<{
+  select: { organizationId: true; role: true };
+}>;
 
 export default async function LeadsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -12,7 +18,7 @@ export default async function LeadsPage() {
 
   const jar = await cookies();
   const cookieOrg = jar.get("wdd.org_id")?.value;
-  const memberships = await db.membership.findMany({
+  const memberships: MembershipOrgRole[] = await db.membership.findMany({
     where: { userId: session.user.id },
     orderBy: { createdAt: "asc" },
     select: { organizationId: true, role: true },
