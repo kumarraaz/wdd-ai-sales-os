@@ -78,7 +78,13 @@ npm run test    # unit tests (DB-backed isolation tests need DATABASE_URL)
 ### 5. Deploy to Vercel
 
 1. Push the repo to GitHub.
-2. Import into Vercel (framework preset: Next.js).
+2. Import into Vercel (framework preset: Next.js). In the Vercel project,
+   set **Settings → Git → Production Branch to `master`** — this repo's
+   production branch is `master` (the default `main` branch only holds the
+   initial README). Pushes to any other branch produce Preview deployments.
+   Every commit pushed must use a GitHub-linked author email (e.g. your
+   GitHub noreply address) — Vercel rejects deployments whose commit author
+   email is not associated with a GitHub account.
 3. Add environment variables from `.env.example`
    (`DATABASE_URL`, `BETTER_AUTH_SECRET`, `NEXT_PUBLIC_APP_URL`, …).
 4. Run migrations against the production DB (`npm run db:migrate` with the
