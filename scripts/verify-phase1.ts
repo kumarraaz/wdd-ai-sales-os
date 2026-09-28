@@ -28,7 +28,6 @@
 
 import { spawn, spawnSync, execSync } from "node:child_process";
 import { createWriteStream, existsSync, readFileSync } from "node:fs";
-import { randomBytes } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 
 // ── config ────────────────────────────────────────────────────────────────
@@ -67,8 +66,12 @@ Nothing was run. Exiting.`);
 let BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET ?? "";
 let secretNote = "provided via environment";
 if (!BETTER_AUTH_SECRET) {
-  BETTER_AUTH_SECRET = randomBytes(32).toString("base64");
-  secretNote = "MISSING — generated an ephemeral secret for this run only (set BETTER_AUTH_SECRET for real use)";
+  // Deterministic TEST-ONLY secret: stable across runs so a server restart
+  // mid-run never invalidates sessions. This value must NEVER be used in
+  // production — production requires a real random BETTER_AUTH_SECRET
+  // (better-auth refuses to start without one there).
+  BETTER_AUTH_SECRET = "phase1-verify-TEST-ONLY-secret-not-for-production-use-0000000000000000";
+  secretNote = "MISSING — using deterministic TEST-ONLY secret for this run (set BETTER_AUTH_SECRET for real use)";
 }
 
 const SERVER_ENV = {
@@ -161,17 +164,31 @@ class Jar {
 }
 
 async function api(
-  jar: Jar,
+  jar: Jar | undefined,
   method: string,
   path: string,
   body?: unknown,
   extraHeaders: Record<string, string> = {},
 ): Promise<Response> {
+  // Honest guard: a missing jar means an earlier signup/provisioning step
+  // failed. Fail loudly with the true cause instead of a confusing
+  // `TypeError: Cannot read properties of undefined` downstream.
+  if (!jar) {
+    fail(
+      "test client has no session jar — an earlier signup/provisioning step failed",
+      "see the first FAIL above (usually signup); dependent steps cannot run without it",
+      "Fix the root failure, then re-run the harness.",
+    );
+  }
   const res = await fetch(`${BASE}${path}`, {
     method,
     redirect: "manual",
     headers: {
       "Content-Type": "application/json",
+      // Same-origin client: real browsers always send Origin on POST; node
+      // fetch does not, so we set it explicitly. The server still validates
+      // it against trustedOrigins — a wrong origin would (correctly) 403.
+      Origin: BASE,
       ...(jar.header() ? { Cookie: jar.header() } : {}),
       ...extraHeaders,
     },
@@ -179,6 +196,36 @@ async function api(
   });
   jar.ingest(res);
   return res;
+}
+
+/**
+ * Auth-endpoint requests with honest 429 handling.
+ *
+ * better-auth enforces strict default special rules on /sign-up/* and
+ * /sign-in/* (3 requests per 10s per client bucket). In the verify
+ * environment every request originates from 127.0.0.1 with no trusted
+ * client-IP header, so all test users share one "no-trusted-ip" bucket —
+ * a 429 here is CORRECT server behavior, not a bug, and production limits
+ * are deliberately left untouched. The client backs off for the
+ * server-provided X-Retry-After (fallback: just over the 10s window) and
+ * retries, which keeps the suite deterministic.
+ */
+async function apiAuth(
+  jar: Jar | undefined,
+  method: string,
+  path: string,
+  body?: unknown,
+  extraHeaders: Record<string, string> = {},
+  maxAttempts = 4,
+): Promise<Response> {
+  for (let attempt = 1; ; attempt++) {
+    const res = await api(jar, method, path, body, extraHeaders);
+    if (res.status !== 429 || attempt >= maxAttempts) return res;
+    const retryAfterSec = Number(res.headers.get("x-retry-after"));
+    const waitSec = Math.min(Math.max(Number.isNaN(retryAfterSec) ? 11 : retryAfterSec, 1), 30) + 1;
+    console.log(`\n    ⏳ auth 429 (attempt ${attempt}/${maxAttempts}) — backing off ${waitSec}s… `);
+    await sleep(waitSec * 1000);
+  }
 }
 
 async function json(res: Response): Promise<{ status: number; data: unknown }> {
@@ -308,8 +355,8 @@ function extractVerifyToken(email: string): string | null {
 /** Sign up + verify + sign in. Returns an authenticated jar. */
 async function provisionUser(email: string, name: string): Promise<{ jar: Jar; userId: string; orgId: string; verifyPath: string }> {
   const jar = new Jar();
-  // signup
-  const su = await api(jar, "POST", "/api/auth/sign-up/email", { name, email, password: PASSWORD });
+  // signup (auth endpoints are 429-aware: see apiAuth)
+  const su = await apiAuth(jar, "POST", "/api/auth/sign-up/email", { name, email, password: PASSWORD });
   assert(su.ok, `signup failed for ${email} (HTTP ${su.status})`, JSON.stringify((await json(su)).data).slice(0, 500), "Check /tmp/verify-phase1-server.log for the auth error.");
 
   // verify — real token flow first, DB fallback flagged honestly
@@ -326,7 +373,7 @@ async function provisionUser(email: string, name: string): Promise<{ jar: Jar; u
   }
 
   // login
-  const si = await api(jar, "POST", "/api/auth/sign-in/email", { email, password: PASSWORD });
+  const si = await apiAuth(jar, "POST", "/api/auth/sign-in/email", { email, password: PASSWORD });
   const siBody = await json(si);
   assert(si.ok && jar.hasSession(), `login failed for ${email} (HTTP ${si.status})`, JSON.stringify(siBody.data).slice(0, 500), "Confirm requireEmailVerification passed and the session cookie was set.");
 
@@ -594,7 +641,7 @@ async function phaseLogout(smoke: Smoke): Promise<void> {
   console.log("\n[7/7] Logout + protected routes + secrets scan");
 
   await step("logout", async () => {
-    const r = await api(smoke.jarA, "POST", "/api/auth/sign-out");
+    const r = await apiAuth(smoke.jarA, "POST", "/api/auth/sign-out");
     assert(r.ok, `sign-out failed (${r.status})`, "better-auth sign-out error", "Check /api/auth/[...all] route.");
     return "session revoked";
   });
@@ -649,7 +696,7 @@ async function phaseRbac(smoke: Smoke): Promise<void> {
 
   await step("RBAC: VIEWER can still read leads (200)", async () => {
     const jar = new Jar();
-    const si = await api(jar, "POST", "/api/auth/sign-in/email", { email: emailD, password: PASSWORD });
+    const si = await apiAuth(jar, "POST", "/api/auth/sign-in/email", { email: emailD, password: PASSWORD });
     assert(si.ok, "dave login failed", "auth issue", "Check sign-in.");
     const r = await api(jar, "GET", "/api/leads?pageSize=1", undefined, { "x-org-id": smoke.orgA });
     assert(r.status === 200, `expected 200, got ${r.status}`, "VIEWER wrongly denied read", "Check default minRole VIEWER in withWorkspace.");

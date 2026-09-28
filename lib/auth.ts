@@ -68,6 +68,9 @@ export const auth = betterAuth({
     useSecureCookies: process.env.NODE_ENV === "production",
   },
 
+  // Origin allowlist for /api/auth/* (CSRF protection). better-auth rejects
+  // non-GET auth requests whose Origin/Referer is missing or not listed here —
+  // keep this in sync with NEXT_PUBLIC_APP_URL. Never disable globally.
   trustedOrigins: [appUrl()],
 
   databaseHooks: {

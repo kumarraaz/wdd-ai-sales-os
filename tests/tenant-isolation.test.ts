@@ -7,11 +7,12 @@
  * Organization A can NEVER read or mutate Organization B's records.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { PrismaClient } from "@prisma/client";
+// Prisma 7: never `new PrismaClient()` without a driver adapter — reuse the
+// shared client from lib/db, which is configured with PrismaPg (@prisma/adapter-pg).
+import { db } from "../lib/db";
 import { createLead, getLead, updateLead, deleteLead, listLeads } from "../lib/leads";
 
 const hasDb = !!process.env.DATABASE_URL;
-const db = hasDb ? new PrismaClient() : (null as unknown as PrismaClient);
 
 describe.skipIf(!hasDb)("tenant isolation — leads", () => {
   let orgA: string;
