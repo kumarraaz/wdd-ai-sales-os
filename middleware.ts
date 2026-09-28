@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { DEMO_COOKIE_NAME, isDemoModeEnabled } from "@/lib/demo";
 
 // Lightweight gate: if no session cookie is present, bounce to /login.
 // This is NOT the security boundary — every (app) layout and every API
@@ -7,7 +8,12 @@ const SESSION_COOKIE = "wdd.session_token";
 
 export function middleware(req: NextRequest) {
   const hasSession = req.cookies.has(SESSION_COOKIE);
-  if (!hasSession) {
+  // Demo mode (dev only): a demo cookie lets the request reach the (app)
+  // layout, which performs the real demo-token validation. Cookie presence
+  // alone grants nothing — a forged or expired token is bounced to /login
+  // by the layout.
+  const hasDemoCookie = isDemoModeEnabled() && req.cookies.has(DEMO_COOKIE_NAME);
+  if (!hasSession && !hasDemoCookie) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", req.nextUrl.pathname);

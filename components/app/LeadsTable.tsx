@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-table";
 import Papa from "papaparse";
 import { Plus, Upload, Download, Trash2, X } from "lucide-react";
+import { DEMO_ACTION_DISABLED_MESSAGE } from "@/lib/demo";
 
 interface Lead {
   id: string;
@@ -40,7 +41,19 @@ function scoreColor(s: number) {
   return "text-white/50";
 }
 
-export function LeadsTable({ orgId, role }: { orgId: string; role: string }) {
+export function LeadsTable({
+  orgId,
+  role,
+  apiBase = "/api",
+  demo = false,
+}: {
+  orgId: string;
+  role: string;
+  /** Demo mode passes "/api/demo" so reads hit the fixture API. */
+  apiBase?: string;
+  /** Demo mode: writes are blocked with "Demo Mode — Action Disabled". */
+  demo?: boolean;
+}) {
   const canWrite = role !== "VIEWER";
   const [leads, setLeads] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
@@ -49,10 +62,16 @@ export function LeadsTable({ orgId, role }: { orgId: string; role: string }) {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [demoNotice, setDemoNotice] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+
+  /** Demo mode: block a write action with a clear message. */
+  function blockDemo() {
+    setDemoNotice(`${DEMO_ACTION_DISABLED_MESSAGE} — this action is not available in demo mode.`);
+  }
 
   const headers = useMemo(() => ({ "x-org-id": orgId }), [orgId]);
   const pageSize = 25;
@@ -69,7 +88,7 @@ export function LeadsTable({ orgId, role }: { orgId: string; role: string }) {
         sort: "updatedAt",
         order: "desc",
       });
-      const res = await fetch(`/api/leads?${params}`, { headers });
+      const res = await fetch(`${apiBase}/leads?${params}`, { headers });
       if (!res.ok) throw new Error(res.status === 403 ? "Access denied." : "Failed to load leads.");
       const data = await res.json();
       setLeads(data.leads);
@@ -80,7 +99,7 @@ export function LeadsTable({ orgId, role }: { orgId: string; role: string }) {
     } finally {
       setLoading(false);
     }
-  }, [page, q, status, headers]);
+  }, [page, q, status, headers, apiBase]);
 
   useEffect(() => {
     fetchLeads();
@@ -115,7 +134,7 @@ export function LeadsTable({ orgId, role }: { orgId: string; role: string }) {
     if (selected.size === 0 || !newStatus) return;
     setBulkBusy(true);
     try {
-      const res = await fetch("/api/leads/bulk", {
+      const res = await fetch(`${apiBase}/leads/bulk`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ ids: [...selected], status: newStatus }),
@@ -135,7 +154,7 @@ export function LeadsTable({ orgId, role }: { orgId: string; role: string }) {
     setBulkBusy(true);
     try {
       for (const id of selected) {
-        await fetch(`/api/leads/${id}`, { method: "DELETE", headers });
+        await fetch(`${apiBase}/leads/${id}`, { method: "DELETE", headers });
       }
       await fetchLeads();
     } finally {
@@ -144,7 +163,7 @@ export function LeadsTable({ orgId, role }: { orgId: string; role: string }) {
   }
 
   function exportCsv() {
-    window.open(`/api/leads/export?format=csv`, "_blank");
+    window.open(`${apiBase}/leads/export?format=csv`, "_blank");
   }
 
   const columns = useMemo(
@@ -220,6 +239,18 @@ export function LeadsTable({ orgId, role }: { orgId: string; role: string }) {
 
   return (
     <div className="space-y-4">
+      {demoNotice && (
+        <div className="flex items-center justify-between rounded-lg border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-3 py-2 text-sm text-[#D4AF37]">
+          <span>{demoNotice}</span>
+          <button
+            onClick={() => setDemoNotice(null)}
+            aria-label="Dismiss"
+            className="ml-3 text-[#D4AF37]/70 hover:text-[#D4AF37]"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
         <input
@@ -247,13 +278,13 @@ export function LeadsTable({ orgId, role }: { orgId: string; role: string }) {
           {canWrite && (
             <>
               <button
-                onClick={() => setShowAdd(true)}
+                onClick={() => (demo ? blockDemo() : setShowAdd(true))}
                 className="flex items-center gap-1.5 rounded-lg bg-[#D4AF37] px-3 py-2 text-sm font-semibold text-black hover:brightness-110"
               >
                 <Plus size={16} /> Add lead
               </button>
               <button
-                onClick={() => setShowImport(true)}
+                onClick={() => (demo ? blockDemo() : setShowImport(true))}
                 className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/5"
               >
                 <Upload size={16} /> Import
@@ -277,7 +308,14 @@ export function LeadsTable({ orgId, role }: { orgId: string; role: string }) {
             aria-label="Bulk status update"
             defaultValue=""
             disabled={bulkBusy}
-            onChange={(e) => bulkStatus(e.target.value)}
+            onChange={(e) => {
+              if (demo) {
+                e.target.value = "";
+                blockDemo();
+              } else {
+                bulkStatus(e.target.value);
+              }
+            }}
             className="rounded border border-white/15 bg-black/40 px-2 py-1 text-sm text-white"
           >
             <option value="">Set status…</option>
@@ -287,7 +325,7 @@ export function LeadsTable({ orgId, role }: { orgId: string; role: string }) {
           </select>
           {role !== "VIEWER" && (role === "SALES_MANAGER" || role === "ADMIN" || role === "OWNER") && (
             <button
-              onClick={deleteSelected}
+              onClick={() => (demo ? blockDemo() : deleteSelected())}
               disabled={bulkBusy}
               className="flex items-center gap-1 rounded px-2 py-1 text-sm text-red-400 hover:bg-red-500/10 disabled:opacity-50"
             >

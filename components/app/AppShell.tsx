@@ -61,11 +61,14 @@ export function AppShell({
   orgs,
   activeOrgId,
   children,
+  demo = false,
 }: {
   user: { name: string | null; email: string };
   orgs: Org[];
   activeOrgId: string;
   children: React.ReactNode;
+  /** Demo mode: fixture data only, real sign-out replaced with Exit Demo. */
+  demo?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -87,6 +90,14 @@ export function AppShell({
   async function signOut() {
     await authClient.signOut();
     router.push("/");
+  }
+
+  async function exitDemo() {
+    try {
+      await fetch("/api/demo/exit", { method: "POST" });
+    } finally {
+      router.push("/login");
+    }
   }
 
   function switchOrg(id: string) {
@@ -188,14 +199,24 @@ export function AppShell({
               <p className="truncate text-sm font-medium">{user.name || "User"}</p>
               <p className="truncate text-xs text-white/50">{user.email}</p>
             </div>
-            <button
-              onClick={signOut}
-              aria-label="Sign out"
-              title="Sign out"
-              className="rounded p-1.5 text-white/50 transition hover:bg-white/10 hover:text-white"
-            >
-              <LogOut size={16} />
-            </button>
+            {demo ? (
+              <button
+                onClick={exitDemo}
+                title="Exit Demo"
+                className="rounded-lg border border-[#D4AF37]/50 bg-[#D4AF37]/10 px-2.5 py-1.5 text-xs font-semibold text-[#D4AF37] transition hover:bg-[#D4AF37]/20"
+              >
+                Exit Demo
+              </button>
+            ) : (
+              <button
+                onClick={signOut}
+                aria-label="Sign out"
+                title="Sign out"
+                className="rounded p-1.5 text-white/50 transition hover:bg-white/10 hover:text-white"
+              >
+                <LogOut size={16} />
+              </button>
+            )}
           </div>
         </div>
       </aside>
@@ -248,7 +269,12 @@ export function AppShell({
         </nav>
       </div>
 
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} orgId={activeOrgId} />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        orgId={activeOrgId}
+        apiBase={demo ? "/api/demo" : "/api"}
+      />
     </div>
   );
 }

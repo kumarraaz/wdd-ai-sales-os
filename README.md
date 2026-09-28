@@ -139,6 +139,27 @@ Business logic lives in `lib/` services — never in components.
 See `ARCHITECTURE.md` §13–14 and `OPEN_SOURCE_RESEARCH.md` for the full
 security model and dependency/license review.
 
+## Demo mode (development only)
+
+For inspecting the app shell without signup/email verification:
+
+```bash
+DEMO_MODE=true npm run dev
+```
+
+Then open `/login` and click **View Demo**. This opens the dashboard, leads,
+and CRM with clearly labeled `DEMO_DATA` fixtures — no real account, no
+database access. Safety properties (all covered by `tests/demo-mode.test.ts`):
+
+- Only activates when `DEMO_MODE=true` **and** `NODE_ENV != "production"`
+  (hard gate — can never run in production, even if the var is set).
+- Production auth is untouched: demo tokens are random in-memory capabilities
+  that can never satisfy `withWorkspace()` — every real API still 401s them.
+- All demo API mutations return `403 Demo Mode — Action Disabled`; the demo
+  fixture API is read-only and returns 404 when demo mode is off.
+- A persistent **DEMO MODE** banner is shown; **Exit Demo** destroys the
+  session and returns to `/login`. No secrets ever reach the client.
+
 ## Roadmap
 
 `ROADMAP.md` tracks all 8 phases. Phase 1 (this repo state): foundation,

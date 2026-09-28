@@ -11,6 +11,7 @@ import {
   useDraggable,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { DEMO_ACTION_DISABLED_MESSAGE } from "@/lib/demo";
 
 const STAGES = [
   "NEW", "RESEARCHING", "QUALIFIED", "CONTACTED", "REPLIED",
@@ -82,7 +83,19 @@ function Column({ stage, cards }: { stage: string; cards: Card[] }) {
   );
 }
 
-export function Kanban({ orgId, canWrite }: { orgId: string; canWrite: boolean }) {
+export function Kanban({
+  orgId,
+  canWrite,
+  apiBase = "/api",
+  demo = false,
+}: {
+  orgId: string;
+  canWrite: boolean;
+  /** Demo mode passes "/api/demo" so reads hit the fixture API. */
+  apiBase?: string;
+  /** Demo mode: card moves are blocked with "Demo Mode — Action Disabled". */
+  demo?: boolean;
+}) {
   const [cards, setCards] = useState<Record<string, Card[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +104,7 @@ export function Kanban({ orgId, canWrite }: { orgId: string; canWrite: boolean }
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/leads?pageSize=100&sort=leadScore&order=desc", {
+        const res = await fetch(`${apiBase}/leads?pageSize=100&sort=leadScore&order=desc`, {
           headers: { "x-org-id": orgId },
         });
         if (!res.ok) throw new Error("Failed to load pipeline.");
@@ -110,11 +123,17 @@ export function Kanban({ orgId, canWrite }: { orgId: string; canWrite: boolean }
         setLoading(false);
       }
     })();
-  }, [orgId]);
+  }, [orgId, apiBase]);
 
   async function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || !canWrite) return;
+    // Demo mode: cards are inspect-only. Block the move up front with a clear
+    // message instead of attempting a write that would be rejected.
+    if (demo) {
+      setError(`${DEMO_ACTION_DISABLED_MESSAGE} — card moves are not saved in demo mode.`);
+      return;
+    }
     const toStage = String(over.id);
     const cardId = String(active.id);
 
@@ -138,7 +157,7 @@ export function Kanban({ orgId, canWrite }: { orgId: string; canWrite: boolean }
     }));
 
     try {
-      const res = await fetch(`/api/leads/${cardId}`, {
+      const res = await fetch(`${apiBase}/leads/${cardId}`, {
         method: "PATCH",
         headers: { "x-org-id": orgId, "Content-Type": "application/json" },
         body: JSON.stringify({ status: toStage }),

@@ -4,6 +4,8 @@ import type { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getUsage } from "@/lib/quotas";
+import { getDemoSession } from "@/lib/demo-session";
+import { getDemoDashboard } from "@/lib/demo-data";
 import { DashboardCharts } from "@/components/app/DashboardCharts";
 import StatCard from "@/components/ui/StatCard";
 import { Users, UserCheck, Megaphone, TrendingUp } from "lucide-react";
@@ -33,10 +35,114 @@ async function resolveOrgId(userId: string): Promise<string> {
   return memberships.find((m) => m.organizationId === cookieOrg)?.organizationId ?? memberships[0].organizationId;
 }
 
+interface DashboardStats {
+  totalLeads: number;
+  newLeads: number;
+  qualifiedLeads: number;
+  activeCampaigns: number;
+  avgScore: number;
+  growth: { day: string; leads: number }[];
+  pipeline: { status: string; count: number }[];
+  usage: {
+    leads: { used: number; limit: number };
+    aiTokens: { used: number; limit: number };
+    messages: { used: number; limit: number };
+  };
+}
+
+/** Shared presentation for real and demo dashboard data. */
+function DashboardView({ stats, demo = false }: { stats: DashboardStats; demo?: boolean }) {
+  const { totalLeads, newLeads, qualifiedLeads, activeCampaigns, avgScore, growth, pipeline, usage } = stats;
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">
+          Dashboard{" "}
+          {demo && (
+            <span className="ml-2 rounded bg-[#D4AF37]/15 px-2 py-0.5 align-middle text-xs font-bold uppercase tracking-wider text-[#D4AF37]">
+              DEMO_DATA
+            </span>
+          )}
+        </h1>
+        <p className="text-sm text-white/50">
+          {demo ? "Sample pipeline data for demonstration." : "Your sales pipeline at a glance."}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard icon={Users} label="Total Leads" value={totalLeads} dark />
+        <StatCard icon={TrendingUp} label="New (7 days)" value={newLeads} dark />
+        <StatCard icon={UserCheck} label="Qualified+" value={qualifiedLeads} dark />
+        <StatCard icon={Megaphone} label="Active Campaigns" value={activeCampaigns} dark />
+      </div>
+
+      {totalLeads === 0 ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-10 text-center">
+          <h2 className="text-lg font-semibold">No leads yet</h2>
+          <p className="mt-2 text-sm text-white/60">
+            Add your first lead manually, import a CSV, or wait for Phase 2&apos;s discovery engine.
+          </p>
+          <a
+            href="/app/leads"
+            className="mt-4 inline-block rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-semibold text-black hover:brightness-110"
+          >
+            Go to Leads
+          </a>
+        </div>
+      ) : (
+        <DashboardCharts growth={growth} pipeline={pipeline} avgScore={avgScore} />
+      )}
+
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-white/60">
+          Plan usage
+        </h2>
+        <div className="mt-3 grid gap-4 sm:grid-cols-3">
+          {(
+            [
+              ["Leads", usage.leads],
+              ["AI tokens (today)", usage.aiTokens],
+              ["Messages (today)", usage.messages],
+            ] as const
+          ).map(([label, u]) => (
+            <div key={label}>
+              <div className="flex justify-between text-sm">
+                <span className="text-white/70">{label}</span>
+                <span className="text-white/50">
+                  {u.used.toLocaleString()} / {u.limit.toLocaleString()}
+                </span>
+              </div>
+              <div className="mt-1 h-2 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-[#D4AF37]"
+                  style={{ width: `${Math.min(100, (u.used / Math.max(1, u.limit)) * 100)}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default async function DashboardPage() {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) redirect("/login");
-  const orgId = await resolveOrgId(session.user.id);
+  const demo = await getDemoSession();
+  if (!session?.user && !demo) redirect("/login");
+
+  // Demo mode: render the same dashboard from clearly labeled fixtures —
+  // no database access, no real user.
+  if (demo && !session?.user) {
+    return <DashboardView stats={getDemoDashboard()} demo />;
+  }
+
+  const userId = session?.user?.id;
+  // Unreachable in practice: the guards above redirect when there is no
+  // session and no demo, and the demo branch already returned. The explicit
+  // check keeps the type narrow without a non-null assertion.
+  if (!userId) redirect("/login");
+  const orgId = await resolveOrgId(userId);
 
   const [
     totalLeads,
@@ -81,69 +187,17 @@ export default async function DashboardPage() {
   const pipeline = byStatus.map((s) => ({ status: s.status, count: s._count as number }));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-sm text-white/50">Your sales pipeline at a glance.</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard icon={Users} label="Total Leads" value={totalLeads} dark />
-        <StatCard icon={TrendingUp} label="New (7 days)" value={newLeads} dark />
-        <StatCard icon={UserCheck} label="Qualified+" value={qualifiedLeads} dark />
-        <StatCard icon={Megaphone} label="Active Campaigns" value={activeCampaigns} dark />
-      </div>
-
-      {totalLeads === 0 ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-10 text-center">
-          <h2 className="text-lg font-semibold">No leads yet</h2>
-          <p className="mt-2 text-sm text-white/60">
-            Add your first lead manually, import a CSV, or wait for Phase 2&apos;s discovery engine.
-          </p>
-          <a
-            href="/app/leads"
-            className="mt-4 inline-block rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-semibold text-black hover:brightness-110"
-          >
-            Go to Leads
-          </a>
-        </div>
-      ) : (
-        <DashboardCharts
-          growth={growth}
-          pipeline={pipeline}
-          avgScore={Math.round(avgScore._avg.leadScore ?? 0)}
-        />
-      )}
-
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-white/60">
-          Plan usage
-        </h2>
-        <div className="mt-3 grid gap-4 sm:grid-cols-3">
-          {(
-            [
-              ["Leads", usage.leads],
-              ["AI tokens (today)", usage.aiTokens],
-              ["Messages (today)", usage.messages],
-            ] as const
-          ).map(([label, u]) => (
-            <div key={label}>
-              <div className="flex justify-between text-sm">
-                <span className="text-white/70">{label}</span>
-                <span className="text-white/50">
-                  {u.used.toLocaleString()} / {u.limit.toLocaleString()}
-                </span>
-              </div>
-              <div className="mt-1 h-2 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-[#D4AF37]"
-                  style={{ width: `${Math.min(100, (u.used / Math.max(1, u.limit)) * 100)}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+    <DashboardView
+      stats={{
+        totalLeads,
+        newLeads,
+        qualifiedLeads,
+        activeCampaigns,
+        avgScore: Math.round(avgScore._avg.leadScore ?? 0),
+        growth,
+        pipeline,
+        usage,
+      }}
+    />
   );
 }

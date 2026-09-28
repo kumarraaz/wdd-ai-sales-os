@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { DEMO_ORG, DEMO_USER } from "@/lib/demo";
+import { getDemoSession } from "@/lib/demo-session";
+import { DemoBanner } from "@/components/demo/DemoBanner";
 import { AppShell } from "@/components/app/AppShell";
 
 // Exact shape of the membership query below (include: organization).
@@ -12,10 +15,35 @@ type MembershipWithOrg = Prisma.MembershipGetPayload<{
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) redirect("/login");
+  const demo = await getDemoSession();
+  if (!session?.user && !demo) redirect("/login");
+
+  // Demo mode: clearly marked demo identity + fixture-only data path.
+  // Production auth is untouched — a demo session can never satisfy
+  // withWorkspace/requireWorkspace, so all real APIs stay protected.
+  if (demo && !session?.user) {
+    return (
+      <>
+        <DemoBanner />
+        <AppShell
+          user={{ name: DEMO_USER.name, email: DEMO_USER.email }}
+          orgs={[{ id: DEMO_ORG.id, name: `${DEMO_ORG.name} (DEMO_DATA)`, role: DEMO_ORG.role }]}
+          activeOrgId={DEMO_ORG.id}
+          demo
+        >
+          {children}
+        </AppShell>
+      </>
+    );
+  }
+
+  const userId = session?.user?.id;
+  // Unreachable in practice: the guards above redirect when there is no
+  // session and no demo, and the demo branch already returned.
+  if (!userId) redirect("/login");
 
   const memberships: MembershipWithOrg[] = await db.membership.findMany({
-    where: { userId: session.user.id },
+    where: { userId },
     include: { organization: true },
     orderBy: { createdAt: "asc" },
   });
@@ -26,9 +54,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const active =
     memberships.find((m) => m.organizationId === cookieOrg) ?? memberships[0];
 
+  const user = session?.user;
+  if (!user) redirect("/login");
+
   return (
     <AppShell
-      user={{ name: session.user.name, email: session.user.email }}
+      user={{ name: user.name, email: user.email }}
       orgs={memberships.map((m) => ({
         id: m.organization.id,
         name: m.organization.name,

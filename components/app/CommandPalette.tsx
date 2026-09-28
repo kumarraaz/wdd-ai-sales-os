@@ -22,10 +22,13 @@ export function CommandPalette({
   open,
   onOpenChange,
   orgId,
+  apiBase = "/api",
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   orgId: string;
+  /** Demo mode passes "/api/demo" so lead search works against fixtures. */
+  apiBase?: string;
 }) {
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -48,7 +51,7 @@ export function CommandPalette({
     const t = setTimeout(async () => {
       try {
         const res = await fetch(
-          `/api/leads?q=${encodeURIComponent(q)}&pageSize=5`,
+          `${apiBase}/leads?q=${encodeURIComponent(q)}&pageSize=5`,
           { headers: { "x-org-id": orgId } },
         );
         if (!res.ok) return;
@@ -59,7 +62,7 @@ export function CommandPalette({
       }
     }, 250);
     return () => clearTimeout(t);
-  }, [q, open, orgId]);
+  }, [q, open, orgId, apiBase]);
 
   if (!open) return null;
 
