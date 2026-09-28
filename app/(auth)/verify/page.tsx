@@ -9,16 +9,18 @@ import { authClient } from "@/lib/auth-client";
 function VerifyForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [state, setState] = useState<"verifying" | "done" | "error">("verifying");
-  const [message, setMessage] = useState("");
+  // Read the token during render so the missing-token case never needs a
+  // synchronous setState inside the effect (react-hooks/set-state-in-effect).
+  const token = searchParams.get("token");
+  const [state, setState] = useState<"verifying" | "done" | "error">(
+    token ? "verifying" : "error",
+  );
+  const [message, setMessage] = useState(
+    token ? "" : "This verification link is missing its token.",
+  );
 
   useEffect(() => {
-    const token = searchParams.get("token");
-    if (!token) {
-      setState("error");
-      setMessage("This verification link is missing its token.");
-      return;
-    }
+    if (!token) return;
     authClient.verifyEmail(
       { query: { token } },
       {
@@ -32,8 +34,7 @@ function VerifyForm() {
         },
       },
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [token, router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0D1B2A] px-4">

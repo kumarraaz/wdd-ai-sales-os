@@ -9,6 +9,15 @@ import { Users, UserCheck, Megaphone, TrendingUp } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
+// Time-window helper for the DB queries below. react-hooks/purity flags
+// Date.now() as impure, but this is an async Server Component — there is no
+// client render memoization for it to break — so the flag is a false positive.
+// Centralized here with one documented exception instead of three.
+function daysAgo(days: number): Date {
+  // eslint-disable-next-line react-hooks/purity
+  return new Date(Date.now() - days * 86400000);
+}
+
 async function resolveOrgId(userId: string): Promise<string> {
   const jar = await cookies();
   const cookieOrg = jar.get("wdd.org_id")?.value;
@@ -38,7 +47,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     db.lead.count({ where: { organizationId: orgId } }),
     db.lead.count({
-      where: { organizationId: orgId, createdAt: { gte: new Date(Date.now() - 7 * 86400000) } },
+      where: { organizationId: orgId, createdAt: { gte: daysAgo(7) } },
     }),
     db.lead.count({
       where: { organizationId: orgId, status: { in: ["QUALIFIED", "CONTACTED", "REPLIED", "MEETING", "PROPOSAL", "NEGOTIATION"] } },
@@ -48,7 +57,7 @@ export default async function DashboardPage() {
     db.lead.groupBy({ by: ["status"], where: { organizationId: orgId }, _count: true }),
     db.lead.groupBy({
       by: ["createdAt"],
-      where: { organizationId: orgId, createdAt: { gte: new Date(Date.now() - 30 * 86400000) } },
+      where: { organizationId: orgId, createdAt: { gte: daysAgo(30) } },
       _count: true,
     }),
     getUsage(orgId),
@@ -62,7 +71,7 @@ export default async function DashboardPage() {
   }
   const growth: { day: string; leads: number }[] = [];
   for (let i = 29; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+    const d = daysAgo(i).toISOString().slice(0, 10);
     growth.push({ day: d.slice(5), leads: growthMap.get(d) ?? 0 });
   }
 

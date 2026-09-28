@@ -31,11 +31,20 @@ export function CommandPalette({
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<LeadHit[]>([]);
 
+  // Stale results are cleared in the query-change handler, not synchronously
+  // inside the effect (react-hooks/set-state-in-effect).
+  const handleQueryChange = (v: string) => {
+    setQ(v);
+    if (v.trim().length < 2) setHits([]);
+  };
+
+  const handleClose = () => {
+    setHits([]);
+    onOpenChange(false);
+  };
+
   useEffect(() => {
-    if (!open || q.trim().length < 2) {
-      setHits([]);
-      return;
-    }
+    if (!open || q.trim().length < 2) return;
     const t = setTimeout(async () => {
       try {
         const res = await fetch(
@@ -57,10 +66,10 @@ export function CommandPalette({
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 pt-[15vh]"
-      onClick={() => onOpenChange(false)}
       role="dialog"
       aria-modal="true"
       aria-label="Command palette"
+      onClick={handleClose}
     >
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg">
         <Command
@@ -71,7 +80,7 @@ export function CommandPalette({
             <Search size={16} className="text-white/40" />
             <Command.Input
               value={q}
-              onValueChange={setQ}
+              onValueChange={handleQueryChange}
               placeholder="Search leads or jump to a page…"
               className="w-full bg-transparent py-3 text-sm text-white outline-none placeholder:text-white/40"
             />
@@ -87,7 +96,7 @@ export function CommandPalette({
                   value={p.label}
                   onSelect={() => {
                     router.push(p.href);
-                    onOpenChange(false);
+                    handleClose();
                   }}
                   className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/80 aria-selected:bg-white/10"
                 >
@@ -104,7 +113,7 @@ export function CommandPalette({
                     value={`${h.fullName} ${h.email} ${h.company?.name}`}
                     onSelect={() => {
                       router.push(`/app/leads?lead=${h.id}`);
-                      onOpenChange(false);
+                      handleClose();
                     }}
                     className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/80 aria-selected:bg-white/10"
                   >
