@@ -68,6 +68,11 @@ export const auth = betterAuth({
     useSecureCookies: process.env.NODE_ENV === "production",
   },
 
+  // Base URL for callbacks, email links and OAuth redirects. Derived from
+  // NEXT_PUBLIC_APP_URL (set to the production domain on Vercel); without it
+  // better-auth falls back to inferring the host from each request.
+  baseURL: appUrl(),
+
   // Origin allowlist for /api/auth/* (CSRF protection). better-auth rejects
   // non-GET auth requests whose Origin/Referer is missing or not listed here —
   // keep this in sync with NEXT_PUBLIC_APP_URL. Never disable globally.

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withWorkspace } from "@/lib/tenant";
 import { checkRateLimit, LIMITS } from "@/lib/rate-limit";
 import { createLeadSchema, listLeadsQuerySchema } from "@/lib/validators";
-import { createLead, listLeads } from "@/lib/leads";
+import { createLead, listLeads, isOrgMember } from "@/lib/leads";
 import { checkLeadQuota } from "@/lib/quotas";
 import { audit } from "@/lib/audit";
 
@@ -56,6 +56,15 @@ export const POST = withWorkspace(
         { error: "LEAD_QUOTA_EXCEEDED", used: quota.used, limit: quota.limit },
         { status: 403 },
       );
+    }
+
+    // Assignees must belong to this workspace — never link a lead to an
+    // arbitrary user id (cross-tenant linkage).
+    if (parsed.data.assignedToId) {
+      const member = await isOrgMember(ctx.organization.id, parsed.data.assignedToId);
+      if (!member) {
+        return NextResponse.json({ error: "INVALID_ASSIGNEE" }, { status: 422 });
+      }
     }
 
     const { lead, duplicate } = await createLead(

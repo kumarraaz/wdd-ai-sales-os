@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withWorkspace } from "@/lib/tenant";
 import { checkRateLimit, LIMITS } from "@/lib/rate-limit";
 import { updateLeadSchema } from "@/lib/validators";
-import { getLead, updateLead, deleteLead } from "@/lib/leads";
+import { getLead, updateLead, deleteLead, isOrgMember } from "@/lib/leads";
 import { audit } from "@/lib/audit";
 
 export const GET = withWorkspace(
@@ -28,6 +28,14 @@ export const PATCH = withWorkspace(
         { error: "INVALID_INPUT", details: parsed.error.flatten() },
         { status: 400 },
       );
+    }
+    // Assignees must belong to this workspace — never link a lead to an
+    // arbitrary user id (cross-tenant linkage).
+    if (parsed.data.assignedToId) {
+      const member = await isOrgMember(ctx.organization.id, parsed.data.assignedToId);
+      if (!member) {
+        return NextResponse.json({ error: "INVALID_ASSIGNEE" }, { status: 422 });
+      }
     }
     const lead = await updateLead(ctx.organization.id, ctx.user.id, id, parsed.data);
     if (!lead) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });

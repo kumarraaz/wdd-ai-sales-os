@@ -9,12 +9,9 @@ import { Users, UserCheck, Megaphone, TrendingUp } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-// Time-window helper for the DB queries below. react-hooks/purity flags
-// Date.now() as impure, but this is an async Server Component — there is no
-// client render memoization for it to break — so the flag is a false positive.
-// Centralized here with one documented exception instead of three.
+// Time-window helper for the DB queries below. This is an async Server
+// Component, so Date.now() is request-scoped — no memoization hazard.
 function daysAgo(days: number): Date {
-  // eslint-disable-next-line react-hooks/purity
   return new Date(Date.now() - days * 86400000);
 }
 

@@ -6,19 +6,18 @@ import { NextRequest, NextResponse } from "next/server";
 const SESSION_COOKIE = "wdd.session_token";
 
 export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  if (!pathname.startsWith("/app")) return NextResponse.next();
-
   const hasSession = req.cookies.has(SESSION_COOKIE);
   if (!hasSession) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("next", pathname);
+    url.searchParams.set("next", req.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/app/:path*"],
+  // NOTE: route groups like (app) do not create URL segments, so the
+  // protected pages live at /dashboard, /leads, /crm — not /app/*.
+  matcher: ["/dashboard/:path*", "/leads/:path*", "/crm/:path*"],
 };

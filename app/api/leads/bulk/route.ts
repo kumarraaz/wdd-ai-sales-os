@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withWorkspace } from "@/lib/tenant";
 import { checkRateLimit, LIMITS } from "@/lib/rate-limit";
 import { bulkUpdateSchema } from "@/lib/validators";
+import { isOrgMember } from "@/lib/leads";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 
@@ -22,6 +23,15 @@ export const POST = withWorkspace(
     }
     const { ids, status, tagsToAdd, tagsToRemove, assignedToId } = parsed.data;
     const orgId = ctx.organization.id;
+
+    // Assignees must belong to this workspace — never link leads to an
+    // arbitrary user id (cross-tenant linkage).
+    if (assignedToId) {
+      const member = await isOrgMember(orgId, assignedToId);
+      if (!member) {
+        return NextResponse.json({ error: "INVALID_ASSIGNEE" }, { status: 422 });
+      }
+    }
 
     // Verify all ids belong to this workspace (tenant guard for bulk ops).
     const owned = await db.lead.findMany({

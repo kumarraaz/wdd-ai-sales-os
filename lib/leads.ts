@@ -10,6 +10,18 @@ import type { z } from "zod";
  * query to it. This file is the only place Lead writes happen.
  */
 
+/** True when userId is a member of organizationId (assignee validation). */
+export async function isOrgMember(
+  organizationId: string,
+  userId: string,
+): Promise<boolean> {
+  const m = await db.membership.findUnique({
+    where: { userId_organizationId: { userId, organizationId } },
+    select: { id: true },
+  });
+  return m !== null;
+}
+
 export async function findDuplicate(
   organizationId: string,
   input: { email?: string; phone?: string; website?: string; companyName?: string; fullName?: string },
