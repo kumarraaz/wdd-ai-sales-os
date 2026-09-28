@@ -26,6 +26,10 @@
 - [x] Landing page v1 (hero + how-it-works + features + pricing + FAQ + footer) — built by subagent, compiled in build
 - [x] `.env.example`, README (setup)
 - [x] Tests: unit (validators, SSRF, RBAC, rate-limit) + tenant isolation (needs DATABASE_URL)
+- [x] ESLint configured (flat config, `npm run lint` → 0 errors; was unconfigured at Phase 1 build)
+- [x] `.gitignore` hardened for all env variants; secrets scan clean (only `.env.example` tracked)
+- [x] Full runtime verification harness: `scripts/verify-phase1.ts` (`npm run verify:phase1`) — covers migrate→seed→vitest→build→live smoke (signup/login/workspace/CRUD/search/filter/kanban/audit/usage/logout/protected routes)→two-org tenant isolation→RBAC roles→CSV import/export→duplicate detection→rate limiting→SSRF→git secrets scan; prints PHASE 1 RUNTIME STATUS
+- [ ] Postgres (Neon) wired — BLOCKED: needs DATABASE_URL from Raj (then run `npm run verify:phase1`)
 - [ ] Postgres (Neon) wired — BLOCKED: needs DATABASE_URL from Raj
 - [ ] PWA manifest
 - **Acceptance:** signup → workspace → create lead → move card → logout; Vercel deploy green
