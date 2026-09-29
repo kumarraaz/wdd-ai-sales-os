@@ -19,16 +19,22 @@ import type { DiscoveredCompany } from "../lib/discovery/types";
 const hasDb = !!process.env.DATABASE_URL;
 const provider = new GooglePlacesProvider();
 
+// Fixture sequence — every company() call gets a unique phone and website.
+// Sharing one phone/website across tests would make the (correct) duplicate
+// detection fire between unrelated tests.
+let fixtureSeq = 0;
 function company(overrides: Partial<DiscoveredCompany>): DiscoveredCompany {
+  fixtureSeq += 1;
+  const n = fixtureSeq;
   return {
     provider: "google-places",
-    providerId: `ChIJ-test-${Math.random().toString(36).slice(2, 8)}`,
+    providerId: `ChIJ-test-${n}-${Math.random().toString(36).slice(2, 6)}`,
     name: "Test Company",
     category: "Manufacturing",
     city: "Ahmedabad",
     country: "India",
-    phone: "+91 79 4000 9999",
-    website: "https://test-company.example.com",
+    phone: `+91 79 4000 ${String(1000 + n)}`,
+    website: `https://test-company-${n}.example.com`,
     sourceUrl: "https://maps.google.com/test",
     discoveredAt: new Date().toISOString(),
     provenance: "VERIFIED_DATA",
@@ -82,7 +88,7 @@ describe.skipIf(!hasDb)("discovery import — database integration", () => {
     expect(lead?.sourceUrl).toBe("https://maps.google.com/test");
     // Provenance rows exist and original values are preserved.
     expect(lead?.provenance.some((p) => p.field === "website" && p.label === "VERIFIED")).toBe(true);
-    expect(lead?.website).toBe("https://test-company.example.com");
+    expect(lead?.website).toBe(c.website);
   });
 
   it("is idempotent — re-importing returns already_exists, never a second lead", async () => {

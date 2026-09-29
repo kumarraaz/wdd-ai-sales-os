@@ -13,6 +13,7 @@ import { createLead, findDuplicate } from "../leads";
 import {
   matchDuplicate,
   normalizeName,
+  normalizePhoneDigits,
   type MatchCandidate,
   type MatchExisting,
 } from "./matching";
@@ -182,6 +183,35 @@ export async function findMatchForCompany(
     }
   }
 
+  // 2b) Phone across formatting variants: findDuplicate's `contains` query
+  // compares digit-only input against raw stored phones (e.g. "+91 79 4000
+  // 1111"), so it can never match a differently formatted number. Compare
+  // normalized digits in JS over a bounded candidate set instead — the
+  // last-4-digits prefilter only affects recall, the exact digit equality
+  // below is the definitive decision, so there are no false positives.
+  if (!match && company.phone) {
+    const digits = normalizePhoneDigits(company.phone).replace(/\D/g, "");
+    if (digits.length >= 4) {
+      const phoneCandidates = await db.lead.findMany({
+        where: { organizationId, phone: { contains: digits.slice(-4) } },
+        select: { id: true, phone: true, status: true },
+        take: 50,
+      });
+      const hit = phoneCandidates.find(
+        (l) => normalizePhoneDigits(l.phone).replace(/\D/g, "") === digits,
+      );
+      if (hit) {
+        matchedLeadId = hit.id;
+        existingStatus = hit.status;
+        match = matchDuplicate(
+          candidate,
+          { id: hit.id, phone: hit.phone },
+          provider.label,
+        );
+      }
+    }
+  }
+
   // 3) Possible: same normalized business name + location.
   let possible: CompanyMatch["possible"] = null;
   if (!match && normalizeName(company.name)) {
@@ -196,13 +226,22 @@ export async function findMatchForCompany(
     if (locOr.length > 0) {
       const locMatches = await db.lead.findMany({
         where: { organizationId, OR: locOr },
-        select: { id: true, fullName: true, city: true, country: true, status: true },
+        select: {
+          id: true,
+          fullName: true,
+          city: true,
+          country: true,
+          status: true,
+          // Discovery imports create Company-linked leads with fullName NULL;
+          // the business name lives on the related Company record.
+          company: { select: { name: true } },
+        },
         take: 25,
       });
       for (const m of locMatches) {
         const r = matchDuplicate(
           candidate,
-          { id: m.id, name: m.fullName, city: m.city, country: m.country },
+          { id: m.id, name: m.company?.name ?? m.fullName, city: m.city, country: m.country },
           provider.label,
         );
         if (r && !r.definitive) {

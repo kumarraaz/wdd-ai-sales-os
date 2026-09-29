@@ -41,6 +41,15 @@ vi.mock("../lib/auth", () => ({
   },
 }));
 
+// Mock Next.js request-scoped headers(): withWorkspace -> requireWorkspace ->
+// getSessionUser calls headers() BEFORE the mocked auth above is consulted,
+// and headers() throws outside a request scope in vitest. Without this mock
+// every route-level test fails with a 500 instead of reaching the handler.
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers(),
+  cookies: async () => ({ get: () => undefined, set: () => undefined }),
+}));
+
 import { POST as discoverySearch } from "../app/api/discovery/search/route";
 
 const hasDb = !!process.env.DATABASE_URL;
@@ -107,6 +116,7 @@ describe.skipIf(!hasDb)("discovery — database integration", () => {
       { searchQuery: "manufacturers" },
     );
     expect(summary.imported).toHaveLength(2);
+    expect(summary.alreadyExists).toHaveLength(0);
     expect(summary.skipped).toHaveLength(0);
 
     const leads = await db.lead.findMany({
@@ -144,8 +154,8 @@ describe.skipIf(!hasDb)("discovery — database integration", () => {
       company(),
     ]);
     expect(summary.imported).toHaveLength(0);
-    expect(summary.skipped).toHaveLength(1);
-    expect(summary.skipped[0]?.reason).toContain("same Google Places listing");
+    expect(summary.alreadyExists).toHaveLength(1);
+    expect(summary.alreadyExists[0]?.reason).toContain("same Google Places listing");
   });
 
   it("tenant isolation: org B does not see org A's discovered leads", async () => {
