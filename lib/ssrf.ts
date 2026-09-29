@@ -53,7 +53,8 @@ const BLOCKED_HOSTNAMES = new Set([
   "instance-data",
 ]);
 
-function isBlockedIp(ip: string): boolean {
+/** True when an IP literal must never be connected to (SSRF guard). */
+export function isBlockedIp(ip: string): boolean {
   if (ip === "::1" || ip.toLowerCase() === "::ffff:127.0.0.1") return true;
   if (ipaddr.isValid(ip)) {
     const parsed = ipaddr.parse(ip);

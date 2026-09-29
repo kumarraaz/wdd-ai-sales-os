@@ -37,7 +37,7 @@ const NAV_MAIN = [
   { href: "/leads", label: "Leads", icon: Users, live: true },
   { href: "/crm", label: "CRM", icon: KanbanSquare, live: true },
   { href: "/discover", label: "Discover", icon: Radar, live: true },
-  { href: "/app/intelligence", label: "Intelligence", icon: BrainCircuit, live: false },
+  { href: "/intelligence", label: "Intelligence", icon: BrainCircuit, live: true },
   { href: "/app/campaigns", label: "Campaigns", icon: Megaphone, live: false },
   { href: "/app/outreach", label: "Outreach", icon: Send, live: false },
   { href: "/app/automation", label: "Automation", icon: Workflow, live: false },

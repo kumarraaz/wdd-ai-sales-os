@@ -277,6 +277,7 @@ model Organization {
   subscription  Subscription?
   messages      Message[]
   discoveryRuns DiscoveryRun[]
+  websiteInspections WebsiteInspection[]
   jobs          Job[]
   files         LeadFile[]
   usageCounters UsageCounter[]
@@ -347,6 +348,7 @@ model Lead {
   contacts      Contact[]
   enrichments   LeadEnrichment[]
   provenance    LeadFieldProvenance[]
+  websiteInspections WebsiteInspection[]
   activities    LeadActivity[]
   scores        LeadScore[]
   messages      Message[]
@@ -391,6 +393,7 @@ model Company {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   leads        Lead[]
   contacts     Contact[]
+  websiteInspections WebsiteInspection[]
 
   @@index([organizationId])
   @@index([organizationId, domain])
@@ -524,6 +527,39 @@ model DiscoveryRun {
 
   @@index([organizationId])
   @@index([organizationId, createdAt])
+}
+
+enum InspectionStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model WebsiteInspection {
+  id             String           @id @default(cuid())
+  organizationId String
+  leadId         String?
+  companyId      String?
+  requestedUrl   String
+  finalUrl       String?
+  httpStatus     Int?
+  status         InspectionStatus @default(QUEUED)
+  findings       Json             @default("{}")
+  error          String?          @db.Text
+  dataLabel      DataLabel        @default(VERIFIED)
+  inspectedAt    DateTime         @default(now())
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lead         Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  company      Company?     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, createdAt])
+  @@index([leadId])
+  @@index([companyId])
 }
 
 model Tag {
@@ -983,6 +1019,7 @@ model UsageCounter {
   discoveries    Int      @default(0)
   discoveryRecords Int    @default(0) // records discovered via discovery search
   discoveryImports Int    @default(0) // discovered records imported as leads
+  websiteInspections Int  @default(0) // website inspections run
   messagesSent   Int      @default(0)
   aiTokens       Int      @default(0)
   campaignsLaunched Int   @default(0)
@@ -1028,6 +1065,7 @@ model Plan {
   messagesPerDay Int
   discoverySearchesPerDay Int @default(20)
   discoveryRecordsPerDay  Int @default(200)
+  websiteInspectionsPerDay Int @default(25)
   features    Json     @default("[]")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

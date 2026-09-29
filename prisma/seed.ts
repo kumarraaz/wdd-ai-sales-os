@@ -23,6 +23,7 @@ const PLANS = [
     messagesPerDay: 200,
     discoverySearchesPerDay: 20,
     discoveryRecordsPerDay: 200,
+    websiteInspectionsPerDay: 25,
     features: ["500 leads", "Basic CRM", "Manual outreach"],
   },
   {
@@ -34,6 +35,7 @@ const PLANS = [
     messagesPerDay: 2000,
     discoverySearchesPerDay: 200,
     discoveryRecordsPerDay: 5000,
+    websiteInspectionsPerDay: 500,
     features: ["10k leads", "AI research", "Campaigns", "Automation"],
   },
   {
@@ -45,6 +47,7 @@ const PLANS = [
     messagesPerDay: 20000,
     discoverySearchesPerDay: 1000,
     discoveryRecordsPerDay: 50000,
+    websiteInspectionsPerDay: 5000,
     features: ["100k leads", "Advanced automation", "Team collaboration", "API access"],
   },
   {
@@ -56,6 +59,7 @@ const PLANS = [
     messagesPerDay: 200000,
     discoverySearchesPerDay: 10000,
     discoveryRecordsPerDay: 500000,
+    websiteInspectionsPerDay: 50000,
     features: ["Unlimited scale", "SSO", "White label", "Dedicated support"],
   },
 ];

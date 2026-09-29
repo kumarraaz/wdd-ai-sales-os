@@ -139,3 +139,16 @@ export const discoveryImportSchema = z.object({
 });
 
 export type DiscoveryImportInput = z.infer<typeof discoveryImportSchema>;
+
+// ── Website inspection (Phase 2 Step 2) ──────────────────────────────────
+
+export const websiteInspectSchema = z.object({
+  /** Website URL to inspect. Optional when leadId is given (uses the lead's website). */
+  url: z.string().trim().max(2000).optional(),
+  /** Link the inspection to an existing lead in this workspace. */
+  leadId: z.string().cuid().optional(),
+}).refine((d) => d.url || d.leadId, {
+  message: "Either url or leadId is required.",
+});
+
+export type WebsiteInspectInput = z.infer<typeof websiteInspectSchema>;

@@ -347,3 +347,121 @@ export function getDemoDiscoveryResults(query: {
     .slice(0, Math.min(Math.max(query.maxResults, 1), 20))
     .map((c) => ({ ...c, discoveredAt: now, provenance: "DEMO_DATA" as const }));
 }
+
+/** Fictional website inspection for demo mode — invented data, never real. */
+export interface DemoWebsiteInspection {
+  id: string;
+  requestedUrl: string;
+  finalUrl: string;
+  httpStatus: number;
+  status: "COMPLETED";
+  dataLabel: "DEMO_DATA";
+  inspectedAt: string; // ISO
+  findings: {
+    requestedUrl: string;
+    finalUrl: string;
+    httpStatus: number;
+    redirectChain: { url: string; status: number }[];
+    https: boolean;
+    responseTimeMs: number;
+    htmlAvailable: boolean;
+    title: string | null;
+    metaDescription: string | null;
+    canonicalUrl: string | null;
+    robotsMeta: string | null;
+    viewportMeta: string | null;
+    h1: { count: number; texts: string[] };
+    h2Count: number;
+    imageCount: number;
+    imagesMissingAlt: number;
+    internalLinkCount: number;
+    externalLinkCount: number;
+    robotsTxt: { available: boolean; url: string };
+    sitemap: { available: boolean; url: string };
+    favicon: { available: boolean; href: string | null };
+    openGraph: { title: string | null; description: string | null; image: string | null };
+    twitterCard: { card: string | null; title: string | null; description: string | null; image: string | null };
+    lang: string | null;
+    structuredData: { jsonLdCount: number; microdata: boolean; present: boolean };
+    mobile: { viewportPresent: boolean; responsiveSignal: boolean };
+    techSignals: { signal: string; evidence: string; provenance: "AI_INFERENCE" }[];
+    contact: { emails: string[]; phones: string[] };
+    socialLinks: { platform: string; url: string }[];
+    provenance: "DEMO_DATA";
+    inspectedAt: string;
+  };
+}
+
+/**
+ * Demo website inspection — returns a fictional report for any URL.
+ * NEVER makes real external HTTP requests.
+ */
+export function getDemoWebsiteInspection(requestedUrl: string): DemoWebsiteInspection {
+  const now = new Date().toISOString();
+  let finalUrl = requestedUrl.trim();
+  if (!/^https?:\/\//i.test(finalUrl)) finalUrl = `https://${finalUrl}`;
+  const origin = finalUrl.split("/").slice(0, 3).join("/");
+  return {
+    id: "demo-inspection-001",
+    requestedUrl,
+    finalUrl,
+    httpStatus: 200,
+    status: "COMPLETED",
+    dataLabel: "DEMO_DATA",
+    inspectedAt: now,
+    findings: {
+      requestedUrl,
+      finalUrl,
+      httpStatus: 200,
+      redirectChain: [],
+      https: finalUrl.startsWith("https://"),
+      responseTimeMs: 842,
+      htmlAvailable: true,
+      title: "Acme Industrial Exports — Precision Manufacturing Solutions",
+      metaDescription:
+        "Acme Industrial Exports manufactures precision components for global buyers. ISO 9001 certified.",
+      canonicalUrl: finalUrl,
+      robotsMeta: "index, follow",
+      viewportMeta: "width=device-width, initial-scale=1",
+      h1: { count: 1, texts: ["Precision Manufacturing, Delivered Worldwide"] },
+      h2Count: 6,
+      imageCount: 24,
+      imagesMissingAlt: 3,
+      internalLinkCount: 48,
+      externalLinkCount: 7,
+      robotsTxt: { available: true, url: `${origin}/robots.txt` },
+      sitemap: { available: true, url: `${origin}/sitemap.xml` },
+      favicon: { available: true, href: "/favicon.ico" },
+      openGraph: {
+        title: "Acme Industrial Exports",
+        description: "Precision components for global buyers.",
+        image: `${origin}/og-image.png`,
+      },
+      twitterCard: {
+        card: "summary_large_image",
+        title: "Acme Industrial Exports",
+        description: "Precision components for global buyers.",
+        image: `${origin}/og-image.png`,
+      },
+      lang: "en",
+      structuredData: { jsonLdCount: 2, microdata: false, present: true },
+      mobile: { viewportPresent: true, responsiveSignal: true },
+      techSignals: [
+        {
+          signal: "WordPress",
+          evidence: 'Pattern "wp-content/" found in page HTML',
+          provenance: "AI_INFERENCE",
+        },
+      ],
+      contact: {
+        emails: ["sales@acmeindustrial.example.com"],
+        phones: ["+91 79 4000 1122"],
+      },
+      socialLinks: [
+        { platform: "linkedin", url: "https://linkedin.com/company/acme-industrial-demo" },
+      ],
+      provenance: "DEMO_DATA",
+      inspectedAt: now,
+    },
+  };
+}

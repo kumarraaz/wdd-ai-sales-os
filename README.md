@@ -192,6 +192,36 @@ imports them into the existing lead database (no second lead store).
   `tests/discovery-db.test.ts` (DB-gated: import, tenant isolation,
   dedup, quotas, provenance, audit).
 
+## Website intelligence (Phase 2 Step 2)
+
+The **Intelligence** page performs a safe technical inspection of a
+lead/company website: HTTP status, redirects, HTTPS, response time, title,
+meta, headings, images/alt, link counts, robots.txt, sitemap.xml, favicon,
+Open Graph/Twitter cards, lang, structured data, viewport/mobile signal,
+CMS signals, and public contact/social links.
+
+- **SSRF-hardened fetcher** (`lib/intelligence/safe-fetch.ts`): every URL
+  and every redirect hop passes the SSRF guard (DNS resolved, all addresses
+  validated); the TCP connection uses a custom DNS lookup returning only
+  validated addresses; manual redirects (max 5); per-hop timeout; 2 MiB
+  body cap; HTML content-types only. Plain GET — no JS execution, forms,
+  auth, or proxy rotation.
+- **Parser** (`lib/intelligence/inspect.ts`, cheerio): directly observed
+  facts are `VERIFIED_DATA`; heuristic CMS detection is marked
+  `AI_INFERENCE` with evidence. Missing fields stay null — never invented.
+- **Storage**: `WebsiteInspection` model (org/lead/company links, requested
+  + final URL, findings JSON, error, `VERIFIED` label), indexed.
+- **API**: `POST /api/intelligence/website-inspect` (`SALES_EXECUTIVE`,
+  Zod, rate-limited, quota-checked *before* fetching, audit-logged),
+  `GET /api/intelligence/website-inspections`.
+- **Quotas**: `Plan.websiteInspectionsPerDay`, daily `UsageCounter`.
+- Leads table has an **Inspect Website** action linking to
+  `/intelligence?leadId=`. Demo mode serves fictional `DEMO_DATA`
+  reports with no real HTTP requests.
+- Tests: `tests/website-inspection.test.ts` (SSRF blocks, fetcher,
+  parser, provenance, demo), `tests/website-inspection-db.test.ts`
+  (DB-gated: persistence, tenant isolation, quota, audit).
+
 ## Roadmap
 
 `ROADMAP.md` tracks all 8 phases. Phase 1 (this repo state): foundation,

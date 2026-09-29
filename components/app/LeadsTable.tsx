@@ -8,7 +8,8 @@ import {
   createColumnHelper,
 } from "@tanstack/react-table";
 import Papa from "papaparse";
-import { Plus, Upload, Download, Trash2, X } from "lucide-react";
+import Link from "next/link";
+import { Plus, Upload, Download, Trash2, X, Globe } from "lucide-react";
 import { DEMO_ACTION_DISABLED_MESSAGE } from "@/lib/demo";
 
 interface Lead {
@@ -16,6 +17,7 @@ interface Lead {
   fullName: string | null;
   email: string | null;
   phone: string | null;
+  website: string | null;
   leadScore: number;
   status: string;
   sourceType: string;
@@ -223,6 +225,24 @@ export function LeadsTable({
       columnHelper.accessor("sourceType", {
         header: "Source",
         cell: (info) => <span className="text-xs text-white/50">{info.getValue()}</span>,
+      }),
+      columnHelper.display({
+        id: "inspect",
+        header: "Site",
+        cell: (info) => {
+          const lead = info.row.original;
+          if (!lead.website) return <span className="text-white/30">—</span>;
+          return (
+            <Link
+              href={`/intelligence?leadId=${lead.id}`}
+              title={`Inspect website: ${lead.website}`}
+              aria-label={`Inspect website for ${lead.fullName ?? lead.id}`}
+              className="inline-flex items-center text-white/50 transition hover:text-[#D4AF37]"
+            >
+              <Globe size={16} />
+            </Link>
+          );
+        },
       }),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
