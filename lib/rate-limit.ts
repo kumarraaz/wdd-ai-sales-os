@@ -62,6 +62,7 @@ export const LIMITS = {
   api: { limit: 300, windowMs: 60_000 }, // general API per user
   discovery: { limit: 20, windowMs: 60_000 },
   websiteInspect: { limit: 10, windowMs: 60_000 },
+  aiIntelligence: { limit: 5, windowMs: 60_000 },
   ai: { limit: 30, windowMs: 60_000 },
   send: { limit: 60, windowMs: 60_000 },
   webhook: { limit: 600, windowMs: 60_000 },

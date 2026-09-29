@@ -152,3 +152,11 @@ export const websiteInspectSchema = z.object({
 });
 
 export type WebsiteInspectInput = z.infer<typeof websiteInspectSchema>;
+
+// ── AI lead intelligence (Phase 2 Step 3) ────────────────────────────────
+
+export const leadIntelligenceSchema = z.object({
+  leadId: z.string().cuid(),
+});
+
+export type LeadIntelligenceInput = z.infer<typeof leadIntelligenceSchema>;

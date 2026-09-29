@@ -278,6 +278,7 @@ model Organization {
   messages      Message[]
   discoveryRuns DiscoveryRun[]
   websiteInspections WebsiteInspection[]
+  intelligenceReports LeadIntelligence[]
   jobs          Job[]
   files         LeadFile[]
   usageCounters UsageCounter[]
@@ -349,6 +350,7 @@ model Lead {
   enrichments   LeadEnrichment[]
   provenance    LeadFieldProvenance[]
   websiteInspections WebsiteInspection[]
+  intelligenceReports LeadIntelligence[]
   activities    LeadActivity[]
   scores        LeadScore[]
   messages      Message[]
@@ -394,6 +396,7 @@ model Company {
   leads        Lead[]
   contacts     Contact[]
   websiteInspections WebsiteInspection[]
+  intelligenceReports LeadIntelligence[]
 
   @@index([organizationId])
   @@index([organizationId, domain])
@@ -560,6 +563,35 @@ model WebsiteInspection {
   @@index([organizationId, createdAt])
   @@index([leadId])
   @@index([companyId])
+}
+
+model LeadIntelligence {
+  id             String    @id @default(cuid())
+  organizationId String
+  leadId         String
+  companyId      String?
+  status         JobStatus @default(QUEUED)
+  provider       String    @default("gemini")
+  model          String?
+  promptVersion  String    @default("v1")
+  schemaVersion  String    @default("v1")
+  intelligence   Json      @default("{}") // validated structured output + server meta
+  confidence     String?   // HIGH | MEDIUM | LOW
+  warnings       Json      @default("[]") // server-side evidence-guard warnings
+  error          String?   @db.Text
+  tokensIn       Int       @default(0)
+  tokensOut      Int       @default(0)
+  generatedAt    DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lead         Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  company      Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([organizationId, leadId])
+  @@index([leadId, createdAt])
 }
 
 model Tag {
@@ -1020,6 +1052,7 @@ model UsageCounter {
   discoveryRecords Int    @default(0) // records discovered via discovery search
   discoveryImports Int    @default(0) // discovered records imported as leads
   websiteInspections Int  @default(0) // website inspections run
+  aiIntelligence     Int  @default(0) // AI lead-intelligence generations
   messagesSent   Int      @default(0)
   aiTokens       Int      @default(0)
   campaignsLaunched Int   @default(0)
@@ -1066,6 +1099,7 @@ model Plan {
   discoverySearchesPerDay Int @default(20)
   discoveryRecordsPerDay  Int @default(200)
   websiteInspectionsPerDay Int @default(25)
+  aiIntelligencePerDay    Int @default(25)
   features    Json     @default("[]")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

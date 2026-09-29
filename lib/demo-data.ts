@@ -465,3 +465,131 @@ export function getDemoWebsiteInspection(requestedUrl: string): DemoWebsiteInspe
     },
   };
 }
+
+/**
+ * Fictional AI lead-intelligence fixture — deterministic, invented data.
+ * NEVER calls Gemini or any external AI service.
+ */
+export interface DemoLeadIntelligence {
+  id: string;
+  leadId: string;
+  status: "COMPLETED";
+  provider: string;
+  model: string;
+  promptVersion: string;
+  schemaVersion: string;
+  dataLabel: "DEMO_DATA";
+  confidence: "MEDIUM";
+  generatedAt: string; // ISO
+  warnings: string[];
+  intelligence: {
+    summary: { text: string; evidence: { sourceType: string; field: string }[] };
+    businessType: string;
+    verifiedSignals: { type: "VERIFIED_DATA"; statement: string; evidence: { sourceType: string; field: string }[] }[];
+    inferredOpportunities: { type: "AI_INFERENCE"; statement: string; evidence: { sourceType: string; field: string }[] }[];
+    recommendedServices: { type: "AI_INFERENCE"; statement: string; evidence: { sourceType: string; field: string }[] }[];
+    salesAngle: { text: string; evidence: { sourceType: string; field: string }[] };
+    discoveryQuestions: string[];
+    confidence: "MEDIUM";
+    confidenceReason: string;
+    evidence: { sourceType: string; field: string }[];
+  };
+}
+
+export function getDemoLeadIntelligence(leadId: string): DemoLeadIntelligence {
+  const now = new Date().toISOString();
+  return {
+    id: "demo-intelligence-001",
+    leadId,
+    status: "COMPLETED",
+    provider: "gemini",
+    model: "gemini-2.0-flash (demo)",
+    promptVersion: "v1",
+    schemaVersion: "v1",
+    dataLabel: "DEMO_DATA",
+    confidence: "MEDIUM",
+    generatedAt: now,
+    warnings: [],
+    intelligence: {
+      summary: {
+        text: "Acme Industrial Exports is a manufacturing business discovered via Google Places. Its website is technically basic: no meta description, several images missing alt text, and no sitemap — suggesting the site has not been professionally optimized.",
+        evidence: [
+          { sourceType: "GOOGLE_PLACES", field: "name" },
+          { sourceType: "WEBSITE_INSPECTION", field: "metaDescription" },
+          { sourceType: "WEBSITE_INSPECTION", field: "imagesMissingAlt" },
+        ],
+      },
+      businessType: "Manufacturing",
+      verifiedSignals: [
+        {
+          type: "VERIFIED_DATA",
+          statement: "The website has no meta description.",
+          evidence: [{ sourceType: "WEBSITE_INSPECTION", field: "metaDescription" }],
+        },
+        {
+          type: "VERIFIED_DATA",
+          statement: "3 of 24 images are missing alt attributes.",
+          evidence: [
+            { sourceType: "WEBSITE_INSPECTION", field: "imageCount" },
+            { sourceType: "WEBSITE_INSPECTION", field: "imagesMissingAlt" },
+          ],
+        },
+        {
+          type: "VERIFIED_DATA",
+          statement: "No sitemap.xml was found.",
+          evidence: [{ sourceType: "WEBSITE_INSPECTION", field: "sitemap" }],
+        },
+      ],
+      inferredOpportunities: [
+        {
+          type: "AI_INFERENCE",
+          statement: "SEO optimization may be a relevant opportunity, given the missing meta description and sitemap.",
+          evidence: [
+            { sourceType: "WEBSITE_INSPECTION", field: "metaDescription" },
+            { sourceType: "WEBSITE_INSPECTION", field: "sitemap" },
+          ],
+        },
+        {
+          type: "AI_INFERENCE",
+          statement: "The site shows WordPress patterns, so performance optimization could be relevant.",
+          evidence: [{ sourceType: "WEBSITE_INSPECTION", field: "techSignals" }],
+        },
+      ],
+      recommendedServices: [
+        {
+          type: "AI_INFERENCE",
+          statement: "SEO — missing meta description, sitemap, and image alt gaps suggest on-page SEO work.",
+          evidence: [
+            { sourceType: "WEBSITE_INSPECTION", field: "metaDescription" },
+            { sourceType: "WEBSITE_INSPECTION", field: "sitemap" },
+            { sourceType: "WEBSITE_INSPECTION", field: "imagesMissingAlt" },
+          ],
+        },
+        {
+          type: "AI_INFERENCE",
+          statement: "Website redesign — basic technical signals indicate the site may not reflect a premium brand.",
+          evidence: [{ sourceType: "WEBSITE_INSPECTION", field: "openGraph" }],
+        },
+      ],
+      salesAngle: {
+        text: "Lead with the concrete, verifiable gaps: their site is missing the basics search engines expect. Offer a free technical snapshot before pitching services.",
+        evidence: [
+          { sourceType: "WEBSITE_INSPECTION", field: "metaDescription" },
+          { sourceType: "WEBSITE_INSPECTION", field: "sitemap" },
+        ],
+      },
+      discoveryQuestions: [
+        "Who currently manages your website, and when was it last updated?",
+        "How do most of your export inquiries reach you today?",
+        "Have you ever invested in SEO or paid advertising?",
+      ],
+      confidence: "MEDIUM",
+      confidenceReason:
+        "Website inspection data is available, but there is no Google Places rating/review data in this demo.",
+      evidence: [
+        { sourceType: "WEBSITE_INSPECTION", field: "title" },
+        { sourceType: "GOOGLE_PLACES", field: "name" },
+      ],
+    },
+  };
+}

@@ -293,6 +293,190 @@ function FindingsView({ findings }: { findings: Findings }) {
   );
 }
 
+interface EvidenceRefView {
+  sourceType: string;
+  field: string;
+}
+
+interface InferenceItem {
+  type: string;
+  statement: string;
+  evidence: EvidenceRefView[];
+}
+
+interface AIIntelligenceData {
+  summary: { text: string; evidence: EvidenceRefView[] };
+  businessType: string;
+  verifiedSignals: InferenceItem[];
+  inferredOpportunities: InferenceItem[];
+  recommendedServices: InferenceItem[];
+  salesAngle: { text: string; evidence: EvidenceRefView[] };
+  discoveryQuestions: string[];
+  confidence: string;
+  confidenceReason: string;
+  evidence: EvidenceRefView[];
+}
+
+interface AIIntelligenceRecord {
+  id: string;
+  status: string;
+  provider: string;
+  model: string | null;
+  confidence: string | null;
+  generatedAt: string;
+  warnings: string[];
+  error: string | null;
+  dataLabel?: string;
+  intelligence: AIIntelligenceData | Record<string, never>;
+}
+
+function EvidenceChips({ refs }: { refs: EvidenceRefView[] }) {
+  if (refs.length === 0) return null;
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {refs.map((r, i) => (
+        <span
+          key={i}
+          className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-white/45"
+          title={`Evidence: ${r.sourceType} · ${r.field}`}
+        >
+          {r.sourceType}.{r.field}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function typeBadge(type: string) {
+  const verified = type === "VERIFIED_DATA";
+  return (
+    <span
+      className={`mr-2 inline-block rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+        verified ? "bg-emerald-400/15 text-emerald-300" : "bg-purple-400/15 text-purple-300"
+      }`}
+    >
+      {verified ? "Verified data" : "AI inference"}
+    </span>
+  );
+}
+
+function InferenceList({ items }: { items: InferenceItem[] }) {
+  if (items.length === 0) {
+    return <p className="py-2 text-sm text-white/35">None identified from the available evidence.</p>;
+  }
+  return (
+    <ul className="space-y-3 py-1">
+      {items.map((item, i) => (
+        <li key={i} className="text-sm text-white/85">
+          <div>
+            {typeBadge(item.type)}
+            {item.statement}
+          </div>
+          <EvidenceChips refs={item.evidence} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function confidenceColor(c: string) {
+  if (c === "HIGH") return "bg-emerald-400/15 text-emerald-300";
+  if (c === "MEDIUM") return "bg-amber-400/15 text-amber-300";
+  return "bg-white/10 text-white/60";
+}
+
+function AIIntelligenceView({ record }: { record: AIIntelligenceRecord }) {
+  const intel = record.intelligence as AIIntelligenceData;
+  const isDemo = record.dataLabel === "DEMO_DATA";
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        {isDemo ? (
+          <span className="rounded bg-[#D4AF37]/15 px-2 py-0.5 text-[11px] font-bold text-[#D4AF37]">
+            Demo data
+          </span>
+        ) : (
+          <span className="rounded bg-purple-400/15 px-2 py-0.5 text-[11px] font-bold text-purple-300">
+            AI inference over verified data
+          </span>
+        )}
+        <span className="text-xs text-white/40">
+          Generated {new Date(record.generatedAt).toLocaleString()}
+        </span>
+        <span className="text-xs text-white/40">
+          {record.provider}
+          {record.model ? ` · ${record.model}` : ""}
+        </span>
+        {record.confidence && (
+          <span className={`rounded px-2 py-0.5 text-[11px] font-bold ${confidenceColor(record.confidence)}`}>
+            {record.confidence} confidence
+          </span>
+        )}
+      </div>
+
+      {record.warnings.length > 0 && (
+        <div className="rounded-lg border border-amber-400/30 bg-amber-400/5 px-3 py-2 text-xs text-amber-200/90">
+          {record.warnings.map((w, i) => (
+            <div key={i}>{w}</div>
+          ))}
+        </div>
+      )}
+
+      <Section title="Company summary">
+        <p className="py-2 text-sm text-white/85">{intel.summary.text}</p>
+        <EvidenceChips refs={intel.summary.evidence} />
+        <Row label="Business type">
+          <span>{intel.businessType}</span>
+        </Row>
+      </Section>
+
+      <Section title="Verified signals">
+        <InferenceList items={intel.verifiedSignals} />
+      </Section>
+
+      <Section title="AI opportunities">
+        <InferenceList items={intel.inferredOpportunities} />
+      </Section>
+
+      <Section title="Recommended WDD services">
+        <InferenceList items={intel.recommendedServices} />
+      </Section>
+
+      <Section title="Suggested sales angle">
+        <p className="py-2 text-sm text-white/85">
+          {typeBadge("AI_INFERENCE")}
+          {intel.salesAngle.text}
+        </p>
+        <EvidenceChips refs={intel.salesAngle.evidence} />
+      </Section>
+
+      <Section title="Discovery questions">
+        {intel.discoveryQuestions.length === 0 ? (
+          <p className="py-2 text-sm text-white/35">No questions generated.</p>
+        ) : (
+          <ol className="list-decimal space-y-1 py-2 pl-5 text-sm text-white/85">
+            {intel.discoveryQuestions.map((q, i) => (
+              <li key={i}>{q}</li>
+            ))}
+          </ol>
+        )}
+      </Section>
+
+      <Section title="Confidence & evidence">
+        <Row label="Confidence">
+          <span className={`rounded px-2 py-0.5 text-xs font-bold ${confidenceColor(intel.confidence)}`}>
+            {intel.confidence}
+          </span>
+        </Row>
+        <Row label="Why">{intel.confidenceReason}</Row>
+        <Row label="Evidence sources">
+          <EvidenceChips refs={intel.evidence} />
+        </Row>
+      </Section>
+    </div>
+  );
+}
+
 export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps) {
   const searchParams = useSearchParams();
   const leadIdParam = searchParams.get("leadId");
@@ -306,6 +490,9 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
   const [history, setHistory] = useState<Inspection[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [aiIntel, setAiIntel] = useState<AIIntelligenceRecord | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
 
   // When opened with ?leadId=, resolve the lead's website for context.
   useEffect(() => {
@@ -339,6 +526,27 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
     }, 0);
     return () => clearTimeout(t);
   }, [apiBase, demo]);
+
+  // Load the latest AI intelligence for the lead, if any.
+  useEffect(() => {
+    if (!leadIdParam) return;
+    const t = setTimeout(async () => {
+      setAiLoading(true);
+      try {
+        const res = await fetch(
+          `${apiBase}/intelligence/lead?leadId=${encodeURIComponent(leadIdParam)}`,
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.intelligence) setAiIntel(data.intelligence);
+      } catch {
+        /* AI intelligence is optional */
+      } finally {
+        setAiLoading(false);
+      }
+    }, 0);
+    return () => clearTimeout(t);
+  }, [leadIdParam, apiBase]);
 
   async function runInspection(e?: React.FormEvent) {
     e?.preventDefault();
@@ -381,6 +589,42 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
       setError(err instanceof Error ? err.message : "Inspection failed.");
     } finally {
       setInspecting(false);
+    }
+  }
+
+  async function generateAI() {
+    if (!leadIdParam) return;
+    setError(null);
+    setNotice(null);
+    setAiGenerating(true);
+    try {
+      const res = await fetch(`${apiBase}/intelligence/lead`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: leadIdParam }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const code = data.error as string | undefined;
+        if (code === "AI_NOT_CONFIGURED") {
+          throw new Error("AI Intelligence is not configured.");
+        }
+        if (code === "INSUFFICIENT_DATA") {
+          throw new Error(
+            "Not enough data yet — run Website Inspection first, then generate AI intelligence.",
+          );
+        }
+        throw new Error(data.message || data.error || "AI generation failed.");
+      }
+      const rec: AIIntelligenceRecord = data.intelligence;
+      setAiIntel(rec);
+      if (rec.status === "FAILED") {
+        setNotice(`AI generation failed: ${rec.error ?? "unknown reason"}.`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "AI generation failed.");
+    } finally {
+      setAiGenerating(false);
     }
   }
 
@@ -484,6 +728,43 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="mb-4 text-lg font-semibold">Inspection report</h2>
           <FindingsView findings={findings} />
+        </div>
+      )}
+
+      {leadIdParam && (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">AI lead intelligence</h2>
+            <button
+              onClick={generateAI}
+              disabled={aiGenerating}
+              className="rounded-lg bg-[#D4AF37] px-5 py-2 text-sm font-semibold text-black transition hover:brightness-110 disabled:opacity-50"
+            >
+              {aiGenerating ? "Generating…" : "Generate AI Intelligence"}
+            </button>
+          </div>
+          {demo && (
+            <p className="mb-3 text-xs text-white/40">
+              Demo mode — fictional sample report. No AI service is called.
+            </p>
+          )}
+          {aiLoading && <p className="text-sm text-white/40">Loading…</p>}
+          {!aiLoading && !aiIntel && (
+            <p className="text-sm text-white/50">
+              No AI intelligence generated yet for this lead.{" "}
+              {demo
+                ? "Press the button to see a fictional sample."
+                : "Generate one from the lead's verified data — run Website Inspection first for the best results."}
+            </p>
+          )}
+          {aiIntel && aiIntel.status === "FAILED" && (
+            <p className="text-sm text-amber-200">
+              Last generation failed: {aiIntel.error ?? "unknown reason"}. No results were fabricated.
+            </p>
+          )}
+          {aiIntel && aiIntel.status === "COMPLETED" && (
+            <AIIntelligenceView record={aiIntel} />
+          )}
         </div>
       )}
 

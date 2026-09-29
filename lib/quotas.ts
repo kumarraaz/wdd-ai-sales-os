@@ -25,6 +25,7 @@ export async function getPlanLimits(organizationId: string) {
       discoverySearchesPerDay: 20,
       discoveryRecordsPerDay: 200,
       websiteInspectionsPerDay: 25,
+      aiIntelligencePerDay: 25,
     }
   );
 }
@@ -192,5 +193,43 @@ export async function recordWebsiteInspectionUsage(organizationId: string): Prom
     where: { organizationId_period: { organizationId, period } },
     create: { organizationId, period, websiteInspections: 1 },
     update: { websiteInspections: { increment: 1 } },
+  });
+}
+
+/**
+ * AI lead-intelligence quota (Phase 2 Step 3). Enforced BEFORE calling
+ * Gemini — an exhausted quota returns a clear error, never a silent skip.
+ */
+export async function checkAiIntelligenceQuota(organizationId: string): Promise<{
+  allowed: boolean;
+  reason?: string;
+  used: number;
+  limit: number;
+}> {
+  const limits = await getPlanLimits(organizationId);
+  const counter = await db.usageCounter.findUnique({
+    where: { organizationId_period: { organizationId, period: todayPeriod() } },
+    select: { aiIntelligence: true },
+  });
+  const used = counter?.aiIntelligence ?? 0;
+  const limit = limits.aiIntelligencePerDay;
+  if (used >= limit) {
+    return {
+      allowed: false,
+      reason: `Daily AI intelligence limit reached (${used}/${limit}).`,
+      used,
+      limit,
+    };
+  }
+  return { allowed: true, used, limit };
+}
+
+/** Increment today's AI intelligence generation counter. */
+export async function recordAiIntelligenceUsage(organizationId: string): Promise<void> {
+  const period = todayPeriod();
+  await db.usageCounter.upsert({
+    where: { organizationId_period: { organizationId, period } },
+    create: { organizationId, period, aiIntelligence: 1 },
+    update: { aiIntelligence: { increment: 1 } },
   });
 }
