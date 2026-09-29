@@ -10,6 +10,7 @@
     "@tanstack/react-table": "^8.21.3",
     "@upstash/ratelimit": "^2.2.0",
     "@upstash/redis": "^1.39.0",
+    "@vercel/functions": "^3.9.9",
     "better-auth": "^1.7.6",
     "cheerio": "^1.2.0",
     "cmdk": "^1.1.1",

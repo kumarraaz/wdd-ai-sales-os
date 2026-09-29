@@ -1,7 +1,9 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { waitUntil } from "@vercel/functions";
 import { db } from "./db";
 import { sendEmail, appUrl } from "./email";
+import { verificationEmailTask } from "./verification-email";
 
 function slugify(input: string): string {
   const base =
@@ -38,14 +40,9 @@ export const auth = betterAuth({
   emailVerification: {
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ user, url }) => {
-      await sendEmail({
-        to: user.email,
-        subject: "Verify your WDD AI Sales OS account",
-        html: `<p>Welcome! Verify your email to activate your workspace:</p><p><a href="${url}">${url}</a></p>`,
-        text: `Verify your email: ${url}`,
-      });
-    },
+    // The returned task is managed by Better Auth's backgroundTasks mechanism
+    // (waitUntil on Vercel); it carries its own [auth-email] logging.
+    sendVerificationEmail: ({ user, url }) => verificationEmailTask({ to: user.email, url }),
   },
 
   // Google OAuth only when credentials are configured — the button is hidden otherwise, never faked.
@@ -66,6 +63,10 @@ export const auth = betterAuth({
   advanced: {
     cookiePrefix: "wdd",
     useSecureCookies: process.env.NODE_ENV === "production",
+    // Vercel serverless: don't block the signup response on the email send —
+    // waitUntil extends the function lifetime until the task settles.
+    // Outside Vercel, waitUntil is a safe no-op and the promise still runs.
+    backgroundTasks: { handler: waitUntil },
   },
 
   // Base URL for callbacks, email links and OAuth redirects. Derived from
