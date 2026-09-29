@@ -279,6 +279,7 @@ model Organization {
   discoveryRuns DiscoveryRun[]
   websiteInspections WebsiteInspection[]
   intelligenceReports LeadIntelligence[]
+  leadScores    LeadScore[]
   jobs          Job[]
   files         LeadFile[]
   usageCounters UsageCounter[]
@@ -502,14 +503,26 @@ model LeadScore {
   organizationId String
   leadId         String
   score          Int      // 0–100
-  breakdown      Json     // {industryFit, locationFit, websiteSignal, contactability, buyingSignal, icpMatch}
-  whyHigh        String?  @db.Text // human-readable, labeled AI inference
-  model          String   // 'heuristic-v1' | 'gemini-2.x' …
+  scoreBand      String   @default("") // Low Fit | Moderate Fit | Strong Fit | Very Strong Fit
+  scoringVersion String   @default("v1")
+  factors        Json     @default("[]") // structured factor breakdown (Phase 2 Step 4)
+  evidence       Json     @default("[]") // consolidated evidence refs
+  confidence     String?  // AI confidence when AI-enriched
+  provider       String   @default("deterministic") // 'deterministic' | 'gemini'
+  aiEnriched     Boolean  @default(false)
+  aiAssessment   Json?    // optional AI interpretation, always AI_INFERENCE
+  warnings       Json     @default("[]")
+  breakdown      Json     // legacy Phase 1 breakdown (kept for compatibility)
+  whyHigh        String?  @db.Text // legacy Phase 1 (kept for compatibility)
+  model          String   // scoring engine id, e.g. 'wdd-scoring-v1'
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
+  @@index([organizationId, leadId])
   @@index([leadId])
   @@index([leadId, createdAt])
 }
@@ -1053,6 +1066,7 @@ model UsageCounter {
   discoveryImports Int    @default(0) // discovered records imported as leads
   websiteInspections Int  @default(0) // website inspections run
   aiIntelligence     Int  @default(0) // AI lead-intelligence generations
+  leadScoring        Int  @default(0) // lead scoring generations
   messagesSent   Int      @default(0)
   aiTokens       Int      @default(0)
   campaignsLaunched Int   @default(0)
@@ -1100,6 +1114,7 @@ model Plan {
   discoveryRecordsPerDay  Int @default(200)
   websiteInspectionsPerDay Int @default(25)
   aiIntelligencePerDay    Int @default(25)
+  leadScoringPerDay       Int @default(100)
   features    Json     @default("[]")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

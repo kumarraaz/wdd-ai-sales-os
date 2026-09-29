@@ -593,3 +593,116 @@ export function getDemoLeadIntelligence(leadId: string): DemoLeadIntelligence {
     },
   };
 }
+
+/**
+ * Deterministic fictional lead score — same input always yields the same
+ * output. NEVER calls Gemini, NEVER touches the database.
+ */
+export interface DemoLeadScore {
+  id: string;
+  leadId: string;
+  score: number;
+  scoreBand: "Low Fit" | "Moderate Fit" | "Strong Fit" | "Very Strong Fit";
+  scoringVersion: "v1";
+  dataLabel: "DEMO_DATA";
+  aiEnriched: false;
+  aiAssessment: null;
+  confidence: null;
+  createdAt: string; // ISO
+  warnings: string[];
+  factors: {
+    factor: string;
+    points: number;
+    maximumPoints: number;
+    direction: string;
+    explanation: string;
+    provenance: "VERIFIED_DATA" | "AI_INFERENCE" | "USER_PROVIDED" | "DEMO_DATA";
+    evidence: { source: string; field: string; reference: string }[];
+  }[];
+  evidence: { source: string; field: string; reference: string }[];
+}
+
+export function getDemoLeadScore(leadId: string): DemoLeadScore {
+  // Deterministic: derived from the leadId hash, stable across calls.
+  let hash = 0;
+  for (const ch of leadId) hash = (hash * 31 + ch.charCodeAt(0)) % 997;
+  const jitter = hash % 5; // 0–4, keeps the demo stable but not identical
+  const factors = [
+    {
+      factor: "Business Fit",
+      points: 18,
+      maximumPoints: 25,
+      direction: "positive_sales_opportunity",
+      explanation: "Category/identity fit for WDD services: business category is known (+8); category matches WDD service relevance (+10).",
+      provenance: "USER_PROVIDED" as const,
+      evidence: [{ source: "Lead", field: "industry", reference: `Lead:${leadId}` }],
+    },
+    {
+      factor: "Website Opportunity",
+      points: 21 + jitter,
+      maximumPoints: 30,
+      direction: "positive_sales_opportunity",
+      explanation: "Verified website gaps signal service opportunities: missing meta description — SEO opportunity (+5); 3 image(s) missing alt — accessibility/SEO opportunity (+4); no sitemap.xml — discoverability opportunity (+3).",
+      provenance: "VERIFIED_DATA" as const,
+      evidence: [
+        { source: "WebsiteInspection", field: "metaDescription", reference: "WebsiteInspection:demo-inspection-001" },
+        { source: "WebsiteInspection", field: "imagesMissingAlt", reference: "WebsiteInspection:demo-inspection-001" },
+        { source: "WebsiteInspection", field: "sitemap", reference: "WebsiteInspection:demo-inspection-001" },
+      ],
+    },
+    {
+      factor: "Digital Presence",
+      points: 12,
+      maximumPoints: 20,
+      direction: "positive_sales_opportunity",
+      explanation: "Established digital footprint: Google Business presence verified (+6); 1 social profile link(s) found (+3); public contact paths found on website (+3).",
+      provenance: "VERIFIED_DATA" as const,
+      evidence: [{ source: "Lead", field: "rating", reference: `Lead:${leadId}` }],
+    },
+    {
+      factor: "Data Completeness",
+      points: 12,
+      maximumPoints: 15,
+      direction: "informational",
+      explanation: "Available data scored; not available (not negative): phone.",
+      provenance: "USER_PROVIDED" as const,
+      evidence: [{ source: "Lead", field: "website", reference: `Lead:${leadId}` }],
+    },
+    {
+      factor: "AI Intelligence",
+      points: 7,
+      maximumPoints: 10,
+      direction: "positive_sales_opportunity",
+      explanation: "AI-identified opportunities (inference, not fact): AI intelligence report available (+3); AI confidence MEDIUM (+2); 2 AI-recommended services (+3).",
+      provenance: "AI_INFERENCE" as const,
+      evidence: [{ source: "LeadIntelligence", field: "confidence", reference: "LeadIntelligence:demo-intelligence-001" }],
+    },
+  ];
+  const score = Math.min(
+    100,
+    factors.reduce((sum, f) => sum + f.points, 0),
+  );
+  const scoreBand =
+    score >= 85
+      ? ("Very Strong Fit" as const)
+      : score >= 70
+        ? ("Strong Fit" as const)
+        : score >= 40
+          ? ("Moderate Fit" as const)
+          : ("Low Fit" as const);
+  return {
+    id: "demo-score-001",
+    leadId,
+    score,
+    scoreBand,
+    scoringVersion: "v1",
+    dataLabel: "DEMO_DATA",
+    aiEnriched: false,
+    aiAssessment: null,
+    confidence: null,
+    createdAt: new Date().toISOString(),
+    warnings: [],
+    factors,
+    evidence: factors.flatMap((f) => f.evidence),
+  };
+}

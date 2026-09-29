@@ -385,6 +385,166 @@ function confidenceColor(c: string) {
   return "bg-white/10 text-white/60";
 }
 
+interface ScoreFactorView {
+  factor: string;
+  points: number;
+  maximumPoints: number;
+  direction: string;
+  explanation: string;
+  provenance: string;
+  evidence: { source: string; field: string; reference: string }[];
+}
+
+interface LeadScoreView {
+  id: string;
+  score: number;
+  scoreBand: string;
+  scoringVersion: string;
+  factors: ScoreFactorView[];
+  evidence: { source: string; field: string; reference: string }[];
+  warnings: string[];
+  aiEnriched: boolean;
+  aiAssessment: {
+    interpretation: string;
+    keyStrengths: string[];
+    keyGaps: string[];
+    suggestedNextStep: string;
+    provenance: string;
+  } | null;
+  confidence: string | null;
+  createdAt: string;
+  dataLabel?: string;
+}
+
+function bandColor(band: string) {
+  if (band === "Very Strong Fit") return "bg-emerald-400/15 text-emerald-300";
+  if (band === "Strong Fit") return "bg-teal-400/15 text-teal-300";
+  if (band === "Moderate Fit") return "bg-amber-400/15 text-amber-300";
+  return "bg-white/10 text-white/60";
+}
+
+function provenanceBadgeFor(p: string) {
+  const map: Record<string, string> = {
+    VERIFIED_DATA: "bg-emerald-400/15 text-emerald-300",
+    AI_INFERENCE: "bg-purple-400/15 text-purple-300",
+    USER_PROVIDED: "bg-sky-400/15 text-sky-300",
+    DEMO_DATA: "bg-[#D4AF37]/15 text-[#D4AF37]",
+  };
+  const label: Record<string, string> = {
+    VERIFIED_DATA: "Verified data",
+    AI_INFERENCE: "AI inference",
+    USER_PROVIDED: "User provided",
+    DEMO_DATA: "Demo data",
+  };
+  return (
+    <span
+      className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${map[p] ?? "bg-white/10 text-white/60"}`}
+    >
+      {label[p] ?? p}
+    </span>
+  );
+}
+
+function LeadScoreSection({ record }: { record: LeadScoreView }) {
+  const isDemo = record.dataLabel === "DEMO_DATA";
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-baseline gap-2">
+          <span className="text-5xl font-bold text-white">{record.score}</span>
+          <span className="text-sm text-white/40">/ 100</span>
+        </div>
+        <span className={`rounded-full px-3 py-1 text-sm font-bold ${bandColor(record.scoreBand)}`}>
+          {record.scoreBand}
+        </span>
+        {isDemo ? (
+          <span className="rounded bg-[#D4AF37]/15 px-2 py-0.5 text-[11px] font-bold text-[#D4AF37]">
+            Demo data
+          </span>
+        ) : (
+          <span className="rounded bg-white/10 px-2 py-0.5 text-[11px] text-white/50">
+            WDD Sales Opportunity Score · v{record.scoringVersion}
+          </span>
+        )}
+        {record.aiEnriched && (
+          <span className="rounded bg-purple-400/15 px-2 py-0.5 text-[11px] font-bold text-purple-300">
+            AI enriched
+          </span>
+        )}
+        <span className="text-xs text-white/40">
+          {new Date(record.createdAt).toLocaleString()}
+        </span>
+      </div>
+      <p className="text-xs text-white/40">
+        How strong is the available evidence of a relevant WDD sales opportunity —
+        not a judgment of the business itself.
+      </p>
+
+      {record.warnings.length > 0 && (
+        <div className="rounded-lg border border-amber-400/30 bg-amber-400/5 px-3 py-2 text-xs text-amber-200/90">
+          {record.warnings.map((w, i) => (
+            <div key={i}>{w}</div>
+          ))}
+        </div>
+      )}
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {record.factors.map((f, i) => (
+          <div key={i} className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <div className="flex items-start justify-between gap-2">
+              <h4 className="text-sm font-semibold text-white/90">{f.factor}</h4>
+              <span className="shrink-0 text-sm font-bold text-[#D4AF37]">
+                {f.points}
+                <span className="font-normal text-white/40">/{f.maximumPoints}</span>
+              </span>
+            </div>
+            <div className="mt-1.5">{provenanceBadgeFor(f.provenance)}</div>
+            <p className="mt-2 text-xs leading-relaxed text-white/60">{f.explanation}</p>
+            {f.evidence.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {f.evidence.map((e, j) => (
+                  <span
+                    key={j}
+                    className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-white/45"
+                    title={`Evidence: ${e.reference}`}
+                  >
+                    {e.source}.{e.field}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {record.aiAssessment && (
+        <div className="rounded-xl border border-purple-400/20 bg-purple-400/5 p-4">
+          <h4 className="mb-2 text-sm font-semibold text-purple-200">
+            AI interpretation {provenanceBadgeFor("AI_INFERENCE")}
+          </h4>
+          <p className="text-sm text-white/80">{record.aiAssessment.interpretation}</p>
+          {record.aiAssessment.keyStrengths.length > 0 && (
+            <div className="mt-2 text-xs text-white/60">
+              <span className="font-semibold text-white/80">Strengths: </span>
+              {record.aiAssessment.keyStrengths.join(" · ")}
+            </div>
+          )}
+          {record.aiAssessment.keyGaps.length > 0 && (
+            <div className="mt-1 text-xs text-white/60">
+              <span className="font-semibold text-white/80">Gaps: </span>
+              {record.aiAssessment.keyGaps.join(" · ")}
+            </div>
+          )}
+          <div className="mt-2 text-xs text-white/70">
+            <span className="font-semibold text-white/90">Suggested next step: </span>
+            {record.aiAssessment.suggestedNextStep}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AIIntelligenceView({ record }: { record: AIIntelligenceRecord }) {
   const intel = record.intelligence as AIIntelligenceData;
   const isDemo = record.dataLabel === "DEMO_DATA";
@@ -493,6 +653,9 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
   const [aiIntel, setAiIntel] = useState<AIIntelligenceRecord | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [leadScore, setLeadScore] = useState<LeadScoreView | null>(null);
+  const [scoreLoading, setScoreLoading] = useState(false);
+  const [scoreCalculating, setScoreCalculating] = useState(false);
 
   // When opened with ?leadId=, resolve the lead's website for context.
   useEffect(() => {
@@ -543,6 +706,27 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
         /* AI intelligence is optional */
       } finally {
         setAiLoading(false);
+      }
+    }, 0);
+    return () => clearTimeout(t);
+  }, [leadIdParam, apiBase]);
+
+  // Load the latest lead score for the lead, if any.
+  useEffect(() => {
+    if (!leadIdParam) return;
+    const t = setTimeout(async () => {
+      setScoreLoading(true);
+      try {
+        const res = await fetch(
+          `${apiBase}/intelligence/lead-score?leadId=${encodeURIComponent(leadIdParam)}`,
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.score) setLeadScore(data.score);
+      } catch {
+        /* lead score is optional */
+      } finally {
+        setScoreLoading(false);
       }
     }, 0);
     return () => clearTimeout(t);
@@ -625,6 +809,29 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
       setError(err instanceof Error ? err.message : "AI generation failed.");
     } finally {
       setAiGenerating(false);
+    }
+  }
+
+  async function calculateLeadScore() {
+    if (!leadIdParam) return;
+    setError(null);
+    setNotice(null);
+    setScoreCalculating(true);
+    try {
+      const res = await fetch(`${apiBase}/intelligence/lead-score`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: leadIdParam }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.reason || data.error || "Score calculation failed.");
+      }
+      setLeadScore(data.score as LeadScoreView);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Score calculation failed.");
+    } finally {
+      setScoreCalculating(false);
     }
   }
 
@@ -728,6 +935,34 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="mb-4 text-lg font-semibold">Inspection report</h2>
           <FindingsView findings={findings} />
+        </div>
+      )}
+
+      {leadIdParam && (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">AI Lead Score</h2>
+            <button
+              onClick={calculateLeadScore}
+              disabled={scoreCalculating}
+              className="rounded-lg bg-[#D4AF37] px-5 py-2 text-sm font-semibold text-black transition hover:brightness-110 disabled:opacity-50"
+            >
+              {scoreCalculating ? "Calculating…" : "Calculate Score"}
+            </button>
+          </div>
+          {demo && (
+            <p className="mb-3 text-xs text-white/40">
+              Demo mode — deterministic fictional sample. No AI service is called.
+            </p>
+          )}
+          {scoreLoading && <p className="text-sm text-white/40">Loading…</p>}
+          {!scoreLoading && !leadScore && (
+            <p className="text-sm text-white/50">
+              No score calculated yet for this lead. Scores are evidence-based
+              and explainable — run Website Inspection first for the richest signal.
+            </p>
+          )}
+          {leadScore && <LeadScoreSection record={leadScore} />}
         </div>
       )}
 

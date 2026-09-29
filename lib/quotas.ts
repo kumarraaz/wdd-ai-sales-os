@@ -26,6 +26,7 @@ export async function getPlanLimits(organizationId: string) {
       discoveryRecordsPerDay: 200,
       websiteInspectionsPerDay: 25,
       aiIntelligencePerDay: 25,
+      leadScoringPerDay: 100,
     }
   );
 }
@@ -231,5 +232,44 @@ export async function recordAiIntelligenceUsage(organizationId: string): Promise
     where: { organizationId_period: { organizationId, period } },
     create: { organizationId, period, aiIntelligence: 1 },
     update: { aiIntelligence: { increment: 1 } },
+  });
+}
+
+/**
+ * Lead scoring quota (Phase 2 Step 4). Deterministic scoring is cheap, so
+ * the limit is generous — it exists to prevent endpoint abuse. AI
+ * enrichment additionally consumes the AI intelligence quota.
+ */
+export async function checkLeadScoringQuota(organizationId: string): Promise<{
+  allowed: boolean;
+  reason?: string;
+  used: number;
+  limit: number;
+}> {
+  const limits = await getPlanLimits(organizationId);
+  const counter = await db.usageCounter.findUnique({
+    where: { organizationId_period: { organizationId, period: todayPeriod() } },
+    select: { leadScoring: true },
+  });
+  const used = counter?.leadScoring ?? 0;
+  const limit = limits.leadScoringPerDay;
+  if (used >= limit) {
+    return {
+      allowed: false,
+      reason: `Daily lead scoring limit reached (${used}/${limit}).`,
+      used,
+      limit,
+    };
+  }
+  return { allowed: true, used, limit };
+}
+
+/** Increment today's lead scoring counter. */
+export async function recordLeadScoringUsage(organizationId: string): Promise<void> {
+  const period = todayPeriod();
+  await db.usageCounter.upsert({
+    where: { organizationId_period: { organizationId, period } },
+    create: { organizationId, period, leadScoring: 1 },
+    update: { leadScoring: { increment: 1 } },
   });
 }

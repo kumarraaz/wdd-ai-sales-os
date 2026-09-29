@@ -222,6 +222,74 @@ CMS signals, and public contact/social links.
   parser, provenance, demo), `tests/website-inspection-db.test.ts`
   (DB-gated: persistence, tenant isolation, quota, audit).
 
+## AI lead intelligence (Phase 2 Step 3)
+
+Gemini acts as an ANALYSIS layer over existing verified data — it never
+invents facts. Every inference cites supplied evidence; the server drops
+inferences citing fields that were never provided.
+
+- **Provider** (`lib/intelligence/ai-provider.ts`): server-side Gemini REST
+  client. Key via `x-goog-api-key` header, never in URL/body/logs.
+  Unconfigured → "AI Intelligence is not configured.", app keeps working.
+- **Schema** (`lib/intelligence/intelligence-schema.ts`): Zod-validated
+  structured output (summary, businessType, verifiedSignals,
+  inferredOpportunities, recommendedServices, salesAngle,
+  discoveryQuestions, confidence HIGH/MEDIUM/LOW, evidence).
+- **Prompt** (`lib/intelligence/prompt.ts`): whitelisted fields only,
+  truncated, size-capped; website content wrapped as UNTRUSTED DATA with
+  injection defense.
+- **Storage**: `LeadIntelligence` model (provider/model/prompt+schema
+  versions, validated JSON, confidence, warnings, tokens); new row per
+  generation — history preserved.
+- **API**: `POST /api/intelligence/lead` (`SALES_EXECUTIVE`, quota before
+  Gemini, audit-logged), `GET /api/intelligence/lead?leadId=`.
+- **Quotas**: `Plan.aiIntelligencePerDay` + daily counter; token usage in
+  existing `AIUsage`.
+- Demo mode serves deterministic fictional `DEMO_DATA` with zero AI calls.
+- Tests: `tests/ai-intelligence.test.ts` (mocked Gemini),
+  `tests/ai-intelligence-db.test.ts` (DB-gated).
+
+## Lead scoring (Phase 2 Step 4)
+
+The **WDD Sales Opportunity Score** (0–100) answers: "How strong is the
+currently available evidence that this lead has a relevant WDD sales
+opportunity?" It is NOT a judgment of the business — a weak website
+scores HIGHER because it signals a service opportunity.
+
+- **Deterministic engine** (`lib/intelligence/scoring.ts`, `SCORING_VERSION = "v1"`):
+  pure function of verified data, no LLM, no network. Five factors,
+  each with points, max points, explanation, provenance, and evidence refs:
+  - Business Fit (25): category known + relevant, business identity.
+  - Website Opportunity (30): verified inspection gaps (missing meta,
+    title, alt text, sitemap, OG tags, structured data, mobile, robots).
+  - Digital Presence (20): Places rating/reviews, social links, contact paths.
+  - Data Completeness (15): website, phone, email, location, source URL.
+  - AI Intelligence (10): Step 3 report confidence + recommended services.
+- **No double counting**: every verified field contributes to exactly one
+  factor (enforced by construction and tests).
+- **Missing data** scores 0 and is reported as "not available" /
+  "insufficient evidence" — never as a negative business fact.
+- **Bands**: 0–39 Low Fit, 40–69 Moderate Fit, 70–84 Strong Fit,
+  85–100 Very Strong Fit.
+- **Optional AI enrichment** (`lib/intelligence/scoring-ai.ts`): reuses the
+  Step 3 Gemini provider to interpret the factor breakdown. It NEVER
+  changes the score, is always labeled `AI_INFERENCE`, and is skipped
+  gracefully when no key is configured. Malformed output is rejected;
+  the deterministic score is always saved.
+- **Storage**: extends the existing `LeadScore` model (score, band,
+  version, factors/evidence JSON, confidence, provider, AI assessment,
+  warnings); every run creates a new row — history preserved.
+- **API**: `POST /api/intelligence/lead-score` (`SALES_EXECUTIVE`,
+  rate-limited, quota-checked before any AI call, audit-logged),
+  `GET /api/intelligence/lead-score?leadId=`.
+- **Quotas**: `Plan.leadScoringPerDay` + daily counter; AI enrichment
+  additionally consumes the AI intelligence quota + token usage.
+- **UI**: "AI Lead Score" section on the Intelligence page — score, band,
+  per-factor cards with points/provenance/evidence, AI interpretation.
+- **Demo**: deterministic `DEMO_DATA` fixture, no Gemini, no DB writes.
+- Tests: `tests/lead-scoring.test.ts` (19 unit), `tests/lead-scoring-db.test.ts`
+  (DB-gated: history, tenant isolation, quota, audit).
+
 ## Roadmap
 
 `ROADMAP.md` tracks all 8 phases. Phase 1 (this repo state): foundation,

@@ -160,3 +160,11 @@ export const leadIntelligenceSchema = z.object({
 });
 
 export type LeadIntelligenceInput = z.infer<typeof leadIntelligenceSchema>;
+
+// ── AI lead scoring (Phase 2 Step 4) ─────────────────────────────────────
+
+export const leadScoreSchema = z.object({
+  leadId: z.string().cuid(),
+});
+
+export type LeadScoreInput = z.infer<typeof leadScoreSchema>;
