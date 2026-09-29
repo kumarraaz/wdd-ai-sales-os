@@ -33,7 +33,7 @@ lifecycle from one dashboard.
 
 Next.js 15 · React 19 · TypeScript · Tailwind CSS v4 · Framer Motion ·
 Prisma 7 · PostgreSQL (+ pgvector) · better-auth · Zod · TanStack Table ·
-dnd-kit · cmdk · Recharts · Resend
+dnd-kit · cmdk · Recharts · Brevo
 
 ## Getting started
 

@@ -16,7 +16,7 @@
  * Notes & honest caveats (also printed in the report):
  * - The runtime smoke test boots `next dev`, not `next start`, because in
  *   production mode the email sender throws EMAIL_NOT_CONFIGURED without a
- *   real Resend key, which would break the signup→verification flow under
+ *   real Brevo key, which would break the signup→verification flow under
  *   test. The production bundle itself is verified separately by `next build`.
  * - Email verification uses the REAL flow: the verification token is read
  *   from the dev-mode email log (never sent anywhere). If the token cannot

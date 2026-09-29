@@ -322,10 +322,9 @@ describe("production APIs stay protected", () => {
 // ---------------------------------------------------------------------------
 describe("no secrets exposed through demo surfaces", () => {
   const secrets = {
-    RESEND_API_KEY: "re_SECRET_resend_key_123",
+    BREVO_API_KEY: "xkeysib-brevo_secret_key_123",
     BETTER_AUTH_SECRET: "better_auth_secret_value_abc",
     DATABASE_URL: "postgresql://user:pass@host/db",
-    EMAIL_VERIFICATION_API_KEY: "ev_secret_xyz",
   };
 
   beforeEach(() => {
