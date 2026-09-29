@@ -23,7 +23,7 @@ export function LoginForm({ demoEnabled }: { demoEnabled: boolean }) {
     const { error } = await authClient.signIn.email(
       { email, password },
       {
-        onSuccess: () => router.push(searchParams.get("next") || "/app/dashboard"),
+        onSuccess: () => router.push(searchParams.get("next") || "/dashboard"),
       },
     );
     setLoading(false);
@@ -33,7 +33,7 @@ export function LoginForm({ demoEnabled }: { demoEnabled: boolean }) {
   async function googleSignIn() {
     setError(null);
     await authClient.signIn.social(
-      { provider: "google", callbackURL: "/app/dashboard" },
+      { provider: "google", callbackURL: "/dashboard" },
       { onError: (ctx) => setError(ctx.error.message || "Google sign-in failed.") },
     );
   }

@@ -189,3 +189,161 @@ export function getDemoDashboard(): DemoDashboard {
     },
   };
 }
+
+/** Fictional discovery results for demo mode — invented companies, never real. */
+export interface DemoDiscoveredCompany {
+  provider: "google-places";
+  providerId: string;
+  name: string;
+  category?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  phone?: string;
+  website?: string;
+  sourceUrl?: string;
+  rating?: number;
+  reviewCount?: number;
+  discoveredAt: string; // ISO
+  provenance: "DEMO_DATA";
+}
+
+const DEMO_DISCOVERY_SEED: Omit<DemoDiscoveredCompany, "discoveredAt" | "provenance">[] = [
+  {
+    provider: "google-places",
+    providerId: "demo-place-001",
+    name: "Acme Industrial Exports",
+    category: "manufacturer",
+    address: "Plot 42, GIDC Industrial Estate, Ahmedabad, Gujarat",
+    city: "Ahmedabad",
+    state: "Gujarat",
+    country: "India",
+    phone: "+91 79 4000 1122",
+    website: "https://acmeindustrial.example.com",
+    sourceUrl: "https://maps.google.com/?cid=demo-place-001",
+    rating: 4.6,
+    reviewCount: 128,
+  },
+  {
+    provider: "google-places",
+    providerId: "demo-place-002",
+    name: "Surat Textile Traders",
+    category: "exporter",
+    address: "Shop 7, Textile Market, Surat, Gujarat",
+    city: "Surat",
+    state: "Gujarat",
+    country: "India",
+    phone: "+91 261 234 5678",
+    website: "https://surattextile.example.com",
+    sourceUrl: "https://maps.google.com/?cid=demo-place-002",
+    rating: 4.2,
+    reviewCount: 64,
+  },
+  {
+    provider: "google-places",
+    providerId: "demo-place-003",
+    name: "Gulfline Software Solutions",
+    category: "software company",
+    address: "Level 14, Business Bay, Dubai",
+    city: "Dubai",
+    country: "United Arab Emirates",
+    website: "https://gulflinesoftware.example.com",
+    sourceUrl: "https://maps.google.com/?cid=demo-place-003",
+    rating: 4.8,
+    reviewCount: 210,
+  },
+  {
+    provider: "google-places",
+    providerId: "demo-place-004",
+    name: "FitZone Gymnasium",
+    category: "gym",
+    address: "3rd Floor, Connaught Place, New Delhi",
+    city: "Delhi",
+    country: "India",
+    phone: "+91 11 4155 8899",
+    sourceUrl: "https://maps.google.com/?cid=demo-place-004",
+    rating: 4.1,
+    reviewCount: 342,
+  },
+  {
+    provider: "google-places",
+    providerId: "demo-place-005",
+    name: "Precision Auto Components",
+    category: "manufacturer",
+    address: "MIDC Area, Pune, Maharashtra",
+    city: "Pune",
+    state: "Maharashtra",
+    country: "India",
+    phone: "+91 20 6789 0123",
+    website: "https://precisionauto.example.com",
+    sourceUrl: "https://maps.google.com/?cid=demo-place-005",
+  },
+  {
+    provider: "google-places",
+    providerId: "demo-place-006",
+    name: "Harborview Logistics LLC",
+    category: "logistics",
+    address: "Jebel Ali Free Zone, Dubai",
+    city: "Dubai",
+    country: "United Arab Emirates",
+    website: "https://harborviewlogistics.example.com",
+    sourceUrl: "https://maps.google.com/?cid=demo-place-006",
+    rating: 3.9,
+    reviewCount: 41,
+  },
+  {
+    provider: "google-places",
+    providerId: "demo-place-007",
+    name: "Shree Balaji Ceramics",
+    category: "manufacturer",
+    address: "Morbi Industrial Zone, Morbi, Gujarat",
+    city: "Morbi",
+    state: "Gujarat",
+    country: "India",
+    phone: "+91 2822 240 111",
+    sourceUrl: "https://maps.google.com/?cid=demo-place-007",
+    rating: 4.4,
+    reviewCount: 89,
+  },
+  {
+    provider: "google-places",
+    providerId: "demo-place-008",
+    name: "Northpeak Outdoor Gear",
+    category: "retailer",
+    address: "Bandra West, Mumbai, Maharashtra",
+    city: "Mumbai",
+    state: "Maharashtra",
+    country: "India",
+    website: "https://northpeak.example.com",
+    sourceUrl: "https://maps.google.com/?cid=demo-place-008",
+    rating: 4.7,
+    reviewCount: 512,
+  },
+];
+
+/**
+ * Demo discovery search — filters the fictional fixtures by keyword/city/
+ * country like a real provider would. NEVER calls external APIs.
+ */
+export function getDemoDiscoveryResults(query: {
+  keyword: string;
+  city?: string;
+  country?: string;
+  maxResults: number;
+}): DemoDiscoveredCompany[] {
+  const kw = query.keyword.trim().toLowerCase();
+  const city = query.city?.trim().toLowerCase();
+  const country = query.country?.trim().toLowerCase();
+  const now = new Date().toISOString();
+  return DEMO_DISCOVERY_SEED.filter((c) => {
+    const haystack =
+      `${c.name} ${c.category ?? ""} ${c.city ?? ""} ${c.country ?? ""}`.toLowerCase();
+    if (kw && !haystack.includes(kw)) return false;
+    if (city && c.city?.toLowerCase() !== city) return false;
+    if (country && c.country?.toLowerCase() !== country) return false;
+    return true;
+  })
+    .slice(0, Math.min(Math.max(query.maxResults, 1), 20))
+    .map((c) => ({ ...c, discoveredAt: now, provenance: "DEMO_DATA" as const }));
+}

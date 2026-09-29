@@ -160,6 +160,38 @@ database access. Safety properties (all covered by `tests/demo-mode.test.ts`):
 - A persistent **DEMO MODE** banner is shown; **Exit Demo** destroys the
   session and returns to `/login`. No secrets ever reach the client.
 
+## Lead discovery (Phase 2)
+
+The **Discover** page finds real companies via compliant providers and
+imports them into the existing lead database (no second lead store).
+
+- **Provider abstraction** (`lib/discovery/`): `LeadDiscoveryProvider`
+  interface with a registry. `GooglePlacesProvider` uses only the official
+  Places API (New) Text Search — no scraping, no CAPTCHAs bypassed, no
+  proxies. `CsvImportProvider` adapts CSV rows into the same normalized
+  shape. New providers implement the interface and register in
+  `lib/discovery/registry.ts`.
+- **API**: `GET /api/discovery/providers` (connection state, never keys),
+  `POST /api/discovery/search` (quota-checked, rate-limited, recorded as a
+  `DiscoveryRun`), `POST /api/discovery/import` (deduplicates with reasons,
+  preserves source URL + provenance, audit-logged). All tenant-guarded via
+  `withWorkspace()`; writes need `SALES_EXECUTIVE`.
+- **Provenance**: imported leads are labeled `VERIFIED` with `sourceUrl`,
+  `externalId` (place_id), `rating`, `reviewCount`, `discoveredAt`, plus
+  per-field `LeadFieldProvenance` rows. Missing provider fields are shown
+  as "not provided" — never invented.
+- **Quotas**: `Plan.discoverySearchesPerDay` / `discoveryRecordsPerDay`,
+  tracked daily in `UsageCounter` (`discoveries`, `discoveryRecords`,
+  `discoveryImports`); searches are rejected before calling the provider
+  when the quota is exhausted.
+- **Setup**: set `GOOGLE_PLACES_API_KEY` (server-side only, never
+  `NEXT_PUBLIC_*`). Without it, the UI shows "Google Places not connected"
+  with configuration steps. Demo mode serves fictional `DEMO_DATA`
+  fixtures and disables import.
+- Tests: `tests/discovery.test.ts` (33 unit tests, mocked Google API),
+  `tests/discovery-db.test.ts` (DB-gated: import, tenant isolation,
+  dedup, quotas, provenance, audit).
+
 ## Roadmap
 
 `ROADMAP.md` tracks all 8 phases. Phase 1 (this repo state): foundation,

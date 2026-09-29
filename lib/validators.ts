@@ -41,6 +41,12 @@ export const createLeadSchema = z.object({
   sourceDetail: z.string().trim().max(500).optional(),
   assignedToId: z.string().cuid().optional(),
   tags: z.array(z.string().trim().min(1).max(60)).max(20).optional(),
+  // discovery fields (Phase 2) — set only from compliant discovery providers
+  externalId: z.string().trim().max(200).optional(),
+  sourceUrl: z.string().trim().max(1000).optional(),
+  rating: z.number().min(0).max(5).optional(),
+  reviewCount: z.number().int().min(0).optional(),
+  discoveredAt: z.string().datetime().optional(),
 });
 
 export const updateLeadSchema = createLeadSchema.partial().extend({
@@ -88,3 +94,48 @@ export const importMappingSchema = z.object({
 
 export type CreateLeadInput = z.infer<typeof createLeadSchema>;
 export type UpdateLeadInput = z.infer<typeof updateLeadSchema>;
+
+// ── Lead discovery (Phase 2) ─────────────────────────────────────────────
+
+export const discoverySearchSchema = z.object({
+  providerId: z.string().trim().min(1).max(60),
+  keyword: z.string().trim().min(1).max(200),
+  country: z.string().trim().max(120).optional(),
+  state: z.string().trim().max(120).optional(),
+  city: z.string().trim().max(120).optional(),
+  radiusMeters: z.coerce.number().int().min(100).max(50000).optional(),
+  maxResults: z.coerce.number().int().min(1).max(20).default(20),
+  category: z.string().trim().max(120).optional(),
+  latitude: z.coerce.number().min(-90).max(90).optional(),
+  longitude: z.coerce.number().min(-180).max(180).optional(),
+});
+
+export type DiscoverySearchInput = z.infer<typeof discoverySearchSchema>;
+
+export const discoveredCompanySchema = z.object({
+  provider: z.string().trim().min(1).max(60),
+  providerId: z.string().trim().min(1).max(200),
+  name: z.string().trim().min(1).max(300),
+  category: z.string().trim().max(200).optional(),
+  address: z.string().trim().max(500).optional(),
+  city: z.string().trim().max(120).optional(),
+  state: z.string().trim().max(120).optional(),
+  country: z.string().trim().max(120).optional(),
+  phone: z.string().trim().max(40).optional(),
+  website: z.string().trim().max(1000).optional(),
+  sourceUrl: z.string().trim().max(1000).optional(),
+  rating: z.number().min(0).max(5).optional(),
+  reviewCount: z.number().int().min(0).optional(),
+  discoveredAt: z.string().datetime(),
+  provenance: z.enum(["VERIFIED_DATA", "AI_INFERENCE", "USER_PROVIDED", "DEMO_DATA"]),
+});
+
+export type DiscoveredCompanyInput = z.infer<typeof discoveredCompanySchema>;
+
+export const discoveryImportSchema = z.object({
+  providerId: z.string().trim().min(1).max(60),
+  searchQuery: z.string().trim().max(300).optional(),
+  companies: z.array(discoveredCompanySchema).min(1).max(100),
+});
+
+export type DiscoveryImportInput = z.infer<typeof discoveryImportSchema>;

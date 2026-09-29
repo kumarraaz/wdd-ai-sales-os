@@ -50,7 +50,10 @@ export async function createLead(
   organizationId: string,
   actorId: string,
   input: CreateLeadInput,
-  opts: { sourceType?: string; dataLabel?: "USER_PROVIDED" | "DEMO_DATA" } = {},
+  opts: {
+    sourceType?: string;
+    dataLabel?: "USER_PROVIDED" | "DEMO_DATA" | "VERIFIED" | "AI_INFERENCE";
+  } = {},
 ) {
   const email = input.email?.trim() || null;
   const phone = input.phone?.trim() || null;
@@ -97,6 +100,12 @@ export async function createLead(
     city: input.city?.trim() || null,
     website,
     domain,
+    // discovery (Phase 2) — populated only from compliant providers
+    externalId: input.externalId?.trim() || null,
+    sourceUrl: input.sourceUrl?.trim() || null,
+    rating: input.rating ?? null,
+    reviewCount: input.reviewCount ?? null,
+    discoveredAt: input.discoveredAt ? new Date(input.discoveredAt) : null,
     status: input.status ?? "NEW",
     sourceType: (input.sourceType as never) ?? (opts.sourceType as never) ?? "MANUAL",
     sourceDetail: input.sourceDetail?.trim() || null,

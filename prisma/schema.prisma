@@ -322,6 +322,12 @@ model Lead {
   city           String?
   website        String?
   domain         String?        // normalized domain for dedup
+  // discovery (Phase 2) — set only from compliant discovery providers
+  externalId   String?   // provider-scoped id (e.g. Google place_id) — for dedup
+  sourceUrl    String?   // source URL (e.g. Google Maps link) — provenance
+  rating       Float?    // provider rating — only when returned, never invented
+  reviewCount  Int?      // provider review count — only when returned
+  discoveredAt DateTime? // when this lead was discovered
   leadScore      Int            @default(0)
   qualityStars   Int            @default(0) // 0–5, no fake precision
   // outreach state
@@ -359,6 +365,7 @@ model Lead {
   @@index([organizationId, email])
   @@index([organizationId, phone])
   @@index([organizationId, domain])
+  @@index([organizationId, sourceType, externalId])
   @@index([organizationId, sourceType])
   @@index([organizationId, createdAt])
   @@index([organizationId, nextFollowUpAt])
@@ -974,6 +981,8 @@ model UsageCounter {
   period         String   // 'YYYY-MM-DD' (daily) — quotas reset daily
   leadsCreated   Int      @default(0)
   discoveries    Int      @default(0)
+  discoveryRecords Int    @default(0) // records discovered via discovery search
+  discoveryImports Int    @default(0) // discovered records imported as leads
   messagesSent   Int      @default(0)
   aiTokens       Int      @default(0)
   campaignsLaunched Int   @default(0)
@@ -1017,6 +1026,8 @@ model Plan {
   maxUsers    Int
   aiTokensPerDay Int
   messagesPerDay Int
+  discoverySearchesPerDay Int @default(20)
+  discoveryRecordsPerDay  Int @default(200)
   features    Json     @default("[]")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

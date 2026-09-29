@@ -21,6 +21,8 @@ const PLANS = [
     maxUsers: 3,
     aiTokensPerDay: 100_000,
     messagesPerDay: 200,
+    discoverySearchesPerDay: 20,
+    discoveryRecordsPerDay: 200,
     features: ["500 leads", "Basic CRM", "Manual outreach"],
   },
   {
@@ -30,6 +32,8 @@ const PLANS = [
     maxUsers: 10,
     aiTokensPerDay: 2_000_000,
     messagesPerDay: 2000,
+    discoverySearchesPerDay: 200,
+    discoveryRecordsPerDay: 5000,
     features: ["10k leads", "AI research", "Campaigns", "Automation"],
   },
   {
@@ -39,6 +43,8 @@ const PLANS = [
     maxUsers: 50,
     aiTokensPerDay: 20_000_000,
     messagesPerDay: 20000,
+    discoverySearchesPerDay: 1000,
+    discoveryRecordsPerDay: 50000,
     features: ["100k leads", "Advanced automation", "Team collaboration", "API access"],
   },
   {
@@ -48,6 +54,8 @@ const PLANS = [
     maxUsers: 500,
     aiTokensPerDay: 200_000_000,
     messagesPerDay: 200000,
+    discoverySearchesPerDay: 10000,
+    discoveryRecordsPerDay: 500000,
     features: ["Unlimited scale", "SSO", "White label", "Dedicated support"],
   },
 ];

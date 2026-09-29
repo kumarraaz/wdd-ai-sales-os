@@ -33,10 +33,10 @@ interface Org {
 }
 
 const NAV_MAIN = [
-  { href: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard, live: true },
-  { href: "/app/leads", label: "Leads", icon: Users, live: true },
-  { href: "/app/crm", label: "CRM", icon: KanbanSquare, live: true },
-  { href: "/app/discover", label: "Discover", icon: Radar, live: false },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, live: true },
+  { href: "/leads", label: "Leads", icon: Users, live: true },
+  { href: "/crm", label: "CRM", icon: KanbanSquare, live: true },
+  { href: "/discover", label: "Discover", icon: Radar, live: true },
   { href: "/app/intelligence", label: "Intelligence", icon: BrainCircuit, live: false },
   { href: "/app/campaigns", label: "Campaigns", icon: Megaphone, live: false },
   { href: "/app/outreach", label: "Outreach", icon: Send, live: false },
@@ -247,9 +247,9 @@ export function AppShell({
           aria-label="Mobile"
         >
           {[
-            { href: "/app/dashboard", label: "Home", icon: LayoutDashboard },
-            { href: "/app/leads", label: "Leads", icon: Users },
-            { href: "/app/crm", label: "CRM", icon: KanbanSquare },
+            { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+            { href: "/leads", label: "Leads", icon: Users },
+            { href: "/crm", label: "CRM", icon: KanbanSquare },
           ].map((item) => {
             const Icon = item.icon;
             const active = pathname === item.href;

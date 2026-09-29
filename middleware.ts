@@ -24,6 +24,6 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   // NOTE: route groups like (app) do not create URL segments, so the
-  // protected pages live at /dashboard, /leads, /crm — not /app/*.
-  matcher: ["/dashboard/:path*", "/leads/:path*", "/crm/:path*"],
+  // protected pages live at /dashboard, /leads, /crm, /discover — not /app/*.
+  matcher: ["/dashboard/:path*", "/leads/:path*", "/crm/:path*", "/discover/:path*"],
 };
