@@ -65,16 +65,16 @@ export const POST = withWorkspace(
       reason: `Lead quota exceeded (${quota.used}/${quota.limit}) — upgrade the plan to import more.`,
     }));
 
-    const { imported, skipped } = await importDiscoveredCompanies(
+    const summary = await importDiscoveredCompanies(
       ctx.organization.id,
       ctx.user.id,
       provider,
       importable,
       { searchQuery: input.searchQuery },
     );
+    const skipped = [...summary.skipped, ...overQuota];
 
-    const allSkipped = [...skipped, ...overQuota];
-    await recordDiscoveryUsage(ctx.organization.id, { imports: imported.length });
+    await recordDiscoveryUsage(ctx.organization.id, { imports: summary.imported.length + summary.possibleDuplicates.length });
     await audit({
       organizationId: ctx.organization.id,
       actorId: ctx.user.id,
@@ -82,15 +82,31 @@ export const POST = withWorkspace(
       resource: "lead",
       metadata: {
         provider: provider.id,
-        imported: imported.length,
-        skipped: allSkipped.length,
-        leadIds: imported.map((i) => i.leadId),
+        imported: summary.imported.length,
+        alreadyExists: summary.alreadyExists.length,
+        possibleDuplicates: summary.possibleDuplicates.length,
+        skipped: skipped.length,
+        failed: summary.failed.length,
+        leadIds: [...summary.imported, ...summary.possibleDuplicates].map((i) => i.leadId),
       },
       req,
     });
 
     return NextResponse.json(
-      { imported, skipped: allSkipped },
+      {
+        imported: summary.imported,
+        alreadyExists: summary.alreadyExists,
+        possibleDuplicates: summary.possibleDuplicates,
+        skipped,
+        failed: summary.failed,
+        counts: {
+          imported: summary.imported.length,
+          alreadyExists: summary.alreadyExists.length,
+          possibleDuplicates: summary.possibleDuplicates.length,
+          skipped: skipped.length,
+          failed: summary.failed.length,
+        },
+      },
       { status: 201 },
     );
   },

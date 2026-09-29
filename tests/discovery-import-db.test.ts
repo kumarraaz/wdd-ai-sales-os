@@ -1,0 +1,227 @@
+/**
+ * Discovery → CRM import — database integration tests.
+ * REQUIRE a real PostgreSQL database. Skipped when DATABASE_URL is not set.
+ *
+ * Covers: single + bulk import, duplicate hierarchy, name+location possible
+ * duplicates, idempotent re-import, partial failure handling, tenant
+ * isolation, provenance preservation, intelligence relationship preservation,
+ * initial CRM stage (NEW — never auto-qualified).
+ */
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { db } from "../lib/db";
+import {
+  importDiscoveredCompanies,
+  findMatchForCompany,
+} from "../lib/discovery/import";
+import { GooglePlacesProvider } from "../lib/discovery/google-places";
+import type { DiscoveredCompany } from "../lib/discovery/types";
+
+const hasDb = !!process.env.DATABASE_URL;
+const provider = new GooglePlacesProvider();
+
+function company(overrides: Partial<DiscoveredCompany>): DiscoveredCompany {
+  return {
+    provider: "google-places",
+    providerId: `ChIJ-test-${Math.random().toString(36).slice(2, 8)}`,
+    name: "Test Company",
+    category: "Manufacturing",
+    city: "Ahmedabad",
+    country: "India",
+    phone: "+91 79 4000 9999",
+    website: "https://test-company.example.com",
+    sourceUrl: "https://maps.google.com/test",
+    discoveredAt: new Date().toISOString(),
+    provenance: "VERIFIED_DATA",
+    ...overrides,
+  };
+}
+
+describe.skipIf(!hasDb)("discovery import — database integration", () => {
+  let orgA: string;
+  let orgB: string;
+  const actorId = "discovery-import-test-user";
+
+  beforeAll(async () => {
+    await db.user.upsert({
+      where: { email: "discovery-import-test@example.com" },
+      create: { id: actorId, email: "discovery-import-test@example.com", name: "Import Tester" },
+      update: {},
+    });
+    const a = await db.organization.create({
+      data: { name: "Import Org A", slug: `import-orga-${Date.now()}` },
+    });
+    const b = await db.organization.create({
+      data: { name: "Import Org B", slug: `import-orgb-${Date.now()}` },
+    });
+    orgA = a.id;
+    orgB = b.id;
+  });
+
+  afterAll(async () => {
+    await db.organization.deleteMany({ where: { id: { in: [orgA, orgB] } } });
+    await db.user.delete({ where: { id: actorId } });
+    await db.$disconnect();
+  });
+
+  it("imports a single lead at the NEW stage with provenance preserved", async () => {
+    const c = company({ providerId: "ChIJ-single-1", name: "Single Import Co" });
+    const summary = await importDiscoveredCompanies(orgA, actorId, provider, [c], {
+      searchQuery: "manufacturers",
+    });
+    expect(summary.imported).toHaveLength(1);
+    expect(summary.failed).toHaveLength(0);
+
+    const leadId = summary.imported[0].leadId!;
+    const lead = await db.lead.findUnique({
+      where: { id: leadId },
+      include: { provenance: true },
+    });
+    expect(lead?.status).toBe("NEW");
+    expect(lead?.sourceType).toBe("GOOGLE_BUSINESS");
+    expect(lead?.externalId).toBe("ChIJ-single-1");
+    expect(lead?.sourceUrl).toBe("https://maps.google.com/test");
+    // Provenance rows exist and original values are preserved.
+    expect(lead?.provenance.some((p) => p.field === "website" && p.label === "VERIFIED")).toBe(true);
+    expect(lead?.website).toBe("https://test-company.example.com");
+  });
+
+  it("is idempotent — re-importing returns already_exists, never a second lead", async () => {
+    const c = company({ providerId: "ChIJ-idempotent-1", name: "Idempotent Co" });
+    const first = await importDiscoveredCompanies(orgA, actorId, provider, [c]);
+    expect(first.imported).toHaveLength(1);
+
+    const second = await importDiscoveredCompanies(orgA, actorId, provider, [c]);
+    expect(second.imported).toHaveLength(0);
+    expect(second.alreadyExists).toHaveLength(1);
+    expect(second.alreadyExists[0].status).toBe("already_exists");
+
+    const count = await db.lead.count({
+      where: { organizationId: orgA, externalId: "ChIJ-idempotent-1" },
+    });
+    expect(count).toBe(1);
+  });
+
+  it("detects duplicates by canonical website across tenants' data boundary", async () => {
+    const c = company({
+      providerId: "ChIJ-web-1",
+      name: "Website Dup Co",
+      website: "https://www.website-dup.example.com/",
+    });
+    await importDiscoveredCompanies(orgA, actorId, provider, [c]);
+
+    // Same website, different formatting + different provider id → duplicate.
+    const c2 = company({
+      providerId: "ChIJ-web-2",
+      name: "Website Dup Co Renamed",
+      website: "http://website-dup.example.com",
+    });
+    const summary = await importDiscoveredCompanies(orgA, actorId, provider, [c2]);
+    expect(summary.alreadyExists).toHaveLength(1);
+    expect(summary.imported).toHaveLength(0);
+  });
+
+  it("detects duplicates by normalized phone", async () => {
+    const c = company({ providerId: "ChIJ-phone-1", name: "Phone Dup Co", phone: "+91 79 4000 1111", website: undefined });
+    await importDiscoveredCompanies(orgA, actorId, provider, [c]);
+    const c2 = company({
+      providerId: "ChIJ-phone-2",
+      name: "Phone Dup Co 2",
+      phone: "+91-79-4000-1111",
+      website: "https://phone-dup-2.example.com",
+    });
+    const summary = await importDiscoveredCompanies(orgA, actorId, provider, [c2]);
+    expect(summary.alreadyExists).toHaveLength(1);
+  });
+
+  it("flags name+location as possible duplicate but still imports (no silent merge)", async () => {
+    const c = company({
+      providerId: "ChIJ-possible-1",
+      name: "Possible Dup Industries",
+      website: "https://possible-1.example.com",
+      phone: undefined,
+      city: "Surat",
+    });
+    await importDiscoveredCompanies(orgA, actorId, provider, [c]);
+
+    const c2 = company({
+      providerId: "ChIJ-possible-2",
+      name: "possible dup industries", // different case/punctuation
+      website: "https://possible-2.example.com",
+      phone: "+91 261 400 2222",
+      city: "Surat",
+    });
+    const summary = await importDiscoveredCompanies(orgA, actorId, provider, [c2]);
+    expect(summary.possibleDuplicates).toHaveLength(1);
+    expect(summary.possibleDuplicates[0].reason).toContain("Possible duplicate");
+    expect(summary.possibleDuplicates[0].leadId).toBeTruthy();
+    expect(summary.possibleDuplicates[0].matchedLeadId).toBeTruthy();
+  });
+
+  it("does not treat name-only matches as duplicates", async () => {
+    const c = company({
+      providerId: "ChIJ-nameonly-1",
+      name: "Generic Name Only Co",
+      website: "https://nameonly-1.example.com",
+      phone: undefined,
+      city: "Delhi",
+    });
+    await importDiscoveredCompanies(orgA, actorId, provider, [c]);
+    const c2 = company({
+      providerId: "ChIJ-nameonly-2",
+      name: "Generic Name Only Co",
+      website: "https://nameonly-2.example.com",
+      phone: "+91 11 4000 3333",
+      city: "Chennai", // different city
+    });
+    const summary = await importDiscoveredCompanies(orgA, actorId, provider, [c2]);
+    expect(summary.imported).toHaveLength(1);
+    expect(summary.possibleDuplicates).toHaveLength(0);
+  });
+
+  it("keeps intelligence relationships linked to the imported lead", async () => {
+    const c = company({ providerId: "ChIJ-intel-1", name: "Intel Link Co" });
+    const summary = await importDiscoveredCompanies(orgA, actorId, provider, [c]);
+    const leadId = summary.imported[0].leadId!;
+
+    await db.websiteInspection.create({
+      data: {
+        organizationId: orgA,
+        leadId,
+        status: "COMPLETED",
+        requestedUrl: "https://intel-link.example.com",
+        findings: {},
+        dataLabel: "VERIFIED",
+      },
+    });
+
+    const lead = await db.lead.findUnique({
+      where: { id: leadId },
+      include: { websiteInspections: { take: 1 } },
+    });
+    expect(lead?.websiteInspections).toHaveLength(1);
+  });
+
+  it("enforces tenant isolation — org B sees none of org A's imports", async () => {
+    const c = company({ providerId: "ChIJ-tenant-1", name: "Tenant Isolation Co" });
+    await importDiscoveredCompanies(orgA, actorId, provider, [c]);
+
+    const match = await findMatchForCompany(orgB, provider, c);
+    expect(match.match).toBeNull();
+    expect(match.possible).toBeNull();
+
+    const inB = await db.lead.count({ where: { organizationId: orgB } });
+    expect(inB).toBe(0);
+  });
+
+  it("bulk import reports partial outcomes without rolling back successes", async () => {
+    const fresh = company({ providerId: "ChIJ-bulk-fresh", name: "Bulk Fresh Co" });
+    const dup = company({ providerId: "ChIJ-bulk-dup", name: "Bulk Dup Co" });
+    await importDiscoveredCompanies(orgA, actorId, provider, [dup]);
+
+    const summary = await importDiscoveredCompanies(orgA, actorId, provider, [fresh, dup]);
+    expect(summary.imported).toHaveLength(1);
+    expect(summary.alreadyExists).toHaveLength(1);
+    expect(summary.failed).toHaveLength(0);
+    expect(summary.imported[0].providerId).toBe("ChIJ-bulk-fresh");
+  });
+});

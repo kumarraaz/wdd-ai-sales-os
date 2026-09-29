@@ -194,7 +194,12 @@ export function LeadsTable({
       columnHelper.accessor("fullName", {
         header: "Name",
         cell: (info) => (
-          <span className="font-medium text-white">{info.getValue() || "—"}</span>
+          <Link
+            href={`/leads/${info.row.original.id}`}
+            className="font-medium text-white hover:text-[#D4AF37] hover:underline"
+          >
+            {info.getValue() || "—"}
+          </Link>
         ),
       }),
       columnHelper.accessor((r) => r.company?.name ?? "", {

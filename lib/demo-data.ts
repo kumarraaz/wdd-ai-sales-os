@@ -134,6 +134,45 @@ export const DEMO_LEADS: DemoLead[] = SEED.map((s, i) => ({
 /** Fixture campaign count shown on the demo dashboard. */
 export const DEMO_ACTIVE_CAMPAIGNS = 2;
 
+/** Fictional per-lead detail for demo mode — invented data, never real. */
+export interface DemoLeadDetail extends DemoLead {
+  sourceDetail: string;
+  sourceUrl: string | null;
+  externalId: string | null;
+  discoveredAt: string | null;
+  rating: number | null;
+  reviewCount: number | null;
+  scores: { id: string; score: number; scoreBand: string; createdAt: string }[];
+  provenance: { field: string; value: string; source: string; label: "DEMO_DATA" }[];
+}
+
+export function getDemoLeadDetail(id: string): DemoLeadDetail | null {
+  const lead = DEMO_LEADS.find((l) => l.id === id);
+  if (!lead) return null;
+  return {
+    ...lead,
+    sourceDetail: "Demo fixture",
+    sourceUrl: null,
+    externalId: null,
+    discoveredAt: lead.createdAt,
+    rating: null,
+    reviewCount: null,
+    scores: [
+      {
+        id: `demo-score-${lead.id}`,
+        score: lead.leadScore,
+        scoreBand:
+          lead.leadScore >= 85 ? "Very Strong Fit" : lead.leadScore >= 70 ? "Strong Fit" : "Moderate Fit",
+        createdAt: lead.updatedAt,
+      },
+    ],
+    provenance: [
+      { field: "company", value: lead.company?.name ?? lead.fullName, source: "Demo fixture", label: "DEMO_DATA" },
+      { field: "website", value: lead.website, source: "Demo fixture", label: "DEMO_DATA" },
+    ],
+  };
+}
+
 const QUALIFIED_STATUSES = new Set([
   "QUALIFIED", "CONTACTED", "REPLIED", "MEETING", "PROPOSAL", "NEGOTIATION",
 ]);

@@ -290,6 +290,61 @@ scores HIGHER because it signals a service opportunity.
 - Tests: `tests/lead-scoring.test.ts` (19 unit), `tests/lead-scoring-db.test.ts`
   (DB-gated: history, tenant isolation, quota, audit).
 
+## Discovery → CRM pipeline (Phase 2 Step 5 — final)
+
+The complete Phase 2 architecture:
+
+**Discovery → Lead → Website Intelligence → AI Lead Intelligence →
+WDD Sales Opportunity Score → CRM**
+
+The pipeline is **user-controlled end to end**. Discovery results are never
+silently converted into CRM opportunities — the user selects leads, reviews
+a preview, and explicitly confirms the import.
+
+- **Manual confirmation required**: `/discover` → select (Select All /
+  Clear) → **Import Selected** opens a preview dialog → user confirms.
+  No auto-conversion, no bulk import without review.
+- **Import preview** (`POST /api/discovery/import-preview`, `SALES_EXECUTIVE`,
+  rate-limited, read-only — nothing is created): per selected lead shows
+  business name, category, location, website, phone, source, provenance,
+  duplicate status, existing CRM stage, and linked intelligence status
+  (website report, AI intelligence, score).
+- **Duplicate detection** (`lib/discovery/matching.ts`, deterministic):
+  1. External provider ID + provider → `already_exists`
+  2. Canonical website URL (protocol/www/case/trailing-slash normalized)
+  3. Normalized phone (digits)
+  4. Business name + location → **"Possible duplicate — review required"**
+     (imported but flagged, never silently merged).
+  Name-only matches are never treated as definitive. Original source values
+  are never modified.
+- **Idempotency**: re-submitting the same discovery result returns
+  `already_exists` — never a second CRM lead.
+- **Per-lead outcomes**: `imported` / `already_exists` / `possible_duplicate`
+  / `skipped` / `failed` — partial failures are visible, never rolled back
+  into successes, and never hidden.
+- **Initial CRM state**: imported leads enter at the **NEW** stage (predictable
+  and documented). AI scores never move a lead to Qualified/Contacted/
+  Meeting/Proposal/Won. AI outputs are **recommendations only** — they cannot
+  mark leads contacted, create deals, send outreach, create meetings, mark
+  wins, or change ownership.
+- **Intelligence links preserved**: `Lead → WebsiteInspection →
+  LeadIntelligence → LeadScore` relational links are reused; the lead detail
+  page (`/leads/[id]`) shows source, provenance, discovery/inspection/AI/
+  scoring timestamps, and links to the Intelligence page.
+- **Provenance**: `VERIFIED_DATA` (Places, website inspection), `AI_INFERENCE`
+  (Step 3/4), `USER_PROVIDED`, `DEMO_DATA`. AI-generated values never become
+  verified.
+- **Audit**: every import logs actor, org, action, lead IDs, provider, and
+  outcome counts. No API keys, cookies, or secrets are logged.
+- **Demo mode**: demo import is a deterministic simulation
+  (`POST /api/demo/discovery/import`) — no DB writes, no external APIs,
+  no Gemini, no real CRM mutation; everything labeled `DEMO_DATA`.
+- **Security**: existing tenant isolation, RBAC, Zod validation, rate limits,
+  quotas, SSRF protection, and security headers all apply unchanged.
+- Tests: `tests/discovery-matching.test.ts` (14 unit), `tests/discovery-import-db.test.ts`
+  (9 DB-gated: import, idempotency, hierarchy, possible duplicates,
+  tenant isolation, intelligence links, partial outcomes).
+
 ## Roadmap
 
 `ROADMAP.md` tracks all 8 phases. Phase 1 (this repo state): foundation,

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import {
   DEMO_ACTION_DISABLED_MESSAGE,
@@ -6,12 +6,12 @@ import {
   isDemoModeEnabled,
   validateDemoSession,
 } from "@/lib/demo";
+import { getDemoLeadDetail } from "@/lib/demo-data";
 
 /**
- * Demo fixture API — per-lead mutations are always disabled.
- * Covers the Kanban card-move PATCH and row DELETE calls, which target
- * /api/leads/:id. Same 404-when-off / 403-when-demo contract as the
- * collection route.
+ * Demo fixture API — GET returns the fictional lead detail (DEMO_DATA);
+ * mutations are always disabled with "Demo Mode — Action Disabled".
+ * Same 404-when-off contract as the collection route.
  */
 
 async function demoGuard(): Promise<NextResponse | null> {
@@ -26,9 +26,16 @@ function actionDisabled(): NextResponse {
   return NextResponse.json({ error: DEMO_ACTION_DISABLED_MESSAGE }, { status: 403 });
 }
 
-export async function GET() {
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const denied = await demoGuard();
-  return denied ?? actionDisabled();
+  if (denied) return denied;
+  const { id } = await params;
+  const lead = getDemoLeadDetail(id);
+  if (!lead) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  return NextResponse.json({ lead, demo: true });
 }
 
 export async function POST() {

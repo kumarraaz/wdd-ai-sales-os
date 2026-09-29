@@ -10,7 +10,12 @@
  */
 import { db } from "../db";
 import { createLead, findDuplicate } from "../leads";
-import { normalizeDomain } from "../ssrf";
+import {
+  matchDuplicate,
+  normalizeName,
+  type MatchCandidate,
+  type MatchExisting,
+} from "./matching";
 import type { DiscoveredCompany, LeadDiscoveryProvider } from "./types";
 import type { DataLabel } from "@prisma/client";
 
@@ -34,6 +39,8 @@ export interface ExistingLeadMatch {
 /**
  * Pure duplicate-reason computation — no DB access, fully unit-testable.
  * Returns null when the candidate is NOT a duplicate of the existing lead.
+ * Only definitive matches produce a reason; possible matches are handled
+ * separately via matchDuplicate().
  */
 export function duplicateReason(
   candidate: DuplicateCandidate,
@@ -41,24 +48,28 @@ export function duplicateReason(
   providerLabel: string,
 ): string | null {
   if (!existing) return null;
-  if (
-    existing.externalId &&
-    existing.externalId === candidate.providerId &&
-    existing.sourceType === candidate.sourceType
-  ) {
-    return `Already in database — same ${providerLabel} listing`;
-  }
+  const match = matchDuplicate(
+    {
+      providerId: candidate.providerId,
+      sourceType: candidate.sourceType,
+      phone: candidate.phone,
+    },
+    {
+      id: existing.id,
+      externalId: existing.externalId,
+      sourceType: existing.sourceType,
+      phone: existing.phone,
+    },
+    providerLabel,
+  );
+  if (match?.definitive) return match.reason;
+  // Email check (kept for backward compatibility with existing tests).
   if (
     candidate.email &&
     existing.email &&
     existing.email.toLowerCase() === candidate.email.toLowerCase()
   ) {
     return `Already in database — email ${candidate.email} exists`;
-  }
-  if (candidate.phone && existing.phone) {
-    const a = candidate.phone.replace(/\D/g, "");
-    const b = existing.phone.replace(/\D/g, "");
-    if (a && a === b) return `Already in database — phone ${candidate.phone} exists`;
   }
   if (candidate.domain && existing.domain && existing.domain === candidate.domain) {
     return `Already in database — website ${candidate.domain} exists`;
@@ -82,20 +93,146 @@ function toDataLabel(provenance: DiscoveredCompany["provenance"]): DataLabel {
 export interface ImportItemResult {
   providerId: string;
   name: string;
-  status: "imported" | "skipped";
+  /** Import outcome per lead — every result is traceable. */
+  status: "imported" | "already_exists" | "possible_duplicate" | "skipped" | "failed";
   leadId?: string;
-  /** Human-readable duplicate reason when skipped. */
+  /** Existing lead id for already_exists / possible_duplicate. */
+  matchedLeadId?: string;
+  /** Human-readable reason for non-imported outcomes. */
   reason?: string;
 }
 
 export interface ImportSummary {
   imported: ImportItemResult[];
+  alreadyExists: ImportItemResult[];
+  possibleDuplicates: ImportItemResult[];
   skipped: ImportItemResult[];
+  failed: ImportItemResult[];
+}
+
+export interface CompanyMatch {
+  match: { kind: string; definitive: boolean; reason: string } | null;
+  matchedLeadId?: string;
+  existingStatus?: string | null;
+  possible: { kind: string; definitive: boolean; reason: string; matchedLeadId?: string } | null;
+}
+
+/**
+ * Run the full duplicate-matching pipeline for one discovered company.
+ * Read-only — shared by import and import-preview.
+ */
+export async function findMatchForCompany(
+  organizationId: string,
+  provider: LeadDiscoveryProvider,
+  company: DiscoveredCompany,
+): Promise<CompanyMatch> {
+  const candidate: MatchCandidate = {
+    providerId: company.providerId,
+    sourceType: provider.sourceType,
+    website: company.website,
+    phone: company.phone,
+    name: company.name,
+    city: company.city,
+    country: company.country,
+  };
+
+  // 1) Definitive: same provider listing already imported.
+  const byExternalId = await db.lead.findFirst({
+    where: {
+      organizationId,
+      sourceType: provider.sourceType,
+      externalId: company.providerId,
+    },
+    select: { id: true, externalId: true, sourceType: true, status: true },
+  });
+  let match = matchDuplicate(
+    candidate,
+    byExternalId
+      ? {
+          id: byExternalId.id,
+          externalId: byExternalId.externalId,
+          sourceType: byExternalId.sourceType,
+        }
+      : null,
+    provider.label,
+  );
+  let matchedLeadId: string | undefined = byExternalId?.id;
+  let existingStatus: string | null = byExternalId?.status ?? null;
+
+  // 2) Definitive: same phone / website already in the database.
+  if (!match) {
+    const dup = await findDuplicate(organizationId, {
+      phone: company.phone,
+      website: company.website,
+    });
+    if (dup) {
+      const full = await db.lead.findUnique({
+        where: { id: dup.id },
+        select: { id: true, phone: true, domain: true, website: true, status: true },
+      });
+      if (full) {
+        matchedLeadId = full.id;
+        existingStatus = full.status;
+        match = matchDuplicate(
+          candidate,
+          { id: full.id, phone: full.phone, domain: full.domain, website: full.website },
+          provider.label,
+        );
+      }
+    }
+  }
+
+  // 3) Possible: same normalized business name + location.
+  let possible: CompanyMatch["possible"] = null;
+  if (!match && normalizeName(company.name)) {
+    const locOr = [
+      ...(company.city
+        ? [{ city: { equals: company.city, mode: "insensitive" as const } }]
+        : []),
+      ...(!company.city && company.country
+        ? [{ country: { equals: company.country, mode: "insensitive" as const } }]
+        : []),
+    ];
+    if (locOr.length > 0) {
+      const locMatches = await db.lead.findMany({
+        where: { organizationId, OR: locOr },
+        select: { id: true, fullName: true, city: true, country: true, status: true },
+        take: 25,
+      });
+      for (const m of locMatches) {
+        const r = matchDuplicate(
+          candidate,
+          { id: m.id, name: m.fullName, city: m.city, country: m.country },
+          provider.label,
+        );
+        if (r && !r.definitive) {
+          possible = {
+            ...r,
+            matchedLeadId: m.id,
+            reason: `${r.reason} (existing lead status: ${m.status})`,
+          };
+          break;
+        }
+      }
+    }
+  }
+
+  return { match, matchedLeadId, existingStatus, possible };
 }
 
 /**
  * Import discovered companies into the workspace's lead database.
  * Every query is scoped to organizationId (tenant isolation).
+ *
+ * Outcomes per company:
+ * - already_exists: definitive duplicate (external ID / website / phone) —
+ *   NOT imported, idempotent on retry.
+ * - possible_duplicate: name+location match — imported (explicit user
+ *   action) but flagged with the matched lead for review. Never merged.
+ * - imported: new lead created (status NEW — the predictable initial CRM stage).
+ * - skipped: over quota (explicit reason).
+ * - failed: unexpected error — other items are unaffected (no rollback of
+ *   independent successes).
  */
 export async function importDiscoveredCompanies(
   organizationId: string,
@@ -105,129 +242,116 @@ export async function importDiscoveredCompanies(
   opts: { searchQuery?: string } = {},
 ): Promise<ImportSummary> {
   const imported: ImportItemResult[] = [];
+  const alreadyExists: ImportItemResult[] = [];
+  const possibleDuplicates: ImportItemResult[] = [];
   const skipped: ImportItemResult[] = [];
+  const failed: ImportItemResult[] = [];
 
   for (const company of companies) {
-    const domain = company.website ? normalizeDomain(company.website) : null;
-    const candidate: DuplicateCandidate = {
-      providerId: company.providerId,
-      sourceType: provider.sourceType,
-      phone: company.phone,
-      domain,
-    };
+    try {
+      const { match, matchedLeadId, existingStatus, possible } =
+        await findMatchForCompany(organizationId, provider, company);
 
-    // 1) Same provider listing already imported?
-    const byExternalId = await db.lead.findFirst({
-      where: {
+      if (match?.definitive) {
+        alreadyExists.push({
+          providerId: company.providerId,
+          name: company.name,
+          status: "already_exists",
+          matchedLeadId,
+          reason: `${match.reason}${existingStatus ? ` (existing lead status: ${existingStatus})` : ""}`,
+        });
+        continue;
+      }
+
+      const dataLabel = toDataLabel(company.provenance);
+      const { lead } = await createLead(
         organizationId,
-        sourceType: provider.sourceType,
-        externalId: company.providerId,
-      },
-      select: { id: true, externalId: true, sourceType: true, email: true, phone: true, domain: true },
-    });
-    let reason = duplicateReason(candidate, byExternalId, provider.label);
-
-    // 2) Same email / phone / domain already in the database?
-    if (!reason) {
-      const dup = await findDuplicate(organizationId, {
-        phone: company.phone,
-        website: company.website,
-      });
-      reason = duplicateReason(
-        candidate,
-        dup
-          ? {
-              id: dup.id,
-              externalId: null,
-              sourceType: "",
-              email: dup.email,
-              phone: dup.phone,
-              domain: dup.domain,
-            }
-          : null,
-        provider.label,
+        actorId,
+        {
+          // Discovery yields companies; a contact name is never invented.
+          phone: company.phone,
+          companyName: company.name,
+          industry: company.category,
+          country: company.country,
+          state: company.state,
+          city: company.city,
+          website: company.website,
+          sourceType: provider.sourceType,
+          sourceDetail: opts.searchQuery
+            ? `${provider.label}: ${opts.searchQuery}`
+            : provider.label,
+          externalId: company.providerId,
+          sourceUrl: company.sourceUrl,
+          rating: company.rating,
+          reviewCount: company.reviewCount,
+          discoveredAt: company.discoveredAt,
+        },
+        { sourceType: provider.sourceType, dataLabel },
       );
-    }
 
-    if (reason) {
-      skipped.push({
+      // Field-level provenance: where each imported field came from.
+      const provenanceRows: {
+        organizationId: string;
+        leadId: string;
+        field: string;
+        value: string;
+        source: string;
+        sourceUrl?: string;
+        label: DataLabel;
+      }[] = [];
+      if (company.website) {
+        provenanceRows.push({
+          organizationId,
+          leadId: lead.id,
+          field: "website",
+          value: company.website,
+          source: provider.label,
+          sourceUrl: company.sourceUrl,
+          label: dataLabel,
+        });
+      }
+      if (company.phone) {
+        provenanceRows.push({
+          organizationId,
+          leadId: lead.id,
+          field: "phone",
+          value: company.phone,
+          source: provider.label,
+          sourceUrl: company.sourceUrl,
+          label: dataLabel,
+        });
+      }
+      if (provenanceRows.length > 0) {
+        await db.leadFieldProvenance.createMany({ data: provenanceRows });
+      }
+
+      if (possible) {
+        possibleDuplicates.push({
+          providerId: company.providerId,
+          name: company.name,
+          status: "possible_duplicate",
+          leadId: lead.id,
+          matchedLeadId: possible.matchedLeadId,
+          reason: possible.reason,
+        });
+      } else {
+        imported.push({
+          providerId: company.providerId,
+          name: company.name,
+          status: "imported",
+          leadId: lead.id,
+        });
+      }
+    } catch (err) {
+      // One item's failure never rolls back the others.
+      failed.push({
         providerId: company.providerId,
         name: company.name,
-        status: "skipped",
-        reason,
-      });
-      continue;
-    }
-
-    const dataLabel = toDataLabel(company.provenance);
-    const { lead } = await createLead(
-      organizationId,
-      actorId,
-      {
-        // Discovery yields companies; a contact name is never invented.
-        phone: company.phone,
-        companyName: company.name,
-        industry: company.category,
-        country: company.country,
-        state: company.state,
-        city: company.city,
-        website: company.website,
-        sourceType: provider.sourceType,
-        sourceDetail: opts.searchQuery
-          ? `${provider.label}: ${opts.searchQuery}`
-          : provider.label,
-        externalId: company.providerId,
-        sourceUrl: company.sourceUrl,
-        rating: company.rating,
-        reviewCount: company.reviewCount,
-        discoveredAt: company.discoveredAt,
-      },
-      { sourceType: provider.sourceType, dataLabel },
-    );
-
-    // Field-level provenance: where each imported field came from.
-    const provenanceRows: {
-      organizationId: string;
-      leadId: string;
-      field: string;
-      value: string;
-      source: string;
-      sourceUrl?: string;
-      label: DataLabel;
-    }[] = [];
-    if (company.website) {
-      provenanceRows.push({
-        organizationId,
-        leadId: lead.id,
-        field: "website",
-        value: company.website,
-        source: provider.label,
-        sourceUrl: company.sourceUrl,
-        label: dataLabel,
+        status: "failed",
+        reason: err instanceof Error ? err.message : "Import failed.",
       });
     }
-    if (company.phone) {
-      provenanceRows.push({
-        organizationId,
-        leadId: lead.id,
-        field: "phone",
-        value: company.phone,
-        source: provider.label,
-        sourceUrl: company.sourceUrl,
-        label: dataLabel,
-      });
-    }
-    if (provenanceRows.length > 0) {
-      await db.leadFieldProvenance.createMany({ data: provenanceRows });
-    }
-
-    imported.push({
-      providerId: company.providerId,
-      name: company.name,
-      status: "imported",
-      leadId: lead.id,
-    });
   }
 
-  return { imported, skipped };
+  return { imported, alreadyExists, possibleDuplicates, skipped, failed };
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DEMO_ACTION_DISABLED_MESSAGE } from "@/lib/demo";
 
 interface DiscoveredCompany {
   provider: string;
@@ -32,9 +31,48 @@ interface ProviderInfo {
 interface ImportItem {
   providerId: string;
   name: string;
-  status: "imported" | "skipped";
+  status: "imported" | "already_exists" | "possible_duplicate" | "skipped" | "failed";
   leadId?: string;
+  matchedLeadId?: string;
   reason?: string;
+}
+
+interface ImportSummary {
+  imported: ImportItem[];
+  alreadyExists: ImportItem[];
+  possibleDuplicates: ImportItem[];
+  skipped: ImportItem[];
+  failed: ImportItem[];
+  counts: {
+    imported: number;
+    alreadyExists: number;
+    possibleDuplicates: number;
+    skipped: number;
+    failed: number;
+  };
+}
+
+interface PreviewMatchedLead {
+  id: string;
+  status: string;
+  websiteInspection: "completed" | "none";
+  aiIntelligence: "completed" | "none";
+  score: number | null;
+}
+
+interface PreviewItem {
+  providerId: string;
+  name: string;
+  category: string | null;
+  city: string | null;
+  country: string | null;
+  website: string | null;
+  phone: string | null;
+  source: string;
+  provenance: string;
+  duplicateStatus: "new" | "already_exists" | "possible_duplicate";
+  reason: string | null;
+  matchedLead: PreviewMatchedLead | null;
 }
 
 interface DiscoveryProps {
@@ -110,10 +148,9 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
   } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
-  const [importSummary, setImportSummary] = useState<{
-    imported: ImportItem[];
-    skipped: ImportItem[];
-  } | null>(null);
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
+  const [preview, setPreview] = useState<PreviewItem[] | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -138,10 +175,6 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
     }, 0);
     return () => clearTimeout(t);
   }, [apiBase, demo, providersTick]);
-
-  function blockDemo() {
-    setNotice(`${DEMO_ACTION_DISABLED_MESSAGE} — importing is not available in demo mode.`);
-  }
 
   async function runSearch(e?: React.FormEvent) {
     e?.preventDefault();
@@ -205,9 +238,77 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
     );
   }
 
-  async function importSelected() {
+  function selectedCompanies() {
+    return results.filter((r) => selected.has(r.providerId));
+  }
+
+  async function openPreview() {
+    if (selected.size === 0) return;
+    setPreviewLoading(true);
+    setError(null);
+    setNotice(null);
+    try {
+      if (demo) {
+        // Demo mode: preview is computed locally from fixture data —
+        // every demo result is DEMO_DATA and nothing exists in the DB.
+        setPreview(
+          selectedCompanies().map((c) => ({
+            providerId: c.providerId,
+            name: c.name,
+            category: c.category ?? null,
+            city: c.city ?? null,
+            country: c.country ?? null,
+            website: c.website ?? null,
+            phone: c.phone ?? null,
+            source: "Google Places",
+            provenance: "DEMO_DATA",
+            duplicateStatus: "new" as const,
+            reason: null,
+            matchedLead: null,
+          })),
+        );
+        return;
+      }
+      const res = await fetch(`${apiBase}/discovery/import-preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          providerId: "google-places",
+          searchQuery: keyword.trim(),
+          companies: selectedCompanies(),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Preview failed.");
+      setPreview(data.items ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Preview failed.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function confirmImport() {
     if (demo) {
-      blockDemo();
+      // Demo import is a deterministic simulation — no DB writes,
+      // no external APIs, no CRM mutation.
+      setImporting(true);
+      try {
+        const res = await fetch(`${apiBase}/discovery/import`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ providerId: "google-places", companies: selectedCompanies() }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Import simulation failed.");
+        setImportSummary(data);
+        setSelected(new Set());
+        setPreview(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Import simulation failed.");
+      } finally {
+        setImporting(false);
+      }
       return;
     }
     if (selected.size === 0) return;
@@ -215,14 +316,13 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
     setError(null);
     setNotice(null);
     try {
-      const companies = results.filter((r) => selected.has(r.providerId));
       const res = await fetch(`${apiBase}/discovery/import`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           providerId: "google-places",
           searchQuery: keyword.trim(),
-          companies,
+          companies: selectedCompanies(),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -231,9 +331,20 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
       }
       setImportSummary({
         imported: data.imported ?? [],
+        alreadyExists: data.alreadyExists ?? [],
+        possibleDuplicates: data.possibleDuplicates ?? [],
         skipped: data.skipped ?? [],
+        failed: data.failed ?? [],
+        counts: data.counts ?? {
+          imported: (data.imported ?? []).length,
+          alreadyExists: (data.alreadyExists ?? []).length,
+          possibleDuplicates: (data.possibleDuplicates ?? []).length,
+          skipped: (data.skipped ?? []).length,
+          failed: (data.failed ?? []).length,
+        },
       });
       setSelected(new Set());
+      setPreview(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import failed.");
     } finally {
@@ -421,12 +532,12 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
               </p>
             </div>
             <button
-              onClick={importSelected}
-              disabled={importing || selected.size === 0}
+              onClick={openPreview}
+              disabled={previewLoading || importing || selected.size === 0}
               className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-semibold text-black transition hover:brightness-110 disabled:opacity-50"
             >
-              {importing
-                ? "Importing…"
+              {previewLoading
+                ? "Checking…"
                 : `Import selected (${selected.size})`}
             </button>
           </div>
@@ -518,32 +629,213 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
         </div>
       )}
 
+      {/* Import preview dialog */}
+      {preview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-white/10 bg-[#0D1B2A] p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold">Confirm CRM import</h2>
+                <p className="mt-1 text-sm text-white/60">
+                  Review each lead before it enters your CRM. New leads start at
+                  the <span className="font-semibold text-white/80">NEW</span>{" "}
+                  stage — AI scores never auto-qualify them.
+                  {demo && (
+                    <span className="text-[#D4AF37]">
+                      {" "}
+                      Demo simulation — nothing is written to the database.
+                    </span>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={() => setPreview(null)}
+                className="text-white/50 hover:text-white"
+                aria-label="Close preview"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[800px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-white/40">
+                    <th className="py-2 pr-3">Company</th>
+                    <th className="py-2 pr-3">Location</th>
+                    <th className="py-2 pr-3">Contact</th>
+                    <th className="py-2 pr-3">Duplicate status</th>
+                    <th className="py-2 pr-3">CRM state</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.map((p) => (
+                    <tr key={p.providerId} className="border-b border-white/5">
+                      <td className="py-2 pr-3">
+                        <div className="font-medium">{p.name}</div>
+                        <div className="text-xs text-white/40">
+                          {p.category ?? "—"} · {p.source} ·{" "}
+                          <span className="font-mono">{p.provenance}</span>
+                        </div>
+                      </td>
+                      <td className="py-2 pr-3 text-white/70">
+                        {[p.city, p.country].filter(Boolean).join(", ") || "—"}
+                      </td>
+                      <td className="py-2 pr-3 text-xs text-white/70">
+                        {p.website && <div className="break-all">{p.website}</div>}
+                        {p.phone && <div>{p.phone}</div>}
+                        {!p.website && !p.phone && "—"}
+                      </td>
+                      <td className="py-2 pr-3">
+                        {p.duplicateStatus === "new" && (
+                          <span className="rounded bg-emerald-400/15 px-2 py-0.5 text-xs font-semibold text-emerald-300">
+                            New
+                          </span>
+                        )}
+                        {p.duplicateStatus === "already_exists" && (
+                          <span className="rounded bg-white/10 px-2 py-0.5 text-xs font-semibold text-white/70">
+                            Already exists
+                          </span>
+                        )}
+                        {p.duplicateStatus === "possible_duplicate" && (
+                          <span className="rounded bg-[#D4AF37]/15 px-2 py-0.5 text-xs font-semibold text-[#D4AF37]">
+                            Possible duplicate — review required
+                          </span>
+                        )}
+                        {p.reason && (
+                          <div className="mt-1 text-xs text-white/50">{p.reason}</div>
+                        )}
+                      </td>
+                      <td className="py-2 pr-3 text-xs text-white/60">
+                        {p.matchedLead ? (
+                          <>
+                            <div>
+                              Stage:{" "}
+                              <span className="font-semibold text-white/85">
+                                {p.matchedLead.status}
+                              </span>
+                            </div>
+                            <div>
+                              Website: {p.matchedLead.websiteInspection === "completed" ? "✓ inspected" : "not run"}
+                            </div>
+                            <div>
+                              AI: {p.matchedLead.aiIntelligence === "completed" ? "✓ analyzed" : "not run"}
+                            </div>
+                            <div>
+                              Score:{" "}
+                              {p.matchedLead.score != null ? p.matchedLead.score : "not scored"}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-white/40">Will enter as NEW</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                onClick={() => setPreview(null)}
+                className="rounded-lg border border-white/15 px-4 py-2 text-sm text-white/70 hover:bg-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmImport}
+                disabled={importing}
+                className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-semibold text-black transition hover:brightness-110 disabled:opacity-50"
+              >
+                {importing
+                  ? "Importing…"
+                  : demo
+                    ? "Simulate import"
+                    : `Confirm import (${preview.length})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Import summary */}
       {importSummary && (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="text-lg font-semibold">Import summary</h2>
-          <p className="mt-1 text-sm text-white/60">
-            Imported {importSummary.imported.length} · skipped{" "}
-            {importSummary.skipped.length}
-          </p>
-          {importSummary.skipped.length > 0 && (
-            <ul className="mt-3 space-y-2">
-              {importSummary.skipped.map((s) => (
-                <li
-                  key={s.providerId}
-                  className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm"
-                >
-                  <span className="font-medium">{s.name}</span>
-                  <span className="text-white/50"> — {s.reason ?? "skipped"}</span>
-                </li>
-              ))}
-            </ul>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {[
+              { label: "Imported", count: importSummary.counts.imported, cls: "text-emerald-300" },
+              { label: "Already exists", count: importSummary.counts.alreadyExists, cls: "text-white/70" },
+              { label: "Possible duplicate", count: importSummary.counts.possibleDuplicates, cls: "text-[#D4AF37]" },
+              { label: "Skipped", count: importSummary.counts.skipped, cls: "text-white/50" },
+              { label: "Failed", count: importSummary.counts.failed, cls: "text-red-300" },
+            ].map((c) => (
+              <div key={c.label} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                <div className={`text-xl font-bold ${c.cls}`}>{c.count}</div>
+                <div className="text-xs text-white/50">{c.label}</div>
+              </div>
+            ))}
+          </div>
+          {importSummary.alreadyExists.length > 0 && (
+            <div className="mt-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-white/40">
+                Already exists
+              </div>
+              <ul className="mt-2 space-y-2">
+                {importSummary.alreadyExists.map((s) => (
+                  <li
+                    key={s.providerId}
+                    className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm"
+                  >
+                    <span className="font-medium">{s.name}</span>
+                    <span className="text-white/50"> — {s.reason ?? "duplicate"}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
-          {importSummary.imported.length > 0 && (
-            <p className="mt-3 text-sm text-emerald-300">
-              {importSummary.imported.length} new lead
-              {importSummary.imported.length === 1 ? "" : "s"} added to your
-              database with source URL and provenance preserved.
+          {importSummary.possibleDuplicates.length > 0 && (
+            <div className="mt-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-[#D4AF37]">
+                Possible duplicates — review required
+              </div>
+              <ul className="mt-2 space-y-2">
+                {importSummary.possibleDuplicates.map((s) => (
+                  <li
+                    key={s.providerId}
+                    className="rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/5 px-3 py-2 text-sm"
+                  >
+                    <span className="font-medium">{s.name}</span>
+                    <span className="text-white/50"> — {s.reason}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {[...importSummary.skipped, ...importSummary.failed].length > 0 && (
+            <div className="mt-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-white/40">
+                Skipped / failed
+              </div>
+              <ul className="mt-2 space-y-2">
+                {[...importSummary.skipped, ...importSummary.failed].map((s) => (
+                  <li
+                    key={s.providerId}
+                    className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm"
+                  >
+                    <span className="font-medium">{s.name}</span>
+                    <span className="text-white/50"> — {s.reason ?? s.status}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {importSummary.counts.imported > 0 && (
+            <p className="mt-4 text-sm text-emerald-300">
+              {importSummary.counts.imported} new lead
+              {importSummary.counts.imported === 1 ? "" : "s"} added to CRM at the
+              NEW stage with source URL and provenance preserved.
             </p>
           )}
         </div>
