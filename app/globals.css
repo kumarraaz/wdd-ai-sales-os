@@ -42,7 +42,7 @@ html {
 }
 
 body {
-  @apply bg-white text-charcoal-900 font-sans antialiased;
+  @apply bg-[#0D1B2A] text-white font-sans antialiased;
   text-rendering: optimizeLegibility;
 }
 
