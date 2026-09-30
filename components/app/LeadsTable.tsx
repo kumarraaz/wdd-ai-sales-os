@@ -500,7 +500,7 @@ function AddLeadDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label="Add lead">
       <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="w-full max-w-lg space-y-3 rounded-2xl border border-white/15 bg-[#101f33] p-6">
         <h2 className="text-lg font-bold">Add lead</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Full name"><input className={inputCls} value={form.fullName} onChange={set("fullName")} /></Field>
           <Field label="Company"><input className={inputCls} value={form.companyName} onChange={set("companyName")} /></Field>
           <Field label="Email"><input type="email" className={inputCls} value={form.email} onChange={set("email")} /></Field>
@@ -595,7 +595,7 @@ function ImportDialog({ orgId, onClose, onDone }: { orgId: string; onClose: () =
         {step === "map" && (
           <>
             <p className="text-sm text-white/60">{rows.length} rows detected. Map your columns:</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {LEAD_FIELDS.map((f) => (
                 <Field key={f} label={f}>
                   <select value={mapping[f] ?? ""} onChange={(e) => setMapping((m) => ({ ...m, [f]: e.target.value }))}

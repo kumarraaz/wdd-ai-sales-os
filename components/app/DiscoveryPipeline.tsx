@@ -387,7 +387,7 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
       {/* ── Results ───────────────────────────────────────────────── */}
       {results.length > 0 && (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-bold text-white">Results</h3>
             {!demo && (
               <button onClick={addToCrm} disabled={importing || results.filter((r) => r.qualified && !r.duplicate).length === 0}
@@ -482,7 +482,7 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
 
             <h4 className="mt-4 text-sm font-bold uppercase tracking-wider text-[#D4AF37]">Website research</h4>
             {researchView.website.status === "completed" && researchView.website.findings ? (
-              <dl className="mt-1 grid grid-cols-2 gap-2 text-sm">
+              <dl className="mt-1 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
                 <div><dt className="text-white/40">Title</dt><dd className="text-white/80">{researchView.website.findings.title ?? "Not found"}</dd></div>
                 <div><dt className="text-white/40">HTTPS</dt><dd className="text-white/80">{researchView.website.findings.https ? "Yes" : "No"}</dd></div>
                 <div><dt className="text-white/40">Meta description</dt><dd className="text-white/80">{researchView.website.findings.metaDescription ? "Present" : "Missing"}</dd></div>

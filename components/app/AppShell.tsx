@@ -239,33 +239,39 @@ export function AppShell({
           </span>
         </header>
 
-        <main className="flex-1 p-4 pb-24 sm:p-6 lg:pb-6">{children}</main>
+        <main className="flex-1 p-4 pb-28 sm:p-6 sm:pb-28 lg:pb-6">{children}</main>
 
-        {/* Mobile bottom nav */}
+        {/* Mobile bottom nav — 5 key modules, safe-area aware */}
         <nav
-          className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-around border-t border-white/10 bg-[#0D1B2A]/95 px-2 py-2 backdrop-blur lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#0D1B2A]/95 backdrop-blur lg:hidden"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
           aria-label="Mobile"
         >
-          {[
-            { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-            { href: "/leads", label: "Leads", icon: Users },
-            { href: "/crm", label: "CRM", icon: KanbanSquare },
-          ].map((item) => {
-            const Icon = item.icon;
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center gap-1 rounded-lg px-4 py-1.5 text-[11px] ${
-                  active ? "text-[#D4AF37]" : "text-white/60"
-                }`}
-              >
-                <Icon size={20} />
-                {item.label}
-              </Link>
-            );
-          })}
+          <div className="grid grid-cols-5 px-1 pt-1.5">
+            {[
+              { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+              { href: "/leads", label: "Leads", icon: Users },
+              { href: "/discover", label: "Discover", icon: Radar },
+              { href: "/crm", label: "CRM", icon: KanbanSquare },
+              { href: "/intelligence", label: "Intel", icon: BrainCircuit },
+            ].map((item) => {
+              const Icon = item.icon;
+              const active = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={`flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-[10px] font-medium ${
+                    active ? "text-[#D4AF37]" : "text-white/60"
+                  }`}
+                >
+                  <Icon size={20} className="shrink-0" />
+                  <span className="max-w-full truncate">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
         </nav>
       </div>
 

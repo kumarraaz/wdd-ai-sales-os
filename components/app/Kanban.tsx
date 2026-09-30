@@ -179,7 +179,7 @@ export function Kanban({
     return <p role="alert" className="py-10 text-center text-red-400">{error}</p>;
 
   return (
-    <div>
+    <div className="min-w-0">
       {error && (
         <p role="alert" className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
           {error}
@@ -189,7 +189,9 @@ export function Kanban({
         <p className="mb-3 text-sm text-white/40">You have view-only access — cards cannot be moved.</p>
       )}
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-        <div className="flex gap-3 overflow-x-auto pb-4">
+        {/* Board scrolls horizontally inside its own viewport; columns keep
+            a usable minimum width and the page itself never overflows. */}
+        <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-4">
           {STAGES.map((s) => (
             <Column key={s} stage={s} cards={cards[s] ?? []} />
           ))}
