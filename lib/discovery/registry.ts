@@ -5,9 +5,11 @@
  */
 import { CsvImportProvider } from "./csv-import";
 import { GooglePlacesProvider } from "./google-places";
+import { OpenStreetMapProvider } from "./openstreetmap";
 import type { LeadDiscoveryProvider } from "./types";
 
 const providers: LeadDiscoveryProvider[] = [
+  new OpenStreetMapProvider(),
   new GooglePlacesProvider(),
   new CsvImportProvider(),
 ];

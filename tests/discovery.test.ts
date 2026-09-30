@@ -63,9 +63,10 @@ afterEach(() => {
 
 // ---------------------------------------------------------------------------
 describe("provider abstraction", () => {
-  it("registry lists google-places and csv-import with the required interface", () => {
+  it("registry lists openstreetmap, google-places and csv-import with the required interface", () => {
     const providers = listDiscoveryProviders();
-    expect(providers.map((p) => p.id).sort()).toEqual(["csv-import", "google-places"]);
+    expect(providers.map((p) => p.id).sort()).toEqual(["csv-import", "google-places", "openstreetmap"]);
+    expect(providers[0].id).toBe("openstreetmap"); // free default is first
     for (const p of providers) {
       expect(typeof p.label).toBe("string");
       expect(typeof p.isConfigured).toBe("function");

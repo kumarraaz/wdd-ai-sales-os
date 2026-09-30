@@ -166,11 +166,13 @@ The **Discover** page finds real companies via compliant providers and
 imports them into the existing lead database (no second lead store).
 
 - **Provider abstraction** (`lib/discovery/`): `LeadDiscoveryProvider`
-  interface with a registry. `GooglePlacesProvider` uses only the official
-  Places API (New) Text Search — no scraping, no CAPTCHAs bypassed, no
-  proxies. `CsvImportProvider` adapts CSV rows into the same normalized
-  shape. New providers implement the interface and register in
-  `lib/discovery/registry.ts`.
+  interface with a registry. `OpenStreetMapProvider` is the free default —
+  it queries the public Overpass API (no API key, identifiable User-Agent,
+  bounded queries); `GooglePlacesProvider` remains available as an optional
+  higher-coverage provider using only the official Places API (New) Text
+  Search — no scraping, no CAPTCHAs bypassed, no proxies. `CsvImportProvider`
+  adapts CSV rows into the same normalized shape. New providers implement
+  the interface and register in `lib/discovery/registry.ts`.
 - **API**: `GET /api/discovery/providers` (connection state, never keys),
   `POST /api/discovery/search` (quota-checked, rate-limited, recorded as a
   `DiscoveryRun`), `POST /api/discovery/import` (deduplicates with reasons,
@@ -184,10 +186,18 @@ imports them into the existing lead database (no second lead store).
   tracked daily in `UsageCounter` (`discoveries`, `discoveryRecords`,
   `discoveryImports`); searches are rejected before calling the provider
   when the quota is exhausted.
-- **Setup**: set `GOOGLE_PLACES_API_KEY` (server-side only, never
-  `NEXT_PUBLIC_*`). Without it, the UI shows "Google Places not connected"
-  with configuration steps. Demo mode serves fictional `DEMO_DATA`
-  fixtures and disables import.
+- **Setup**:
+  - **FREE DEFAULT DISCOVERY**: OpenStreetMap / Overpass. No API key
+    required. Small user-triggered searches only. Public Overpass is
+    rate-limited and best-effort. Attribution required:
+    © OpenStreetMap contributors. OSM does not list every business, and
+    phone/website data is only present when the public listing includes it.
+  - **GOOGLE PLACES** (optional): higher-coverage provider. Requires
+    `GOOGLE_PLACES_API_KEY` (server-side only, never `NEXT_PUBLIC_*`).
+  - **GEMINI** (optional): AI intelligence provider. Requires
+    `GEMINI_API_KEY`. Discovery, website research, and scoring work without
+    it — AI research is then marked pending.
+  - Demo mode serves fictional `DEMO_DATA` fixtures and disables import.
 - Tests: `tests/discovery.test.ts` (33 unit tests, mocked Google API),
   `tests/discovery-db.test.ts` (DB-gated: import, tenant isolation,
   dedup, quotas, provenance, audit).

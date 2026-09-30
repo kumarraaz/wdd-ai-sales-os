@@ -53,7 +53,7 @@ function StatusDot({ status }: { status: string }) {
 export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelineProps) {
   const [providers, setProviders] = useState<ProviderInfo[]>(() =>
     demo
-      ? [{ id: "google-places", label: "Google Places", configured: true, searchable: true, setupInstructions: [] }]
+      ? [{ id: "openstreetmap", label: "OpenStreetMap (Overpass)", configured: true, searchable: true, setupInstructions: [] }]
       : [],
   );
   const [providersLoading, setProvidersLoading] = useState(!demo);
@@ -80,7 +80,8 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
   const [importDone, setImportDone] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const providerReady = demo || providers.some((p) => p.id === "google-places" && p.configured && p.searchable);
+  const osmProvider = providers.find((p) => p.id === "openstreetmap");
+  const providerReady = demo || (osmProvider?.configured && osmProvider?.searchable);
 
   useEffect(() => {
     if (demo) return;
@@ -125,7 +126,7 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          providerId: "google-places",
+          providerId: "openstreetmap",
           industry: industry.trim(),
           location: location.trim(),
           websiteFilter,
@@ -225,7 +226,7 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          providerId: "google-places",
+          providerId: "openstreetmap",
           searchQuery: `${industry.trim()}, ${location.trim()}`,
           companies: qualified.map((r) => r.company),
           research,
@@ -306,13 +307,28 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
         {importDone && <p className="mt-3 text-sm text-emerald-300">{importDone}</p>}
       </div>
 
-      {/* ── Provider not configured ───────────────────────────────── */}
-      {!demo && !providersLoading && !providerReady && !running && (
+      {/* ── Discovery source info ─────────────────────────────────── */}
+      {!demo && !providersLoading && providerReady && !running && (
         <div className="rounded-2xl border border-[#D4AF37]/30 bg-[#D4AF37]/5 p-6">
-          <h3 className="font-bold text-white">Real lead discovery is not configured</h3>
+          <h3 className="font-bold text-white">Free Lead Discovery is ready</h3>
           <p className="mt-1 text-sm text-white/60">
-            Connect Google Places to discover real businesses. Your API key stays
-            server-side and is never exposed.
+            Powered by OpenStreetMap public business data. No API key required.
+          </p>
+          <p className="mt-2 text-xs text-white/40">
+            OpenStreetMap is community-maintained and does not list every
+            business. Phone and website details appear only when the public
+            listing includes them — missing data is common.
+          </p>
+          <p className="mt-2 text-xs text-white/30">© OpenStreetMap contributors</p>
+        </div>
+      )}
+
+      {/* ── Provider unavailable (edge case) ────────────────────────── */}
+      {!demo && !providersLoading && !providerReady && !running && (
+        <div className="rounded-2xl border border-red-400/30 bg-red-400/5 p-6">
+          <h3 className="font-bold text-white">Lead discovery is unavailable</h3>
+          <p className="mt-1 text-sm text-white/60">
+            The discovery provider could not be reached. Please try again later.
           </p>
           {notConfigured && notConfigured.length > 0 && (
             <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-white/70">
