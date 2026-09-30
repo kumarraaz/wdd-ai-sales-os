@@ -26,6 +26,41 @@ function mockFetch(response: Partial<Response> & { jsonImpl?: () => unknown }) {
   return fn as unknown as typeof fetch & { mock: { calls: unknown[][] } };
 }
 
+/**
+ * Mock fetch with per-call responses, in order. A response entry can be:
+ * - { status, ok, jsonImpl } for an HTTP response
+ * - { networkError: true } to throw
+ */
+type SeqEntry =
+  | (Partial<Response> & { jsonImpl?: () => unknown })
+  | { networkError: true };
+
+function mockFetchSequence(entries: SeqEntry[]) {
+  const calls: unknown[][] = [];
+  const fn = vi.fn(async (url: unknown, init: unknown) => {
+    calls.push([url, init]);
+    const entry = entries[Math.min(calls.length - 1, entries.length - 1)];
+    if ("networkError" in entry) throw new Error("boom");
+    const res = {
+      ok: true,
+      status: 200,
+      json: async () => {
+        const impl = (entry as { jsonImpl?: () => unknown }).jsonImpl;
+        if (impl) return impl();
+        throw new Error("invalid json");
+      },
+    } as Response;
+    return Object.assign(res, {
+      ok: (entry as Partial<Response>).ok ?? true,
+      status: (entry as Partial<Response>).status ?? 200,
+    });
+  });
+  return { fetch: fn as unknown as typeof fetch, calls };
+}
+
+const PRIMARY = "https://overpass-api.de/api/interpreter";
+const FALLBACK = "https://overpass.private.coffee/api/interpreter";
+
 function overpassResponse(elements: unknown[]) {
   return mockFetch({
     jsonImpl: () => ({ elements }),
@@ -241,25 +276,124 @@ describe("request shape", () => {
 });
 
 describe("error handling", () => {
-  it("maps 429 to a friendly rate-limit error", async () => {
-    const p = new OpenStreetMapProvider(mockFetch({ status: 429, ok: false }));
+  it("primary succeeds — fallback never called", async () => {
+    const { fetch, calls } = mockFetchSequence([
+      { jsonImpl: () => ({ elements: [] }) },
+      { jsonImpl: () => ({ elements: [] }) },
+    ]);
+    const p = new OpenStreetMapProvider(fetch);
+    await p.search({ keyword: "x", state: "y", maxResults: 5 });
+    expect(calls).toHaveLength(1);
+    expect(calls[0][0]).toBe(PRIMARY);
+  });
+
+  it("primary 504 -> fallback succeeds", async () => {
+    const el = { type: "node", id: 1, tags: { name: "Fallback Co" } };
+    const { fetch, calls } = mockFetchSequence([
+      { status: 504, ok: false },
+      { jsonImpl: () => ({ elements: [el] }) },
+    ]);
+    const p = new OpenStreetMapProvider(fetch);
+    const result = await p.search({ keyword: "x", state: "y", maxResults: 5 });
+    expect(calls).toHaveLength(2);
+    expect(calls[0][0]).toBe(PRIMARY);
+    expect(calls[1][0]).toBe(FALLBACK);
+    expect(result.companies).toHaveLength(1);
+    expect(result.companies[0].name).toBe("Fallback Co");
+    expect(result.provider).toBe("openstreetmap");
+  });
+
+  it("primary 503 -> fallback succeeds", async () => {
+    const { fetch, calls } = mockFetchSequence([
+      { status: 503, ok: false },
+      { jsonImpl: () => ({ elements: [] }) },
+    ]);
+    const p = new OpenStreetMapProvider(fetch);
+    const result = await p.search({ keyword: "x", state: "y", maxResults: 5 });
+    expect(calls).toHaveLength(2);
+    expect(result.companies).toHaveLength(0);
+  });
+
+  it("primary 429 -> fallback succeeds and returns normal companies", async () => {
+    const el = { type: "way", id: 7, tags: { name: "Rate Ltd Co", shop: "beauty" } };
+    const { fetch, calls } = mockFetchSequence([
+      { status: 429, ok: false },
+      { jsonImpl: () => ({ elements: [el] }) },
+    ]);
+    const p = new OpenStreetMapProvider(fetch);
+    const result = await p.search({ keyword: "salon", state: "y", maxResults: 5 });
+    expect(calls).toHaveLength(2);
+    expect(calls[1][0]).toBe(FALLBACK);
+    expect(result.companies[0].providerId).toBe("osm:way:7");
+  });
+
+  it("primary network failure -> fallback succeeds", async () => {
+    const { fetch, calls } = mockFetchSequence([
+      { networkError: true },
+      { jsonImpl: () => ({ elements: [] }) },
+    ]);
+    const p = new OpenStreetMapProvider(fetch);
+    await p.search({ keyword: "x", state: "y", maxResults: 5 });
+    expect(calls).toHaveLength(2);
+    expect(calls[0][0]).toBe(PRIMARY);
+    expect(calls[1][0]).toBe(FALLBACK);
+  });
+
+  it("both endpoints 429 -> RATE_LIMITED", async () => {
+    const { fetch, calls } = mockFetchSequence([
+      { status: 429, ok: false },
+      { status: 429, ok: false },
+    ]);
+    const p = new OpenStreetMapProvider(fetch);
     const err = await p.search({ keyword: "x", state: "y", maxResults: 5 }).catch((e) => e);
     expect(err).toBeInstanceOf(DiscoveryError);
     expect(err.code).toBe("RATE_LIMITED");
     expect(err.message).toMatch(/rate-limit/i);
+    expect(calls).toHaveLength(2);
   });
 
-  it("maps other non-2xx to PROVIDER_ERROR", async () => {
-    const p = new OpenStreetMapProvider(mockFetch({ status: 504, ok: false }));
-    const err = await p.search({ keyword: "x", state: "y", maxResults: 5 }).catch((e) => e);
-    expect(err.code).toBe("PROVIDER_ERROR");
-  });
-
-  it("maps network failure to PROVIDER_UNREACHABLE", async () => {
-    const failing = vi.fn(async () => { throw new Error("boom"); }) as unknown as typeof fetch;
-    const p = new OpenStreetMapProvider(failing);
+  it("both endpoints fail (504 then network) -> PROVIDER_UNREACHABLE with friendly message", async () => {
+    const { fetch } = mockFetchSequence([
+      { status: 504, ok: false },
+      { networkError: true },
+    ]);
+    const p = new OpenStreetMapProvider(fetch);
     const err = await p.search({ keyword: "x", state: "y", maxResults: 5 }).catch((e) => e);
     expect(err.code).toBe("PROVIDER_UNREACHABLE");
+    expect(err.message).toBe("OpenStreetMap is temporarily busy. Please try again in a moment.");
+  });
+
+  it("does not send requests in parallel — fallback only after primary settles", async () => {
+    const order: string[] = [];
+    const { fetch } = mockFetchSequence([
+      { status: 504, ok: false },
+      { jsonImpl: () => ({ elements: [] }) },
+    ]);
+    const wrapped = (async (url: unknown, init: unknown) => {
+      order.push(`start:${url}`);
+      const res = await (fetch as (u: unknown, i: unknown) => Promise<Response>)(url, init);
+      order.push(`end:${url}`);
+      return res;
+    }) as unknown as typeof fetch;
+    const p = new OpenStreetMapProvider(wrapped);
+    await p.search({ keyword: "x", state: "y", maxResults: 5 });
+    expect(order).toEqual([
+      `start:${PRIMARY}`,
+      `end:${PRIMARY}`,
+      `start:${FALLBACK}`,
+      `end:${FALLBACK}`,
+    ]);
+  });
+
+  it("non-retryable errors (e.g. 400) fail fast without fallback", async () => {
+    const { fetch, calls } = mockFetchSequence([
+      { status: 400, ok: false },
+      { jsonImpl: () => ({ elements: [] }) },
+    ]);
+    const p = new OpenStreetMapProvider(fetch);
+    const err = await p.search({ keyword: "x", state: "y", maxResults: 5 }).catch((e) => e);
+    expect(err.code).toBe("PROVIDER_ERROR");
+    expect(calls).toHaveLength(1);
   });
 
   it("maps invalid JSON to PROVIDER_ERROR", async () => {

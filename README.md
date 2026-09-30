@@ -188,10 +188,16 @@ imports them into the existing lead database (no second lead store).
   when the quota is exhausted.
 - **Setup**:
   - **FREE DEFAULT DISCOVERY**: OpenStreetMap / Overpass. No API key
-    required. Small user-triggered searches only. Public Overpass is
-    rate-limited and best-effort. Attribution required:
-    © OpenStreetMap contributors. OSM does not list every business, and
-    phone/website data is only present when the public listing includes it.
+    required. Small user-triggered searches only (max 50 records, UI
+    prefers 10–20). Public Overpass is a shared, rate-limited, best-effort
+    service — it can be temporarily busy; the provider tries the primary
+    endpoint (`overpass-api.de`) then a fallback
+    (`overpass.private.coffee`) once before surfacing a friendly
+    "temporarily busy" message. No uptime is guaranteed; commercial or
+    high-volume production may eventually need a dedicated, self-hosted,
+    or paid provider. Attribution required: © OpenStreetMap contributors.
+    OSM does not list every business, and phone/website data is only
+    present when the public listing includes it.
   - **GOOGLE PLACES** (optional): higher-coverage provider. Requires
     `GOOGLE_PLACES_API_KEY` (server-side only, never `NEXT_PUBLIC_*`).
   - **GEMINI** (optional): AI intelligence provider. Requires

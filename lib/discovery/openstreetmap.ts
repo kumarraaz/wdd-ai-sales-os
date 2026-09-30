@@ -21,6 +21,9 @@ import {
 import { toSafeHttpUrl } from "./google-places";
 
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+const OVERPASS_FALLBACK_URL = "https://overpass.private.coffee/api/interpreter";
+/** Tried strictly in order — never in parallel. */
+const OVERPASS_ENDPOINTS = [OVERPASS_URL, OVERPASS_FALLBACK_URL];
 const USER_AGENT = "WDD-AI-Sales-OS/1.0 (+https://wdd-ai-sales-os.vercel.app)";
 
 /** Keyword → OSM tag selectors for common business types. */
@@ -212,9 +215,52 @@ export class OpenStreetMapProvider implements LeadDiscoveryProvider {
   async search(query: DiscoveryQuery): Promise<DiscoveryResult> {
     const ql = buildOverpassQuery(query); // throws INVALID_QUERY when unusable
 
+    // Sequential endpoint attempts: primary first, fallback once on
+    // temporary failures (429/502/503/504/network). Never parallel, never
+    // retried indefinitely.
+    let lastError: DiscoveryError | null = null;
+    for (let i = 0; i < OVERPASS_ENDPOINTS.length; i++) {
+      const endpoint = OVERPASS_ENDPOINTS[i];
+      const label = i === 0 ? "primary" : "fallback";
+      try {
+        const result = await this.attemptSearch(endpoint, ql);
+        if (i > 0) console.log("[osm] fallback request succeeded");
+        return result;
+      } catch (err) {
+        if (!(err instanceof DiscoveryError) || !isRetryable(err)) throw err;
+        console.warn(`[osm] ${label} request failed: ${err.detail ?? err.code}`);
+        lastError = err;
+        if (i === 0) console.log("[osm] trying fallback endpoint");
+        // fall through to the next endpoint
+      }
+    }
+
+    // Both endpoints failed — clean, user-facing error. Never expose raw
+    // server HTML or infrastructure details.
+    if (lastError?.code === "RATE_LIMITED") {
+      throw new DiscoveryError(
+        "RATE_LIMITED",
+        "OpenStreetMap is rate-limiting requests right now. Please wait a minute and try again.",
+      );
+    }
+    throw new DiscoveryError(
+      "PROVIDER_UNREACHABLE",
+      "OpenStreetMap is temporarily busy. Please try again in a moment.",
+    );
+  }
+
+  /**
+   * One attempt against a single endpoint. Throws DiscoveryError with a
+   * retryable code (RATE_LIMITED / PROVIDER_UNREACHABLE) for temporary
+   * failures, PROVIDER_ERROR for definitive failures.
+   */
+  private async attemptSearch(
+    endpoint: string,
+    ql: string,
+  ): Promise<DiscoveryResult> {
     let res: Response;
     try {
-      res = await this.fetcher(OVERPASS_URL, {
+      res = await this.fetcher(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -227,14 +273,18 @@ export class OpenStreetMapProvider implements LeadDiscoveryProvider {
       throw new DiscoveryError(
         "PROVIDER_UNREACHABLE",
         "Could not reach the OpenStreetMap Overpass API.",
-        err instanceof Error ? err.message : undefined,
+        err instanceof Error ? err.message : "network failure",
       );
     }
 
     if (res.status === 429) {
+      throw new DiscoveryError("RATE_LIMITED", "Rate limited.", "429");
+    }
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
       throw new DiscoveryError(
-        "RATE_LIMITED",
-        "OpenStreetMap is rate-limiting requests right now. Please wait a minute and try again.",
+        "PROVIDER_UNREACHABLE",
+        "Overpass server overloaded.",
+        String(res.status),
       );
     }
     if (!res.ok) {
@@ -265,4 +315,9 @@ export class OpenStreetMapProvider implements LeadDiscoveryProvider {
     }
     return { provider: this.id, companies, searchedAt: new Date().toISOString() };
   }
+}
+
+/** Temporary failures worth trying the fallback endpoint for. */
+function isRetryable(err: DiscoveryError): boolean {
+  return err.code === "RATE_LIMITED" || err.code === "PROVIDER_UNREACHABLE";
 }
