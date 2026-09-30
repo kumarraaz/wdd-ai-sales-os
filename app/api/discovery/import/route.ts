@@ -70,7 +70,7 @@ export const POST = withWorkspace(
       ctx.user.id,
       provider,
       importable,
-      { searchQuery: input.searchQuery },
+      { searchQuery: input.searchQuery, research: input.research },
     );
     const skipped = [...summary.skipped, ...overQuota];
 

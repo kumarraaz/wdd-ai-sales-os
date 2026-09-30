@@ -359,6 +359,110 @@ const DEMO_DISCOVERY_SEED: Omit<DemoDiscoveredCompany, "discoveredAt" | "provena
     rating: 4.7,
     reviewCount: 512,
   },
+  // ── Fictional Gujarat manufacturers for the discovery demo ─────────────
+  {
+    provider: "google-places",
+    providerId: "demo-place-009",
+    name: "Vibrant Steel Fabricators",
+    category: "manufacturer",
+    address: "Plot 18, GIDC Vatva, Ahmedabad, Gujarat",
+    city: "Ahmedabad",
+    state: "Gujarat",
+    country: "India",
+    phone: "+91 79 4000 2211",
+    website: "https://vibrantsteel.example.com",
+    sourceUrl: "https://maps.google.com/?cid=demo-place-009",
+    rating: 4.2,
+    reviewCount: 64,
+  },
+  {
+    provider: "google-places",
+    providerId: "demo-place-010",
+    name: "Surat Diamond Tools Works",
+    category: "manufacturer",
+    address: "Katargam Industrial Area, Surat, Gujarat",
+    city: "Surat",
+    state: "Gujarat",
+    country: "India",
+    phone: "+91 261 250 3344",
+    website: "https://suratdiamondtools.example.com",
+    sourceUrl: "https://maps.google.com/?cid=demo-place-010",
+    rating: 4.5,
+    reviewCount: 92,
+  },
+  {
+    provider: "google-places",
+    providerId: "demo-place-011",
+    name: "Vadodara Chemical Industries",
+    category: "manufacturer",
+    address: "Nandesari Industrial Estate, Vadodara, Gujarat",
+    city: "Vadodara",
+    state: "Gujarat",
+    country: "India",
+    phone: "+91 265 284 5566",
+    website: "https://vadodarachemical.example.com",
+    sourceUrl: "https://maps.google.com/?cid=demo-place-011",
+    rating: 3.8,
+    reviewCount: 47,
+  },
+  {
+    provider: "google-places",
+    providerId: "demo-place-012",
+    name: "Rajkot Engineering Works",
+    category: "manufacturer",
+    address: "Aji Industrial Estate, Rajkot, Gujarat",
+    city: "Rajkot",
+    state: "Gujarat",
+    country: "India",
+    phone: "+91 281 240 7788",
+    sourceUrl: "https://maps.google.com/?cid=demo-place-012",
+    rating: 4.1,
+    reviewCount: 55,
+  },
+  {
+    provider: "google-places",
+    providerId: "demo-place-013",
+    name: "Gandhinagar Pharma Labs",
+    category: "manufacturer",
+    address: "Infocity, Gandhinagar, Gujarat",
+    city: "Gandhinagar",
+    state: "Gujarat",
+    country: "India",
+    phone: "+91 79 2320 9900",
+    website: "https://gandhinagarpharma.example.com",
+    sourceUrl: "https://maps.google.com/?cid=demo-place-013",
+    rating: 4.3,
+    reviewCount: 71,
+  },
+  {
+    provider: "google-places",
+    providerId: "demo-place-014",
+    name: "Ankleshwar Dye Intermediates",
+    category: "manufacturer",
+    address: "GIDC Ankleshwar, Bharuch, Gujarat",
+    city: "Ankleshwar",
+    state: "Gujarat",
+    country: "India",
+    website: "https://ankleshwarchyes.example.com",
+    sourceUrl: "https://maps.google.com/?cid=demo-place-014",
+    rating: 3.6,
+    reviewCount: 28,
+  },
+  {
+    provider: "google-places",
+    providerId: "demo-place-015",
+    name: "Bhavnagar Ship Components",
+    category: "manufacturer",
+    address: "Alang Road, Bhavnagar, Gujarat",
+    city: "Bhavnagar",
+    state: "Gujarat",
+    country: "India",
+    phone: "+91 278 250 1122",
+    website: "https://bhavnagarship.example.com",
+    sourceUrl: "https://maps.google.com/?cid=demo-place-015",
+    rating: 4.0,
+    reviewCount: 39,
+  },
 ];
 
 /**
@@ -372,13 +476,15 @@ export function getDemoDiscoveryResults(query: {
   maxResults: number;
 }): DemoDiscoveredCompany[] {
   const kw = query.keyword.trim().toLowerCase();
+  // Simple plural handling so "manufacturers" matches "manufacturer".
+  const kwSingular = kw.endsWith("s") ? kw.slice(0, -1) : kw;
   const city = query.city?.trim().toLowerCase();
   const country = query.country?.trim().toLowerCase();
   const now = new Date().toISOString();
   return DEMO_DISCOVERY_SEED.filter((c) => {
     const haystack =
       `${c.name} ${c.category ?? ""} ${c.city ?? ""} ${c.country ?? ""}`.toLowerCase();
-    if (kw && !haystack.includes(kw)) return false;
+    if (kw && !haystack.includes(kw) && !haystack.includes(kwSingular)) return false;
     if (city && c.city?.toLowerCase() !== city) return false;
     if (country && c.country?.toLowerCase() !== country) return false;
     return true;

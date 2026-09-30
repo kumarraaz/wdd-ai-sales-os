@@ -111,6 +111,17 @@ export interface ImportSummary {
   failed: ImportItemResult[];
 }
 
+/**
+ * Pipeline research attached to an import. Keyed by company.providerId in
+ * the opts.research map. Persisted as WebsiteInspection / LeadIntelligence
+ * rows linked to the created lead — provenance preserved.
+ */
+export interface ImportResearch {
+  websiteFindings?: Record<string, unknown> | null;
+  aiOutput?: Record<string, unknown> | null;
+  aiWarnings?: string[];
+}
+
 export interface CompanyMatch {
   match: { kind: string; definitive: boolean; reason: string } | null;
   matchedLeadId?: string;
@@ -278,7 +289,7 @@ export async function importDiscoveredCompanies(
   actorId: string,
   provider: LeadDiscoveryProvider,
   companies: DiscoveredCompany[],
-  opts: { searchQuery?: string } = {},
+  opts: { searchQuery?: string; research?: Record<string, ImportResearch> } = {},
 ): Promise<ImportSummary> {
   const imported: ImportItemResult[] = [];
   const alreadyExists: ImportItemResult[] = [];
@@ -362,6 +373,46 @@ export async function importDiscoveredCompanies(
       }
       if (provenanceRows.length > 0) {
         await db.leadFieldProvenance.createMany({ data: provenanceRows });
+      }
+
+      // Attach pipeline research (website inspection + AI research) to the
+      // created lead. Research rows are never fabricated — only persisted
+      // when the pipeline actually produced them.
+      const research = opts.research?.[company.providerId];
+      const companyId = lead.company?.id ?? null;
+      if (research?.websiteFindings) {
+        const f = research.websiteFindings as {
+          requestedUrl?: string;
+          finalUrl?: string;
+          httpStatus?: number;
+        };
+        await db.websiteInspection.create({
+          data: {
+            organizationId,
+            leadId: lead.id,
+            companyId,
+            requestedUrl:
+              typeof f.requestedUrl === "string" ? f.requestedUrl : (company.website ?? ""),
+            finalUrl: typeof f.finalUrl === "string" ? f.finalUrl : null,
+            httpStatus: typeof f.httpStatus === "number" ? f.httpStatus : null,
+            status: "COMPLETED",
+            findings: research.websiteFindings as never,
+            dataLabel,
+          },
+        });
+      }
+      if (research?.aiOutput) {
+        await db.leadIntelligence.create({
+          data: {
+            organizationId,
+            leadId: lead.id,
+            companyId,
+            status: "COMPLETED",
+            provider: "gemini",
+            intelligence: research.aiOutput as never,
+            warnings: (research.aiWarnings ?? []) as never,
+          },
+        });
       }
 
       if (possible) {

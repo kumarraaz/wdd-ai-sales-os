@@ -136,9 +136,43 @@ export const discoveryImportSchema = z.object({
   providerId: z.string().trim().min(1).max(60),
   searchQuery: z.string().trim().max(300).optional(),
   companies: z.array(discoveredCompanySchema).min(1).max(100),
+  /**
+   * Optional pipeline research keyed by company.providerId. Persisted as
+   * WebsiteInspection / LeadIntelligence rows on the created leads.
+   * JSON-shaped only — never trust nested provider data blindly.
+   */
+  research: z
+    .record(
+      z.string(),
+      z.object({
+        websiteFindings: z.record(z.string(), z.unknown()).optional(),
+        aiOutput: z.record(z.string(), z.unknown()).optional(),
+        aiWarnings: z.array(z.string().max(500)).max(20).optional(),
+      }),
+    )
+    .optional(),
 });
 
 export type DiscoveryImportInput = z.infer<typeof discoveryImportSchema>;
+
+// ── Discovery pipeline (guided: search → research → AI → qualify) ─────────
+
+export const discoveryPipelineSchema = z.object({
+  providerId: z.string().trim().min(1).max(60),
+  /** Industry / keyword, e.g. "Manufacturers". */
+  industry: z.string().trim().min(1).max(200),
+  /** Free-text location, e.g. "Gujarat, India". */
+  location: z.string().trim().min(1).max(200),
+  websiteFilter: z.enum(["any", "has_website", "no_website"]).default("any"),
+  opportunity: z
+    .enum(["website_improvement", "new_website", "seo", "any"])
+    .default("any"),
+  /** 1..50 requested; providers cap per their own API limits. */
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+  category: z.string().trim().max(120).optional(),
+});
+
+export type DiscoveryPipelineInput = z.infer<typeof discoveryPipelineSchema>;
 
 // ── Website inspection (Phase 2 Step 2) ──────────────────────────────────
 

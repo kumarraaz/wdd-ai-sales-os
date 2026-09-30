@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getDemoSession } from "@/lib/demo-session";
-import { Discovery } from "@/components/app/Discovery";
+import { DiscoveryPipeline } from "@/components/app/DiscoveryPipeline";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +11,8 @@ export default async function DiscoverPage() {
   const demo = await getDemoSession();
   if (!session?.user && !demo) redirect("/login");
 
-  // Demo mode: discovery searches fictional DEMO_DATA fixtures — no external
-  // APIs are called and import is disabled with "Demo Mode — Action Disabled".
+  // Demo mode: pipeline runs on fictional DEMO_DATA fixtures — no external
+  // APIs are called and import is disabled.
   if (demo && !session?.user) {
     return (
       <div className="space-y-5">
@@ -27,7 +27,7 @@ export default async function DiscoverPage() {
             Find real companies and import them into your lead database.
           </p>
         </div>
-        <Discovery apiBase="/api/demo" demo />
+        <DiscoveryPipeline apiBase="/api/demo" demo />
       </div>
     );
   }
@@ -40,7 +40,7 @@ export default async function DiscoverPage() {
           Find real companies and import them into your lead database.
         </p>
       </div>
-      <Discovery apiBase="/api" />
+      <DiscoveryPipeline apiBase="/api" />
     </div>
   );
 }
