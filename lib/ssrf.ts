@@ -54,15 +54,58 @@ const BLOCKED_HOSTNAMES = new Set([
 ]);
 
 /** True when an IP literal must never be connected to (SSRF guard). */
-export function isBlockedIp(ip: string): boolean {
-  if (ip === "::1" || ip.toLowerCase() === "::ffff:127.0.0.1") return true;
-  if (ipaddr.isValid(ip)) {
-    const parsed = ipaddr.parse(ip);
-    if (parsed.kind() === "ipv6") {
-      return parsed.range() !== "unicast";
-    }
+export function isBlockedIp(ip: unknown): boolean {
+  // Fail closed: anything that is not a verifiable IP string is blocked.
+  // Runtime data (DNS records, network input) is never trusted to match
+  // the TypeScript signature.
+  if (typeof ip !== "string") return true;
+  const trimmed = ip.trim();
+  if (!trimmed) return true;
+  // Strict literal check — rejects ambiguous forms like "1.2.3" that some
+  // parsers accept but Node itself does not treat as an IP.
+  if (net.isIP(trimmed) === 0) return true;
+  const lower = trimmed.toLowerCase();
+  if (lower === "::1" || lower === "::ffff:127.0.0.1") return true;
+
+  let parsed: ipaddr.IPv4 | ipaddr.IPv6;
+  try {
+    // Malformed input must never reach the parser unguarded, and a parser
+    // throw must never escape as a "safe" verdict.
+    if (!ipaddr.isValid(trimmed)) return true;
+    parsed = ipaddr.parse(trimmed);
+  } catch {
+    return true;
   }
-  return BLOCKED_CIDRS.some((cidr) => inCidr(ip, cidr));
+
+  if (parsed.kind() === "ipv6") {
+    const v6 = parsed as ipaddr.IPv6;
+    // IPv4-mapped IPv6 (::ffff:a.b.c.d) — judge the embedded IPv4 address.
+    if (v6.isIPv4MappedAddress()) {
+      return BLOCKED_CIDRS.some((cidr) => inCidr(v6.toIPv4Address().toString(), cidr));
+    }
+    return parsed.range() !== "unicast";
+  }
+  return BLOCKED_CIDRS.some((cidr) => inCidr(trimmed, cidr));
+}
+
+/**
+ * Normalize one raw DNS record address to a verifiable IP string.
+ * Returns null for undefined/null/non-string/empty/malformed values —
+ * callers must ignore these, never feed them to IP parsing.
+ */
+export function normalizeRecordAddress(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  // Strict: only real IP literals (net.isIP), so ambiguous forms are
+  // dropped instead of being passed to IP parsing.
+  if (net.isIP(trimmed) === 0) return null;
+  try {
+    if (!ipaddr.isValid(trimmed)) return null;
+  } catch {
+    return null;
+  }
+  return trimmed;
 }
 
 export async function assertSafeUrl(raw: string, opts: { allowPrivate?: boolean } = {}): Promise<string> {
@@ -87,14 +130,27 @@ export async function assertSafeUrl(raw: string, opts: { allowPrivate?: boolean 
     return url.toString();
   }
 
-  // Resolve and check every returned address.
-  let addresses: string[];
+  // Resolve and check every returned address. DNS records are normalized
+  // defensively: some environments return malformed records
+  // (undefined/null/non-string addresses) — those are ignored, never
+  // passed to IP parsing, and never treated as safe.
+  let records: { address?: unknown }[];
   try {
-    addresses = (await lookup(hostname, { all: true })).map((a) => a.address);
+    records = await lookup(hostname, { all: true });
   } catch {
     throw new SafeUrlError("DNS resolution failed");
   }
-  if (addresses.length === 0 || addresses.some(isBlockedIp)) {
+  const addresses: string[] = [];
+  for (const record of records ?? []) {
+    const normalized = normalizeRecordAddress(record?.address);
+    if (normalized) addresses.push(normalized);
+  }
+  // No usable addresses at all — DNS did not resolve to anything we can
+  // safely verify. Fail closed, do not treat as a public IP.
+  if (addresses.length === 0) {
+    throw new SafeUrlError("DNS resolution failed");
+  }
+  if (addresses.some(isBlockedIp)) {
     throw new SafeUrlError("Internal addresses are blocked");
   }
   return url.toString();

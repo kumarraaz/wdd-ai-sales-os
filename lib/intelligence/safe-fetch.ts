@@ -18,9 +18,10 @@
  */
 import * as http from "node:http";
 import * as https from "node:https";
+import * as net from "node:net";
 import { lookup as dnsLookup } from "node:dns/promises";
 import type { LookupOptions } from "node:dns";
-import { assertSafeUrl, isBlockedIp, SafeUrlError } from "../ssrf";
+import { assertSafeUrl, isBlockedIp, normalizeRecordAddress, SafeUrlError } from "../ssrf";
 
 export type SafeFetchErrorCode =
   | "BLOCKED"
@@ -34,10 +35,16 @@ export type SafeFetchErrorCode =
 
 export class SafeFetchError extends Error {
   code: SafeFetchErrorCode;
-  constructor(code: SafeFetchErrorCode, message: string) {
+  /**
+   * Technical cause for server-side logs. Never shown to users —
+   * `message` is always the clean, user-facing text.
+   */
+  detail?: string;
+  constructor(code: SafeFetchErrorCode, message: string, detail?: string) {
     super(message);
     this.name = "SafeFetchError";
     this.code = code;
+    this.detail = detail;
   }
 }
 
@@ -80,25 +87,39 @@ const DEFAULT_USER_AGENT =
 function toSafeFetchError(err: unknown): SafeFetchError {
   if (err instanceof SafeFetchError) return err;
   if (err instanceof SafeUrlError) {
-    const msg = err.message;
-    const code: SafeFetchErrorCode = msg.includes("DNS")
-      ? "DNS_FAILED"
-      : "BLOCKED";
-    return new SafeFetchError(code, `Blocked URL: ${msg}`);
+    const technical = err.message;
+    const code: SafeFetchErrorCode = technical.includes("DNS") ? "DNS_FAILED" : "BLOCKED";
+    const userMessage =
+      code === "DNS_FAILED"
+        ? "Website could not be resolved safely."
+        : `Blocked URL: ${technical}`;
+    return new SafeFetchError(code, userMessage, technical);
   }
   if (err instanceof Error && (err as NodeJS.ErrnoException).code === "EBLOCKED") {
-    return new SafeFetchError("BLOCKED", "Blocked URL: internal addresses are blocked");
+    return new SafeFetchError(
+      "BLOCKED",
+      "Website is not allowed.",
+      "internal addresses are blocked",
+    );
   }
-  return new SafeFetchError(
-    "NETWORK_ERROR",
-    err instanceof Error ? err.message : "Network error",
-  );
+  const raw = err instanceof Error ? err.message : "Network error";
+  const isTimeout = /timed out|timeout|ETIMEDOUT|ESOCKETTIMEDOUT/i.test(raw);
+  const code: SafeFetchErrorCode = isTimeout ? "TIMEOUT" : "NETWORK_ERROR";
+  const userMessage = isTimeout
+    ? "Website request timed out."
+    : "Website could not be reached.";
+  return new SafeFetchError(code, userMessage, raw);
 }
 
 /**
  * Custom DNS lookup for http.request: resolves the hostname and only hands
  * back addresses that pass the SSRF blocklist. Because Node connects to the
- * address this function returns, the validated IP is the connected IP.
+ * address this function returns, the validated IP is the connected IP
+ * (closes the resolve→connect TOCTOU / DNS-rebinding window).
+ *
+ * Records are normalized defensively: malformed entries
+ * (undefined/null/non-string addresses) are dropped, and the callback is
+ * never invoked with an undefined address.
  */
 function validatedLookup(allowPrivate: boolean) {
   return (
@@ -108,11 +129,20 @@ function validatedLookup(allowPrivate: boolean) {
   ): void => {
     dnsLookup(hostname, { all: true }).then(
       (records) => {
+        const candidates: { address: string; family: number }[] = [];
+        for (const record of records ?? []) {
+          const address = normalizeRecordAddress(record?.address);
+          if (!address) continue;
+          candidates.push({
+            address,
+            family: net.isIP(address) === 6 ? 6 : 4,
+          });
+        }
         const usable = allowPrivate
-          ? records
-          : records.filter((r) => !isBlockedIp(r.address));
+          ? candidates
+          : candidates.filter((c) => !isBlockedIp(c.address));
         const first = usable[0];
-        if (!first) {
+        if (!first || typeof first.address !== "string" || !first.address) {
           const err = new Error("Internal addresses are blocked") as Error & {
             code: string;
           };
@@ -127,6 +157,12 @@ function validatedLookup(allowPrivate: boolean) {
   };
 }
 
+/**
+ * Exported for unit tests only — production code uses validatedLookup via
+ * http.request's `lookup` option inside requestOnce().
+ */
+export const validatedLookupForTests = validatedLookup;
+
 interface HopResult {
   status: number;
   headers: http.IncomingHttpHeaders;
@@ -140,17 +176,27 @@ function requestOnce(
 ): Promise<HopResult> {
   return new Promise((resolve, reject) => {
     const lib = url.protocol === "https:" ? https : http;
+    // autoSelectFamily is a net.connect option that http.request passes
+    // through at runtime (not present in @types/node's RequestOptions).
+    const requestOptions: http.RequestOptions & { autoSelectFamily?: boolean } = {
+      method: "GET",
+      headers: {
+        "User-Agent": opts.userAgent ?? DEFAULT_USER_AGENT,
+        Accept: "text/html,application/xhtml+xml",
+      },
+      lookup: validatedLookup(opts.allowPrivate),
+      // Happy Eyeballs (autoSelectFamily) is incompatible with a custom
+      // lookup: on Node 24 it throws "Invalid IP address: undefined"
+      // internally even when the lookup returns a valid IP. We connect
+      // to exactly one pre-validated IP, so no family racing is needed —
+      // and skipping it keeps the validated-IP-is-the-connected-IP
+      // guarantee airtight.
+      autoSelectFamily: false,
+      timeout: opts.timeoutMs,
+    };
     const req = lib.request(
       url,
-      {
-        method: "GET",
-        headers: {
-          "User-Agent": opts.userAgent ?? DEFAULT_USER_AGENT,
-          Accept: "text/html,application/xhtml+xml",
-        },
-        lookup: validatedLookup(opts.allowPrivate),
-        timeout: opts.timeoutMs,
-      },
+      requestOptions,
       (res) => {
         const chunks: Buffer[] = [];
         let total = 0;
@@ -188,7 +234,7 @@ function requestOnce(
       },
     );
     req.on("timeout", () => {
-      req.destroy(new SafeFetchError("TIMEOUT", "Request timed out"));
+      req.destroy(new SafeFetchError("TIMEOUT", "Website request timed out."));
     });
     req.on("error", (err) => {
       reject(toSafeFetchError(err));
@@ -201,7 +247,8 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 /**
  * Fetch an HTML document through the full SSRF pipeline. Throws
- * SafeFetchError / SafeUrlError on any safety violation or fetch failure.
+ * SafeFetchError on any safety violation or fetch failure — messages are
+ * clean and user-facing; technical causes are on `error.detail`.
  */
 export async function safeFetchHtml(
   rawUrl: string,
@@ -212,7 +259,9 @@ export async function safeFetchHtml(
   const maxBodyBytes = options.maxBodyBytes ?? 2 * 1024 * 1024;
   const allowPrivate = options.allowPrivate ?? false;
 
-  const requestedUrl = await assertSafeUrl(rawUrl, { allowPrivate });
+  const requestedUrl = await assertSafeUrl(rawUrl, { allowPrivate }).catch((err: unknown) => {
+    throw toSafeFetchError(err);
+  });
   const redirectChain: RedirectHop[] = [];
   let current = new URL(requestedUrl);
   const startedAt = Date.now();
@@ -247,7 +296,11 @@ export async function safeFetchHtml(
       }
       // Re-validate the redirect target before following it — a redirect
       // to a private/internal address is blocked here.
-      const safeNext = await assertSafeUrl(next.toString(), { allowPrivate });
+      const safeNext = await assertSafeUrl(next.toString(), { allowPrivate }).catch(
+        (err: unknown) => {
+          throw toSafeFetchError(err);
+        },
+      );
       current = new URL(safeNext);
       continue;
     }

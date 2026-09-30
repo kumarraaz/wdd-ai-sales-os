@@ -303,8 +303,8 @@ export function inspectHtml(
 /**
  * Full website inspection: safe-fetch the page, probe robots.txt /
  * sitemap.xml / favicon.ico through the same SSRF pipeline, and parse.
- * Throws SafeFetchError / SafeUrlError when the page itself cannot be
- * fetched safely.
+ * Throws SafeFetchError when the page itself cannot be fetched safely
+ * (clean user-facing message; technical cause on `error.detail`).
  */
 export async function runWebsiteInspection(
   rawUrl: string,
