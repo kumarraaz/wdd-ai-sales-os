@@ -12,7 +12,6 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -20,27 +19,10 @@ export default function SignupPage() {
     setLoading(true);
     const { error } = await authClient.signUp.email(
       { email, password, name },
-      { onSuccess: () => setSent(true) },
+      { onSuccess: () => router.push("/dashboard") },
     );
     setLoading(false);
     if (error) setError(error.message || "Sign up failed. Try a different email.");
-  }
-
-  if (sent) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0D1B2A] px-4">
-        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur">
-          <h1 className="text-2xl font-bold text-white">Check your inbox</h1>
-          <p className="mt-2 text-sm text-white/60">
-            We sent a verification link to <span className="text-white">{email}</span>.
-            Click it to activate your account and workspace.
-          </p>
-          <Link href="/login" className="mt-6 inline-block text-sm text-[#D4AF37] hover:underline">
-            Back to sign in
-          </Link>
-        </div>
-      </div>
-    );
   }
 
   return (

@@ -24,7 +24,9 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
+    // Email verification disabled: accounts are usable immediately after
+    // signup; the sign-in gate on emailVerified is skipped.
+    requireEmailVerification: false,
     minPasswordLength: 8,
     maxPasswordLength: 128,
     sendResetPassword: async ({ user, url }) => {
@@ -38,7 +40,9 @@ export const auth = betterAuth({
   },
 
   emailVerification: {
-    sendOnSignUp: true,
+    // Disabled: no verification email is sent on signup (the email block in
+    // Better Auth's sign-up flow is skipped entirely).
+    sendOnSignUp: false,
     autoSignInAfterVerification: true,
     // The returned task is managed by Better Auth's backgroundTasks mechanism
     // (waitUntil on Vercel); it carries its own [auth-email] logging.
@@ -82,6 +86,12 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
+        // Email verification is disabled: mark new accounts verified at
+        // creation so the account is immediately usable. Merged into the
+        // create payload by Better Auth's hook mechanism.
+        before: async () => {
+          return { data: { emailVerified: true } };
+        },
         // Every signup gets a personal organization + OWNER membership + FREE subscription.
         after: async (user) => {
           try {

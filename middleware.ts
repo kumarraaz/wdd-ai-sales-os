@@ -4,10 +4,11 @@ import { DEMO_COOKIE_NAME, isDemoModeEnabled } from "@/lib/demo";
 // Lightweight gate: if no session cookie is present, bounce to /login.
 // This is NOT the security boundary — every (app) layout and every API
 // route re-verifies the session against the database server-side.
-const SESSION_COOKIE = "wdd.session_token";
+// Production uses secure cookies (__Secure- prefix); check both names.
+const SESSION_COOKIES = ["wdd.session_token", "__Secure-wdd.session_token"];
 
 export function middleware(req: NextRequest) {
-  const hasSession = req.cookies.has(SESSION_COOKIE);
+  const hasSession = SESSION_COOKIES.some((name) => req.cookies.has(name));
   // Demo mode (dev only): a demo cookie lets the request reach the (app)
   // layout, which performs the real demo-token validation. Cookie presence
   // alone grants nothing — a forged or expired token is bounced to /login
