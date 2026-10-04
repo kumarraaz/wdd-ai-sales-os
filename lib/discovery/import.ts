@@ -91,6 +91,54 @@ function toDataLabel(provenance: DiscoveredCompany["provenance"]): DataLabel {
   }
 }
 
+/**
+ * Pure mapping: DiscoveredCompany → createLead input.
+ * No DB access, fully unit-testable. The rules:
+ * - Lead name defaults to the real business/company name — never
+ *   "Unnamed lead" when a company name exists. Nothing is invented.
+ * - Every verified field is preserved: phone, email, website,
+ *   websiteStatus, address/location, industry, externalId (place id),
+ *   sourceUrl, googleMapsUrl, contactable, opportunity (+reason),
+ *   score (+reason). Missing values stay missing (null).
+ * - Qualification is carried as informational intelligence only — it is
+ *   NEVER an import gate (see importDiscoveredCompanies).
+ */
+export function buildImportLeadInput(
+  company: DiscoveredCompany,
+  provider: LeadDiscoveryProvider,
+  searchQuery?: string,
+) {
+  return {
+    fullName: company.name.trim() || undefined,
+    phone: company.phone,
+    email: company.email,
+    companyName: company.name,
+    industry: company.category,
+    country: company.country,
+    state: company.state,
+    city: company.city,
+    website: company.website,
+    sourceType: provider.sourceType,
+    sourceDetail: searchQuery ? `${provider.label}: ${searchQuery}` : provider.label,
+    externalId: company.providerId,
+    sourceUrl: company.sourceUrl,
+    rating: company.rating,
+    reviewCount: company.reviewCount,
+    discoveredAt: company.discoveredAt,
+    lastVerifiedAt: company.lastVerifiedAt ?? company.discoveredAt,
+    websiteStatus: company.websiteStatus,
+    opportunityType: company.opportunityType,
+    opportunityReason: company.opportunityReason,
+    contactable: company.contactable ?? false,
+    leadScore: company.score ?? 0,
+    scoreReason: company.scoreReason,
+    googleMapsUrl: company.googleMapsUrl,
+    instagramUrl: company.instagramUrl,
+    facebookUrl: company.facebookUrl,
+    linkedinUrl: company.linkedinUrl,
+  };
+}
+
 export interface ImportItemResult {
   providerId: string;
   name: string;
@@ -314,38 +362,11 @@ export async function importDiscoveredCompanies(
       }
 
       const dataLabel = toDataLabel(company.provenance);
+      // All enrichment is informational — qualification never gates import.
       const { lead } = await createLead(
         organizationId,
         actorId,
-        {
-          // Discovery yields companies; a contact name is never invented.
-          phone: company.phone,
-          email: company.email,
-          companyName: company.name,
-          industry: company.category,
-          country: company.country,
-          state: company.state,
-          city: company.city,
-          website: company.website,
-          sourceType: provider.sourceType,
-          sourceDetail: opts.searchQuery
-            ? `${provider.label}: ${opts.searchQuery}`
-            : provider.label,
-          externalId: company.providerId,
-          sourceUrl: company.sourceUrl,
-          rating: company.rating,
-          reviewCount: company.reviewCount,
-          discoveredAt: company.discoveredAt,
-          lastVerifiedAt: company.lastVerifiedAt ?? company.discoveredAt,
-          // Enrichment — computed from verified evidence only, never invented.
-          websiteStatus: company.websiteStatus,
-          opportunityType: company.opportunityType,
-          contactable: company.contactable ?? false,
-          googleMapsUrl: company.googleMapsUrl,
-          instagramUrl: company.instagramUrl,
-          facebookUrl: company.facebookUrl,
-          linkedinUrl: company.linkedinUrl,
-        },
+        buildImportLeadInput(company, provider, opts.searchQuery),
         { sourceType: provider.sourceType, dataLabel },
       );
 

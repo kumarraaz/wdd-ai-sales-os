@@ -351,13 +351,15 @@ model Lead {
   lastVerifiedAt DateTime? // when a source last confirmed this lead's data
   // discovery workspace (Phase 8) — set only from normalized LeadCandidate data
   websiteStatus   String? // NO_WEBSITE | HAS_WEBSITE | UNKNOWN — never invented
-  opportunityType String? // NO_WEBSITE | WEBSITE_IMPROVEMENT | SEO_OPPORTUNITY | WEBSITE_CONVERSION | UNKNOWN
+  opportunityType String? // HIGH | MEDIUM | LOW | UNKNOWN — deterministic tier from verified signals only
+  opportunityReason String? // deterministic reason, e.g. "No website + phone available + target industry 'manufacturer'"
   contactable     Boolean @default(false) // true when phone/email/social/contact URL exists
   googleMapsUrl   String? // provider Google Maps link — VERIFIED_DATA only
   instagramUrl    String? // never invented; null when unknown
   facebookUrl     String? // never invented; null when unknown
   linkedinUrl     String? // manual or provider-provided; null when unknown
   leadScore      Int            @default(0)
+  scoreReason    String?        // deterministic breakdown, e.g. "No website +25 · Phone +20 · Target industry +15"
   qualityStars   Int            @default(0) // 0–5, no fake precision
   // outreach state
   lastContactedAt DateTime?

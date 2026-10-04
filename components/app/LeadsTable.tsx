@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-table";
 import Papa from "papaparse";
 import Link from "next/link";
-import { Plus, Upload, Download, Trash2, X, Globe } from "lucide-react";
+import { Plus, Upload, Download, Trash2, X, Globe, ChevronDown, Loader2 } from "lucide-react";
 import { DEMO_ACTION_DISABLED_MESSAGE } from "@/lib/demo";
 
 interface Lead {
@@ -21,6 +21,11 @@ interface Lead {
   websiteStatus: string | null;
   opportunityType: string | null;
   contactable: boolean;
+  industry: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  scoreReason: string | null;
   leadScore: number;
   status: string;
   sourceType: string;
@@ -44,6 +49,140 @@ function scoreColor(s: number) {
   if (s >= 70) return "text-emerald-400";
   if (s >= 40) return "text-amber-400";
   return "text-white/50";
+}
+
+function statusPillClass(status: string): string {
+  switch (status) {
+    case "WON":
+      return "bg-emerald-400/15 text-emerald-300";
+    case "LOST":
+      return "bg-red-400/15 text-red-300";
+    case "QUALIFIED":
+    case "CONTACTED":
+    case "REPLIED":
+    case "MEETING":
+    case "PROPOSAL":
+    case "NEGOTIATION":
+      return "bg-[#D4AF37]/15 text-[#D4AF37]";
+    default:
+      return "bg-white/10 text-white/80";
+  }
+}
+
+/**
+ * Inline status dropdown — saves immediately via the server-side
+ * PATCH /api/leads/[id] (tenant-isolated, RBAC-checked, audited).
+ * Optimistic update with rollback + visible error on failure.
+ */
+function LeadStatusDropdown({
+  lead,
+  orgId,
+  apiBase,
+  canWrite,
+  demo,
+  onBlocked,
+  onChanged,
+}: {
+  lead: Lead;
+  orgId: string;
+  apiBase: string;
+  canWrite: boolean;
+  demo: boolean;
+  onBlocked: () => void;
+  onChanged: (id: string, status: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open ]);
+
+  if (!canWrite) {
+    return (
+      <span className={`rounded-full px-2.5 py-0.5 text-xs ${statusPillClass(lead.status)}`}>
+        {lead.status}
+      </span>
+    );
+  }
+
+  async function pick(next: string) {
+    setOpen(false);
+    if (next === lead.status) return;
+    if (demo) {
+      onBlocked();
+      return;
+    }
+    const prev = lead.status;
+    setSaving(true);
+    setError(null);
+    onChanged(lead.id, next); // optimistic
+    try {
+      const res = await fetch(`${apiBase}/leads/${lead.id}`, {
+        method: "PATCH",
+        headers: { "x-org-id": orgId, "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(
+          res.status === 400 ? "Invalid status." :
+          res.status === 403 ? "Access denied." :
+          res.status === 404 ? "Lead not found." :
+          (data?.error as string) || "Status update failed.",
+        );
+      }
+    } catch (e) {
+      onChanged(lead.id, prev); // rollback
+      setError(e instanceof Error ? e.message : "Status update failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div ref={wrapRef} className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        disabled={saving}
+        aria-label={`Change status for ${lead.company?.name ?? lead.fullName ?? lead.id}`}
+        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs transition hover:brightness-125 disabled:opacity-60 ${statusPillClass(lead.status)}`}
+      >
+        {saving ? <Loader2 size={12} className="animate-spin" /> : null}
+        {lead.status}
+        <ChevronDown size={12} className="opacity-60" />
+      </button>
+      {open && (
+        <div className="absolute left-0 z-30 mt-1 w-36 overflow-hidden rounded-lg border border-white/15 bg-[#101c2e] shadow-xl">
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => pick(s)}
+              className={`block w-full px-3 py-1.5 text-left text-xs transition hover:bg-white/10 ${
+                s === lead.status ? "font-semibold text-[#D4AF37]" : "text-white/80"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="mt-1 max-w-[180px] text-[11px] text-red-400">
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function LeadsTable({
@@ -187,15 +326,16 @@ export function LeadsTable({
         cell: (info) => (
           <input
             type="checkbox"
-            aria-label={`Select lead ${info.row.original.fullName ?? info.row.original.id}`}
+            aria-label={`Select lead ${info.row.original.company?.name ?? info.row.original.fullName ?? info.row.original.id}`}
             checked={selected.has(info.row.original.id)}
             onChange={() => toggle(info.row.original.id)}
             className="h-4 w-4 accent-[#D4AF37]"
           />
         ),
       }),
-      columnHelper.accessor("fullName", {
-        header: "Name",
+      columnHelper.accessor((r) => r.company?.name ?? r.fullName ?? "", {
+        id: "company",
+        header: "Company",
         cell: (info) => (
           <Link
             href={`/leads/${info.row.original.id}`}
@@ -205,61 +345,119 @@ export function LeadsTable({
           </Link>
         ),
       }),
-      columnHelper.accessor((r) => r.company?.name ?? "", {
-        id: "company",
-        header: "Company",
-        cell: (info) => <span className="text-white/70">{info.getValue() || "—"}</span>,
-      }),
-      columnHelper.accessor("email", {
-        header: "Email",
-        cell: (info) => <span className="text-white/70">{info.getValue() || "—"}</span>,
-      }),
       columnHelper.accessor("phone", {
+        id: "phone",
         header: "Phone",
         cell: (info) => <span className="text-white/70">{info.getValue() || "—"}</span>,
       }),
+      columnHelper.accessor("email", {
+        id: "email",
+        header: "Email",
+        cell: (info) => <span className="text-white/70">{info.getValue() || "—"}</span>,
+      }),
       columnHelper.accessor("websiteStatus", {
+        id: "website",
         header: "Website",
         cell: (info) => {
-          const v = info.getValue();
-          if (v === "NO_WEBSITE")
+          const lead = info.row.original;
+          if (lead.website)
+            return (
+              <a
+                href={lead.website.startsWith("http") ? lead.website : `https://${lead.website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-[#D4AF37] hover:underline"
+              >
+                Open site
+              </a>
+            );
+          if (info.getValue() === "NO_WEBSITE")
             return (
               <span className="rounded-full bg-[#D4AF37]/15 px-2.5 py-0.5 text-xs font-semibold text-[#D4AF37]">
                 NO WEBSITE
               </span>
             );
-          if (v === "HAS_WEBSITE")
-            return <span className="text-xs text-white/50">Has website</span>;
           return <span className="text-white/30">—</span>;
         },
       }),
+      columnHelper.accessor((r) => [r.city, r.state, r.country].filter(Boolean).join(", "), {
+        id: "location",
+        header: "Location",
+        cell: (info) => <span className="text-white/70">{info.getValue() || "—"}</span>,
+      }),
+      columnHelper.accessor("industry", {
+        id: "industry",
+        header: "Industry",
+        cell: (info) => <span className="text-white/70">{info.getValue() || "—"}</span>,
+      }),
       columnHelper.accessor("opportunityType", {
+        id: "opportunity",
         header: "Opportunity",
-        cell: (info) => (
-          <span className="text-xs text-white/50">
-            {(info.getValue() ?? "").replace(/_/g, " ") || "—"}
-          </span>
-        ),
+        cell: (info) => {
+          const v = info.getValue();
+          if (v === "HIGH")
+            return (
+              <span className="rounded-full bg-[#D4AF37]/15 px-2.5 py-0.5 text-xs font-semibold text-[#D4AF37]">
+                HIGH
+              </span>
+            );
+          if (v === "MEDIUM")
+            return (
+              <span className="rounded-full bg-amber-400/15 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+                MEDIUM
+              </span>
+            );
+          if (v === "LOW") return <span className="text-xs text-white/50">LOW</span>;
+          return <span className="text-white/30">—</span>;
+        },
       }),
       columnHelper.accessor("leadScore", {
+        id: "score",
         header: "Score",
         cell: (info) => (
-          <span className={`font-semibold ${scoreColor(info.getValue())}`}>
+          <span
+            className={`font-semibold ${scoreColor(info.getValue())}`}
+            title={info.row.original.scoreReason ?? undefined}
+          >
             {info.getValue()}
           </span>
         ),
       }),
+      columnHelper.accessor("contactable", {
+        id: "contactable",
+        header: "Contactability",
+        cell: (info) =>
+          info.getValue() ? (
+            <span className="rounded-full bg-emerald-400/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-300">
+              CONTACTABLE
+            </span>
+          ) : (
+            <span className="text-xs text-white/40">Not yet</span>
+          ),
+      }),
       columnHelper.accessor("status", {
+        id: "status",
         header: "Status",
         cell: (info) => (
-          <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs text-white/80">
-            {info.getValue()}
-          </span>
+          <LeadStatusDropdown
+            lead={info.row.original}
+            orgId={orgId}
+            apiBase={apiBase}
+            canWrite={canWrite}
+            demo={demo}
+            onBlocked={blockDemo}
+            onChanged={handleStatusChanged}
+          />
         ),
       }),
       columnHelper.accessor("sourceType", {
+        id: "source",
         header: "Source",
-        cell: (info) => <span className="text-xs text-white/50">{info.getValue()}</span>,
+        cell: (info) => (
+          <span className="text-xs text-white/50">
+            {info.getValue() === "GOOGLE_BUSINESS" ? "GOOGLE MAPS" : info.getValue().replace(/_/g, " ")}
+          </span>
+        ),
       }),
       columnHelper.display({
         id: "inspect",
@@ -271,7 +469,7 @@ export function LeadsTable({
             <Link
               href={`/intelligence?leadId=${lead.id}`}
               title={`Inspect website: ${lead.website}`}
-              aria-label={`Inspect website for ${lead.fullName ?? lead.id}`}
+              aria-label={`Inspect website for ${lead.company?.name ?? lead.fullName ?? lead.id}`}
               className="inline-flex items-center text-white/50 transition hover:text-[#D4AF37]"
             >
               <Globe size={16} />
@@ -281,16 +479,78 @@ export function LeadsTable({
       }),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [leads, selected],
+    [leads, selected, orgId, apiBase, canWrite, demo],
   );
 
+  /** All toggleable columns (id + label) for the Columns chooser. */
+  const TOGGLEABLE_COLUMNS = useMemo(
+    () => [
+      { id: "company", label: "Company" },
+      { id: "phone", label: "Phone" },
+      { id: "email", label: "Email" },
+      { id: "website", label: "Website" },
+      { id: "location", label: "Location" },
+      { id: "industry", label: "Industry" },
+      { id: "opportunity", label: "Opportunity" },
+      { id: "score", label: "Score" },
+      { id: "contactable", label: "Contactability" },
+      { id: "status", label: "Status" },
+      { id: "source", label: "Source" },
+      { id: "inspect", label: "Site" },
+    ],
+    [],
+  );
+
+  const [hiddenCols, setHiddenCols] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("wdd-leads-columns");
+      if (raw) setHiddenCols(JSON.parse(raw));
+    } catch {
+      /* keep defaults */
+    }
+  }, []);
+
+  const toggleColumn = (id: string) => {
+    setHiddenCols((prev) => {
+      const next = prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id];
+      try {
+        localStorage.setItem("wdd-leads-columns", JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
+
+  const visibleColumns = useMemo(
+    () => columns.filter((c) => c.id === "select" || !hiddenCols.includes(c.id as string)),
+    [columns, hiddenCols],
+  );
+
+  const [showColumns, setShowColumns] = useState(false);
+  const columnsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showColumns) return;
+    const close = (e: MouseEvent) => {
+      if (columnsRef.current && !columnsRef.current.contains(e.target as Node)) setShowColumns(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [showColumns]);
+
+  /** Instant local update for the inline status dropdown (server persists). */
+  const handleStatusChanged = useCallback((id: string, status: string) => {
+    setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, status } : l)));
+  }, []);
   const table = useReactTable({
     data: leads,
-    columns,
+    columns: visibleColumns,
     getCoreRowModel: getCoreRowModel(),
   });
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const visibleColCount = visibleColumns.length;
 
   return (
     <div className="space-y-4">
@@ -326,9 +586,38 @@ export function LeadsTable({
         >
           <option value="">All statuses</option>
           {STATUSES.map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>
+              {s.charAt(0) + s.slice(1).toLowerCase()}
+            </option>
           ))}
         </select>
+        <div ref={columnsRef} className="relative">
+          <button
+            onClick={() => setShowColumns((v) => !v)}
+            aria-label="Show or hide columns"
+            className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/5"
+          >
+            Columns
+          </button>
+          {showColumns && (
+            <div className="absolute right-0 z-30 mt-1 w-48 rounded-lg border border-white/15 bg-[#101c2e] p-2 shadow-xl">
+              {TOGGLEABLE_COLUMNS.map((c) => (
+                <label
+                  key={c.id}
+                  className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs text-white/80 hover:bg-white/10"
+                >
+                  <input
+                    type="checkbox"
+                    checked={!hiddenCols.includes(c.id)}
+                    onChange={() => toggleColumn(c.id)}
+                    className="h-3.5 w-3.5 accent-[#D4AF37]"
+                  />
+                  {c.label}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="ml-auto flex flex-wrap gap-2">
           {canWrite && (
             <>
@@ -416,13 +705,13 @@ export function LeadsTable({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-white/40">
+                <td colSpan={visibleColCount} className="px-4 py-10 text-center text-white/40">
                   Loading leads…
                 </td>
               </tr>
             ) : leads.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-white/40">
+                <td colSpan={visibleColCount} className="px-4 py-10 text-center text-white/40">
                   No leads found. Add your first lead to get started.
                 </td>
               </tr>

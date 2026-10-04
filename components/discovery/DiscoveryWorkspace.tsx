@@ -546,6 +546,9 @@ export function DiscoveryWorkspace() {
             <label className={labelCls} htmlFor="dw-opportunity">Opportunity</label>
             <select id="dw-opportunity" className={inputCls} value={opportunity} onChange={(e) => setOpportunity(e.target.value)}>
               <option value="any">Any</option>
+              <option value="HIGH">High opportunity</option>
+              <option value="MEDIUM">Medium opportunity</option>
+              <option value="LOW">Low opportunity</option>
               <option value="new_website">New website prospect</option>
               <option value="website_improvement">Website improvement</option>
               <option value="seo">SEO opportunity</option>

@@ -121,7 +121,7 @@ export function CommandPalette({
                     className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/80 aria-selected:bg-white/10"
                   >
                     <Users size={16} className="text-[#D4AF37]" />
-                    <span className="font-medium">{h.fullName || "Unnamed lead"}</span>
+                    <span className="font-medium">{h.company?.name ?? h.fullName ?? "—"}</span>
                     <span className="truncate text-white/50">
                       {h.company?.name ?? h.email ?? ""}
                     </span>

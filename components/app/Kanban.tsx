@@ -12,6 +12,7 @@ import {
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { DEMO_ACTION_DISABLED_MESSAGE } from "@/lib/demo";
+import { leadDisplayName } from "@/lib/lead-display";
 
 const STAGES = [
   "NEW", "RESEARCHING", "QUALIFIED", "CONTACTED", "REPLIED",
@@ -21,9 +22,17 @@ const STAGES = [
 interface Card {
   id: string;
   fullName: string | null;
-  email: string | null;
+  phone: string | null;
+  website: string | null;
+  websiteStatus: string | null;
+  opportunityType: string | null;
   leadScore: number;
   company: { name: string } | null;
+}
+
+/** Display name: company/business name first, then contact name — never "Unnamed lead". */
+function cardTitle(card: Card): string {
+  return leadDisplayName(card);
 }
 
 function DraggableCard({ card }: { card: Card }) {
@@ -34,6 +43,12 @@ function DraggableCard({ card }: { card: Card }) {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.5 : 1,
   };
+  const opportunityTone =
+    card.opportunityType === "HIGH"
+      ? "bg-[#D4AF37]/15 text-[#D4AF37]"
+      : card.opportunityType === "MEDIUM"
+        ? "bg-amber-400/15 text-amber-300"
+        : "bg-white/10 text-white/50";
   return (
     <div
       ref={setNodeRef}
@@ -42,13 +57,30 @@ function DraggableCard({ card }: { card: Card }) {
       {...attributes}
       className="cursor-grab rounded-xl border border-white/10 bg-[#16283f] p-3 shadow transition hover:border-[#D4AF37]/40 active:cursor-grabbing"
     >
-      <p className="text-sm font-semibold">{card.fullName || "Unnamed lead"}</p>
-      <p className="truncate text-xs text-white/50">
-        {card.company?.name ?? card.email ?? "—"}
-      </p>
-      <div className="mt-2 flex items-center justify-between">
-        <span className="text-xs text-white/40">Score</span>
-        <span className={`text-sm font-bold ${card.leadScore >= 70 ? "text-emerald-400" : card.leadScore >= 40 ? "text-amber-400" : "text-white/50"}`}>
+      <p className="text-sm font-semibold">{cardTitle(card)}</p>
+      <p className="truncate text-xs text-white/50">{card.phone ?? "—"}</p>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span
+          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+            card.websiteStatus === "NO_WEBSITE"
+              ? "bg-[#D4AF37]/15 text-[#D4AF37]"
+              : "bg-white/10 text-white/40"
+          }`}
+        >
+          {card.websiteStatus === "NO_WEBSITE" ? "NO WEBSITE" : card.website ? "HAS WEBSITE" : "—"}
+        </span>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${opportunityTone}`}>
+          {card.opportunityType ?? "—"}
+        </span>
+        <span
+          className={`text-sm font-bold ${
+            card.leadScore >= 70
+              ? "text-emerald-400"
+              : card.leadScore >= 40
+                ? "text-amber-400"
+                : "text-white/50"
+          }`}
+        >
           {card.leadScore}
         </span>
       </div>

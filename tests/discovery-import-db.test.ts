@@ -230,4 +230,80 @@ describe.skipIf(!hasDb)("discovery import — database integration", () => {
     expect(summary.failed).toHaveLength(0);
     expect(summary.imported[0].providerId).toBe("ChIJ-bulk-fresh");
   });
+
+  it("persists the real business name as the lead name (never 'Unnamed lead')", async () => {
+    const c = company({ providerId: "ChIJ-quality-name", name: "Quality Name Industries" });
+    const summary = await importDiscoveredCompanies(orgA, actorId, provider, [c]);
+    expect(summary.imported).toHaveLength(1);
+    const lead = await db.lead.findUnique({
+      where: { id: summary.imported[0].leadId! },
+      include: { company: true },
+    });
+    expect(lead?.fullName).toBe("Quality Name Industries");
+    expect(lead?.company?.name).toBe("Quality Name Industries");
+    expect(lead?.fullName).not.toContain("Unnamed");
+  });
+
+  it("persists score, opportunity and website/contact state from enrichment", async () => {
+    const { enrichCandidate } = await import("../lib/discovery/candidates");
+    const c = enrichCandidate(
+      company({
+        providerId: "ChIJ-quality-score",
+        name: "Score Test Mfg",
+        website: undefined, // Google authoritative → NO_WEBSITE
+      }),
+      "authoritative",
+      { industry: "manufacturers", location: "Gujarat" },
+    );
+    const summary = await importDiscoveredCompanies(orgA, actorId, provider, [c], {
+      searchQuery: "manufacturers",
+    });
+    expect(summary.imported).toHaveLength(1);
+    const lead = await db.lead.findUnique({ where: { id: summary.imported[0].leadId! } });
+    expect(lead?.websiteStatus).toBe("NO_WEBSITE");
+    expect(lead?.website).toBeNull();
+    expect(lead?.contactable).toBe(true); // phone alone qualifies
+    expect(lead?.leadScore).toBe(c.score);
+    expect(lead?.leadScore).toBeGreaterThan(0);
+    expect(lead?.scoreReason).toBe(c.scoreReason);
+    expect(lead?.opportunityType).toBe("HIGH");
+    expect(lead?.opportunityReason).toContain("No website");
+    expect(lead?.externalId).toBe("ChIJ-quality-score");
+    expect(lead?.sourceType).toBe("GOOGLE_BUSINESS");
+    expect(lead?.phone).toBe(c.phone);
+  });
+
+  it("imports low-score / not_qualified candidates without gating", async () => {
+    const { enrichCandidate } = await import("../lib/discovery/candidates");
+    const c = enrichCandidate(
+      company({
+        providerId: "ChIJ-quality-low",
+        name: "Low Score Co",
+        phone: undefined,
+        email: undefined,
+        website: "https://low-score.example.com",
+      }),
+      "authoritative",
+    );
+    const summary = await importDiscoveredCompanies(orgA, actorId, provider, [c]);
+    expect(summary.imported).toHaveLength(1);
+    const lead = await db.lead.findUnique({ where: { id: summary.imported[0].leadId! } });
+    expect(lead?.contactable).toBe(false);
+    expect(lead?.websiteStatus).toBe("HAS_WEBSITE");
+  });
+
+  it("does not create WebsiteInspection rows for NO_WEBSITE imports", async () => {
+    const { enrichCandidate } = await import("../lib/discovery/candidates");
+    const c = enrichCandidate(
+      company({ providerId: "ChIJ-quality-noinspect", name: "No Inspect Co", website: undefined }),
+      "authoritative",
+    );
+    expect(c.websiteStatus).toBe("NO_WEBSITE");
+    const summary = await importDiscoveredCompanies(orgA, actorId, provider, [c]);
+    const lead = await db.lead.findUnique({
+      where: { id: summary.imported[0].leadId! },
+      include: { websiteInspections: true },
+    });
+    expect(lead?.websiteInspections).toHaveLength(0);
+  });
 });

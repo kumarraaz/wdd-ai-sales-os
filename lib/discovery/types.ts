@@ -21,13 +21,8 @@ export type DataProvenance = "VERIFIED_DATA" | "AI_INFERENCE" | "USER_PROVIDED" 
 /** How a lead's website presence was determined. Never invented. */
 export type WebsiteStatus = "NO_WEBSITE" | "HAS_WEBSITE" | "UNKNOWN";
 
-/** Sales opportunity derived from verified evidence (never from guesses). */
-export type OpportunityType =
-  | "NO_WEBSITE"
-  | "WEBSITE_IMPROVEMENT"
-  | "SEO_OPPORTUNITY"
-  | "WEBSITE_CONVERSION"
-  | "UNKNOWN";
+/** Sales opportunity tier derived from verified evidence (never from guesses). */
+export type OpportunityType = "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN";
 
 /** Human qualification state — informational only, NEVER blocks import. */
 export type LeadQualification = "qualified" | "maybe" | "not_qualified" | "unreviewed";
@@ -96,6 +91,8 @@ export interface DiscoveredCompany {
   /** True when phone, email, or a social/contact URL exists. */
   contactable?: boolean;
   opportunityType?: OpportunityType;
+  /** Deterministic opportunity reason — verified signals only, never invented. */
+  opportunityReason?: string;
   /**
    * Recent-evidence date (ISO). For live API providers this is the search
    * time (the source re-confirmed the listing); for web results it is the

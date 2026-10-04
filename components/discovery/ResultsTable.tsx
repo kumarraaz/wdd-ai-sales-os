@@ -156,10 +156,14 @@ const COLUMNS: ColumnDef[] = [
     label: "Opportunity",
     defaultVisible: true,
     render: (c) =>
-      c.opportunityType === "NO_WEBSITE" ? (
-        <Pill tone="gold">New website</Pill>
+      c.opportunityType === "HIGH" ? (
+        <Pill tone="gold">HIGH</Pill>
+      ) : c.opportunityType === "MEDIUM" ? (
+        <Pill tone="amber">MEDIUM</Pill>
+      ) : c.opportunityType === "LOW" ? (
+        <span className="text-white/40">LOW</span>
       ) : (
-        <span className="text-white/40">{c.opportunityType?.replace(/_/g, " ") ?? "—"}</span>
+        <span className="text-white/40">—</span>
       ),
   },
   { key: "rating", label: "Rating", defaultVisible: false, render: (c) => (c.rating != null ? `★ ${c.rating.toFixed(1)}` : "—") },
@@ -245,9 +249,9 @@ export function ResultsTable({
         </select>
         <select value={filters.opportunity} onChange={(e) => set({ opportunity: e.target.value })} className={selectCls} aria-label="Filter by opportunity">
           <option value="">Opportunity: any</option>
-          <option value="NO_WEBSITE">New website</option>
-          <option value="WEBSITE_IMPROVEMENT">Website improvement</option>
-          <option value="SEO_OPPORTUNITY">SEO opportunity</option>
+          <option value="HIGH">High</option>
+          <option value="MEDIUM">Medium</option>
+          <option value="LOW">Low</option>
           <option value="UNKNOWN">Unknown</option>
         </select>
         <select value={filters.score} onChange={(e) => set({ score: e.target.value })} className={selectCls} aria-label="Filter by score">

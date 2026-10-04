@@ -10,6 +10,10 @@ import type { z } from "zod";
  * query to it. This file is the only place Lead writes happen.
  */
 
+// Re-exported for convenience — the canonical home is lib/lead-display.ts
+// (client-safe, no server-only imports).
+export { leadDisplayName } from "./lead-display";
+
 /** True when userId is a member of organizationId (assignee validation). */
 export async function isOrgMember(
   organizationId: string,
@@ -109,7 +113,10 @@ export async function createLead(
     lastVerifiedAt: input.lastVerifiedAt ? new Date(input.lastVerifiedAt) : null,
     websiteStatus: input.websiteStatus ?? null,
     opportunityType: input.opportunityType ?? null,
+    opportunityReason: input.opportunityReason?.trim() || null,
     contactable: input.contactable ?? false,
+    leadScore: input.leadScore ?? 0,
+    scoreReason: input.scoreReason?.trim() || null,
     googleMapsUrl: input.googleMapsUrl?.trim() || null,
     instagramUrl: input.instagramUrl?.trim() || null,
     facebookUrl: input.facebookUrl?.trim() || null,
@@ -240,6 +247,8 @@ export async function updateLead(
       ? { connect: { id: input.assignedToId } }
       : { disconnect: true };
   if (input.leadScore !== undefined) data.leadScore = input.leadScore;
+  if (input.scoreReason !== undefined) data.scoreReason = input.scoreReason?.trim() || null;
+  if (input.opportunityReason !== undefined) data.opportunityReason = input.opportunityReason?.trim() || null;
 
   const lead = await db.lead.update({ where: { id }, data });
 

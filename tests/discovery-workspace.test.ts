@@ -602,6 +602,11 @@ describe("import rules", () => {
     // Enrichment persisted on the lead.
     const created = createdLeads[0];
     expect(created.websiteStatus).toBeDefined();
+    // Lead quality: name, score and opportunity flow into the CRM row.
+    expect(created.fullName).toBe("Sharma Industries");
+    expect(created.leadScore).toBeGreaterThan(0);
+    expect(created.scoreReason).toBeTruthy();
+    expect(created.opportunityType).toMatch(/^(HIGH|MEDIUM|LOW|UNKNOWN)$/);
   });
 
   it("21. duplicate import reports already_exists (idempotent)", async () => {
@@ -655,14 +660,16 @@ describe("export + result filtering", () => {
     expect(filterCandidates(all, { ...EMPTY_FILTERS, websiteStatus: "NO_WEBSITE" })).toHaveLength(1);
     expect(filterCandidates(all, { ...EMPTY_FILTERS, websiteStatus: "HAS_WEBSITE" })).toHaveLength(1);
     expect(filterCandidates(all, { ...EMPTY_FILTERS, score: "80" })).toHaveLength(0);
-    expect(filterCandidates(all, { ...EMPTY_FILTERS, score: "60" })).toHaveLength(0);
-    // Scores are computed deterministically from verified evidence
-    // (A=45, B=34, C=48 — no inspection data at discovery time).
-    expect(filterCandidates(all, { ...EMPTY_FILTERS, score: "40" })).toHaveLength(2);
-    expect(filterCandidates(all, { ...EMPTY_FILTERS, score: "below40" })).toHaveLength(1);
+    expect(filterCandidates(all, { ...EMPTY_FILTERS, score: "60" })).toHaveLength(1);
+    // Scores are computed deterministically from verified evidence:
+    // A=60 (no-website 25 + phone 20 + confidence 5 + rating 5 + reviews 5),
+    // B=0, C=35 (has website: phone 20 + confidence 5 + rating 5 + reviews 5).
+    expect(filterCandidates(all, { ...EMPTY_FILTERS, score: "40" })).toHaveLength(1);
+    expect(filterCandidates(all, { ...EMPTY_FILTERS, score: "below40" })).toHaveLength(2);
     expect(filterCandidates(all, { ...EMPTY_FILTERS, contactable: "no" })).toHaveLength(1);
-    expect(filterCandidates(all, { ...EMPTY_FILTERS, qualification: "maybe" })).toHaveLength(2);
+    expect(filterCandidates(all, { ...EMPTY_FILTERS, qualification: "qualified" })).toHaveLength(1);
     expect(filterCandidates(all, { ...EMPTY_FILTERS, qualification: "not_qualified" })).toHaveLength(1);
+    expect(filterCandidates(all, { ...EMPTY_FILTERS, qualification: "unreviewed" })).toHaveLength(1);
   });
 
   it("26. select-all-matching uses filtered ids only", () => {
@@ -858,7 +865,7 @@ describe("run orchestrator", () => {
     };
     expect(applyCandidateFilters(cs, { ...base, websiteFilter: "no_website" }).map((c) => c.providerId)).toEqual(["a"]);
     expect(applyCandidateFilters(cs, { ...base, contactRequired: true }).map((c) => c.providerId)).toEqual(["a", "b"]);
-    expect(applyCandidateFilters(cs, { ...base, opportunity: "new_website" }).map((c) => c.providerId)).toEqual(["a"]);
+    expect(applyCandidateFilters(cs, { ...base, opportunity: "MEDIUM" }).map((c) => c.providerId)).toEqual(["a"]);
     expect(applyCandidateFilters(cs, { ...base, recentEvidence: "30d" })).toHaveLength(3);
   });
 });

@@ -32,7 +32,15 @@ import {
 import type { BudgetCheck } from "./cost";
 
 export type WebsiteFilter = "any" | "no_website" | "has_website";
-export type OpportunityFilter = "any" | "new_website" | "website_improvement" | "seo";
+export type OpportunityFilter =
+  | "any"
+  | "HIGH"
+  | "MEDIUM"
+  | "LOW"
+  // Legacy website-based shortcuts (kept for saved profiles / old clients).
+  | "new_website"
+  | "website_improvement"
+  | "seo";
 export type RecentEvidenceFilter = "any" | "30d" | "90d" | "6m" | "1y";
 
 export interface RunSourceSelection {
@@ -210,6 +218,13 @@ export function applyCandidateFilters(
     if (input.websiteFilter === "no_website" && c.websiteStatus !== "NO_WEBSITE") return false;
     if (input.websiteFilter === "has_website" && c.websiteStatus !== "HAS_WEBSITE") return false;
     if (input.contactRequired && !c.contactable) return false;
+    // New tiers match the deterministic opportunity classification.
+    if (
+      (input.opportunity === "HIGH" || input.opportunity === "MEDIUM" || input.opportunity === "LOW") &&
+      c.opportunityType !== input.opportunity
+    )
+      return false;
+    // Legacy shortcuts (website-based) — preserved for saved profiles.
     if (input.opportunity === "new_website" && c.websiteStatus !== "NO_WEBSITE") return false;
     if (
       (input.opportunity === "website_improvement" || input.opportunity === "seo") &&
@@ -368,7 +383,12 @@ export async function runDiscovery(
         discoveredRaw += result.companies.length;
         outcome.discovered += result.companies.length;
         for (const c of result.companies) {
-          collected.push(enrichCandidate(c, authority));
+          collected.push(
+            enrichCandidate(c, authority, {
+              industry: input.industry,
+              location: input.location,
+            }),
+          );
         }
       }
       outcome.status = "ok";

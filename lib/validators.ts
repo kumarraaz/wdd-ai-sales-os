@@ -55,9 +55,12 @@ export const createLeadSchema = z.object({
   // discovery workspace — normalized candidate fields, never invented
   websiteStatus: z.enum(["NO_WEBSITE", "HAS_WEBSITE", "UNKNOWN"]).optional(),
   opportunityType: z
-    .enum(["NO_WEBSITE", "WEBSITE_IMPROVEMENT", "SEO_OPPORTUNITY", "WEBSITE_CONVERSION", "UNKNOWN"])
+    .enum(["HIGH", "MEDIUM", "LOW", "UNKNOWN"])
     .optional(),
+  opportunityReason: z.string().trim().max(500).optional(),
   contactable: z.boolean().optional(),
+  leadScore: z.number().int().min(0).max(100).optional(),
+  scoreReason: z.string().trim().max(500).optional(),
   googleMapsUrl: z.string().trim().max(1000).optional(),
   instagramUrl: z.string().trim().max(1000).optional(),
   facebookUrl: z.string().trim().max(1000).optional(),
@@ -78,7 +81,7 @@ export const listLeadsQuerySchema = z.object({
   websiteStatus: z.enum(["NO_WEBSITE", "HAS_WEBSITE", "UNKNOWN"]).optional(),
   contactable: z.coerce.boolean().optional(),
   opportunityType: z
-    .enum(["NO_WEBSITE", "WEBSITE_IMPROVEMENT", "SEO_OPPORTUNITY", "WEBSITE_CONVERSION", "UNKNOWN"])
+    .enum(["HIGH", "MEDIUM", "LOW", "UNKNOWN"])
     .optional(),
   sort: z.enum(["createdAt", "leadScore", "fullName", "updatedAt"]).optional(),
   order: z.enum(["asc", "desc"]).optional(),
@@ -159,7 +162,7 @@ export const discoveredCompanySchema = z.object({
   websiteStatus: z.enum(["NO_WEBSITE", "HAS_WEBSITE", "UNKNOWN"]).optional(),
   contactable: z.boolean().optional(),
   opportunityType: z
-    .enum(["NO_WEBSITE", "WEBSITE_IMPROVEMENT", "SEO_OPPORTUNITY", "WEBSITE_CONVERSION", "UNKNOWN"])
+    .enum(["HIGH", "MEDIUM", "LOW", "UNKNOWN"])
     .optional(),
   recentEvidenceDate: z.string().datetime().optional(),
   score: z.number().int().min(0).max(100).optional(),
@@ -228,7 +231,9 @@ export const discoveryRunSchema = z.object({
   location: z.string().trim().min(1).max(200),
   websiteFilter: z.enum(["any", "no_website", "has_website"]).default("any"),
   contactRequired: z.boolean().default(true),
-  opportunity: z.enum(["any", "new_website", "website_improvement", "seo"]).default("any"),
+  opportunity: z
+    .enum(["any", "HIGH", "MEDIUM", "LOW", "new_website", "website_improvement", "seo"])
+    .default("any"),
   recentEvidence: z.enum(["any", "30d", "90d", "6m", "1y"]).default("any"),
   /** Desired final candidates after filters. */
   limit: z.coerce.number().int().min(1).max(100).default(20),

@@ -22,6 +22,13 @@ interface LeadDetailData {
   rating: number | null;
   reviewCount: number | null;
   dataLabel: string;
+  leadScore: number;
+  scoreReason: string | null;
+  opportunityType: string | null;
+  opportunityReason: string | null;
+  websiteStatus: string | null;
+  contactable: boolean;
+  googleMapsUrl: string | null;
   company: { id: string; name: string } | null;
   scores: { id: string; score: number; scoreBand: string; createdAt: string }[];
   provenance: { field: string; value: string; source: string; label: string }[];
@@ -168,6 +175,71 @@ export function LeadDetail({
           </Field>
           <Field label="Job title">{lead.jobTitle ?? "—"}</Field>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h3 className="mb-4 text-lg font-semibold">Discovery score & opportunity</h3>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <div className={inputLabel}>Score (0–100)</div>
+            <div className="mt-0.5 text-2xl font-bold text-[#D4AF37]">{lead.leadScore}</div>
+            {lead.scoreReason && (
+              <div className="mt-1 text-xs text-white/55">{lead.scoreReason}</div>
+            )}
+          </div>
+          <Field label="Opportunity">
+            {lead.opportunityType ? (
+              <>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    lead.opportunityType === "HIGH"
+                      ? "bg-[#D4AF37]/15 text-[#D4AF37]"
+                      : lead.opportunityType === "MEDIUM"
+                        ? "bg-amber-400/15 text-amber-300"
+                        : "bg-white/10 text-white/60"
+                  }`}
+                >
+                  {lead.opportunityType}
+                </span>
+                {lead.opportunityReason && (
+                  <div className="mt-1 text-xs text-white/55">{lead.opportunityReason}</div>
+                )}
+              </>
+            ) : (
+              "—"
+            )}
+          </Field>
+          <Field label="Website status">
+            {lead.websiteStatus === "NO_WEBSITE" ? (
+              <span className="rounded-full bg-[#D4AF37]/15 px-2.5 py-0.5 text-xs font-semibold text-[#D4AF37]">
+                NO WEBSITE
+              </span>
+            ) : (
+              (lead.websiteStatus ?? "—").replace(/_/g, " ")
+            )}
+          </Field>
+          <Field label="Contactable">
+            {lead.contactable ? (
+              <span className="rounded-full bg-emerald-400/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-300">
+                CONTACTABLE
+              </span>
+            ) : (
+              "Not yet"
+            )}
+          </Field>
+        </div>
+        {lead.googleMapsUrl && (
+          <div className="mt-4">
+            <a
+              href={lead.googleMapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-[#D4AF37] hover:underline"
+            >
+              Open Google Maps listing →
+            </a>
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
