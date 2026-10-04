@@ -40,7 +40,7 @@ const NAV_MAIN = [
   { href: "/intelligence", label: "Intelligence", icon: BrainCircuit, live: true },
   { href: "/approvals", label: "Approvals", icon: ShieldCheck, live: true },
   { href: "/app/campaigns", label: "Campaigns", icon: Megaphone, live: false },
-  { href: "/app/outreach", label: "Outreach", icon: Send, live: false },
+  { href: "/outreach/instagram", label: "Outreach", icon: Send, live: true },
   { href: "/app/automation", label: "Automation", icon: Workflow, live: false },
   { href: "/app/tasks", label: "Tasks", icon: CheckSquare, live: false },
   { href: "/app/analytics", label: "Analytics", icon: BarChart3, live: false },

@@ -272,3 +272,21 @@ export const leadScoreSchema = z.object({
 });
 
 export type LeadScoreInput = z.infer<typeof leadScoreSchema>;
+
+// ── Instagram Outreach Assistant (human-in-the-loop) ─────────────────────
+
+export const instagramResearchSchema = z.object({
+  usernames: z.string().trim().min(1).max(5000),
+  name: z.string().trim().max(120).optional(),
+});
+
+export type InstagramResearchInput = z.infer<typeof instagramResearchSchema>;
+
+export const instagramItemEditSchema = z.object({
+  message: z.string().trim().min(1).max(2000),
+});
+
+export const instagramItemLinkSchema = z.object({
+  leadId: z.string().cuid().optional(),
+  create: z.boolean().optional(),
+});

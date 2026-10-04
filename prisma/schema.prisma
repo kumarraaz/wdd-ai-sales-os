@@ -288,6 +288,8 @@ model Organization {
   auditLogs     AuditLog[]
   subscription  Subscription?
   messages      Message[]
+  instagramOutreachBatches InstagramOutreachBatch[]
+  instagramOutreachItems   InstagramOutreachItem[]
   discoveryRuns DiscoveryRun[]
   websiteInspections WebsiteInspection[]
   intelligenceReports LeadIntelligence[]
@@ -383,6 +385,7 @@ model Lead {
   activities    LeadActivity[]
   scores        LeadScore[]
   messages      Message[]
+  instagramOutreachItems InstagramOutreachItem[]
   campaignLinks CampaignEnrollment[]
   followUps     FollowUp[]
   tasks         Task[]
@@ -708,6 +711,78 @@ model Conversation {
 
   @@index([organizationId])
   @@index([organizationId, channel])
+  @@index([leadId])
+}
+
+// ═══════════════ INSTAGRAM OUTREACH ASSISTANT ═══════════════════════════
+// Human-in-the-loop assisted outreach. The user pastes Instagram usernames;
+// the system researches public information and drafts personalized messages.
+// The user reviews, copies, opens the profile, and sends MANUALLY.
+// There is deliberately NO automated sending, NO credential storage,
+// NO session handling, and NO Instagram scraping in these models.
+
+enum InstagramOutreachItemStatus {
+  DRAFT     // message generated, awaiting user review
+  COPIED    // user copied the message (about to / has sent manually)
+  CONTACTED // user confirmed they sent the message manually
+}
+
+model InstagramOutreachBatch {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String?
+  totalUsernames Int      @default(0)
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items        InstagramOutreachItem[]
+
+  @@index([organizationId])
+  @@index([organizationId, createdAt])
+}
+
+model InstagramOutreachItem {
+  id             String @id @default(cuid())
+  organizationId String
+  batchId        String
+  username       String // normalized: lowercase, no @, 1-30 chars [a-z0-9._]
+  profileUrl     String // canonical https://www.instagram.com/{username}/
+  status         InstagramOutreachItemStatus @default(DRAFT)
+
+  // ── Public research (never scraped from Instagram; never invented) ──
+  businessName       String?
+  category           String?
+  location           String?
+  website            String?
+  observations       String?   @db.Text // AI summary of public findings, or null
+  researchSources    String[]  // e.g. ["tavily:web search"] — always listed
+  researchConfidence String?   // HIGH | MEDIUM | LOW | INSUFFICIENT
+  researchFailed     Boolean   @default(false)
+  researchError      String?
+  researchedAt       DateTime?
+
+  // ── Draft message (user reviews, copies, sends manually) ──
+  messageDraft    String?   @db.Text // AI-generated or template fallback
+  messageSource   String?   // "ai" | "template"
+  messageEdited   String?   @db.Text // user's edited version (the one to copy)
+  messageEditedAt DateTime?
+  dataLabel       DataLabel @default(AI_INFERENCE)
+
+  // ── CRM link (optional; reuses canonical Lead + LeadActivity) ──
+  leadId      String?
+  copiedAt    DateTime?
+  contactedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  batch        InstagramOutreachBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  lead         Lead?                  @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, batchId, username])
+  @@index([organizationId])
+  @@index([batchId])
   @@index([leadId])
 }
 
