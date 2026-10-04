@@ -761,6 +761,8 @@ model InstagramOutreachItem {
   researchFailed     Boolean   @default(false)
   researchError      String?
   researchedAt       DateTime?
+  pitchAngle         String?   // NEW_WEBSITE | REDESIGN | UX_CONVERSION | SEO | LOCAL_SEO | PERFORMANCE | CONTENT | GENERAL
+  websiteAnalysis    String?   @db.Text // human-readable homepage findings, or null
 
   // ── Draft message (user reviews, copies, sends manually) ──
   messageDraft    String?   @db.Text // AI-generated or template fallback

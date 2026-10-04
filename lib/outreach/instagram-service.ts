@@ -19,8 +19,10 @@ import { db } from "../db";
 import { audit } from "../audit";
 import { createLead } from "../leads";
 import { instagramProfileUrl, parseUsernameBatch } from "./instagram";
-import { researchInstagramProfile, type ResearchDeps } from "./instagram-research";
+import { researchInstagramProfile, type ResearchDeps, type ProfileResearch } from "./instagram-research";
 import { generateOutreachMessage } from "./instagram-message";
+import { decidePitchAngle, type PitchDecision } from "./instagram-pitch";
+import { summarizeWebsiteAnalysis } from "./instagram-website";
 import type { InstagramOutreachItemStatus, DataLabel } from "@prisma/client";
 
 export const MAX_BATCH_USERNAMES = 50;
@@ -39,6 +41,40 @@ export interface CreateBatchResult {
   total: number;
   invalid: { raw: string; error: string }[];
   duplicatesRemoved: number;
+}
+
+export interface DraftPipelineResult {
+  research: ProfileResearch;
+  decision: PitchDecision;
+  websiteSummary: string | null;
+  generated: { text: string; source: "ai" | "template" };
+}
+
+/**
+ * Full per-profile pipeline: research → website analysis → pitch decision →
+ * humanized, quality-gated draft. Shared by batch creation and regenerate.
+ */
+export async function researchAndDraft(
+  username: string,
+  researchDeps: ResearchDeps = {},
+  variationSeed = 0,
+): Promise<DraftPipelineResult> {
+  const research = await researchInstagramProfile(username, researchDeps);
+  const websiteSummary = summarizeWebsiteAnalysis(research.websiteAnalysis);
+  const decision = decidePitchAngle({
+    website: research.website,
+    websiteAnalysis: research.websiteAnalysis,
+    location: research.location,
+    confidence: research.confidence,
+  });
+  const generated = await generateOutreachMessage(
+    research,
+    decision,
+    websiteSummary,
+    researchDeps.ai,
+    { variationSeed },
+  );
+  return { research, decision, websiteSummary, generated };
 }
 
 /**
@@ -88,8 +124,13 @@ export async function createAndProcessBatch(
     const username = parsed.usernames[i];
     opts.onEvent?.({ type: "item-start", username, index: i + 1, total });
     try {
-      const research = await researchInstagramProfile(username, opts.researchDeps);
-      const generated = await generateOutreachMessage(research, opts.researchDeps?.ai);
+      // variationSeed = item index: rotates message openings so a batch
+      // never reads like one template repeated 50 times.
+      const { research, decision, websiteSummary, generated } = await researchAndDraft(
+        username,
+        opts.researchDeps,
+        i,
+      );
       const item = await db.instagramOutreachItem.create({
         data: {
           organizationId,
@@ -105,6 +146,8 @@ export async function createAndProcessBatch(
           researchConfidence: research.confidence,
           researchFailed: false,
           researchedAt: new Date(research.researchedAt),
+          pitchAngle: decision.angle,
+          websiteAnalysis: websiteSummary,
           messageDraft: generated.text,
           messageSource: generated.source,
           dataLabel: (generated.source === "ai" ? "AI_INFERENCE" : "USER_PROVIDED") as DataLabel,
@@ -118,7 +161,7 @@ export async function createAndProcessBatch(
         action: "outreach.instagram.item_researched",
         resource: "instagram_outreach_item",
         resourceId: item.id,
-        metadata: { username, confidence: research.confidence, messageSource: generated.source },
+        metadata: { username, confidence: research.confidence, messageSource: generated.source, pitchAngle: decision.angle },
       });
       opts.onEvent?.({ type: "item-done", username, index: i + 1, total, itemId: item.id, ok: true });
     } catch (err) {
@@ -200,6 +243,8 @@ export interface ItemAction {
   researchFailed: boolean;
   researchError: string | null;
   researchedAt: Date | null;
+  pitchAngle: string | null;
+  websiteAnalysis: string | null;
   messageDraft: string | null;
   messageSource: string | null;
   messageEdited: string | null;
@@ -219,7 +264,7 @@ export async function getItem(organizationId: string, id: string) {
   return item;
 }
 
-/** Regenerate the draft with the AI provider (or template fallback). */
+/** Regenerate the draft with the full pipeline (research → pitch → humanized draft). */
 export async function regenerateItemMessage(
   organizationId: string,
   actorId: string,
@@ -227,8 +272,11 @@ export async function regenerateItemMessage(
   researchDeps: ResearchDeps = {},
 ): Promise<ItemAction> {
   const item = await getItem(organizationId, id);
-  const research = await researchInstagramProfile(item.username, researchDeps);
-  const generated = await generateOutreachMessage(research, researchDeps.ai);
+  const { decision, websiteSummary, generated } = await researchAndDraft(
+    item.username,
+    researchDeps,
+    0,
+  );
   const updated = await db.instagramOutreachItem.update({
     where: { id },
     data: {
@@ -237,6 +285,8 @@ export async function regenerateItemMessage(
       messageEdited: null, // a fresh draft discards the previous manual edit
       messageEditedAt: null,
       status: "DRAFT",
+      pitchAngle: decision.angle,
+      websiteAnalysis: websiteSummary,
       dataLabel: (generated.source === "ai" ? "AI_INFERENCE" : "USER_PROVIDED") as DataLabel,
     },
   });
@@ -246,7 +296,7 @@ export async function regenerateItemMessage(
     action: "outreach.instagram.message_regenerated",
     resource: "instagram_outreach_item",
     resourceId: id,
-    metadata: { username: item.username, messageSource: generated.source },
+    metadata: { username: item.username, messageSource: generated.source, pitchAngle: decision.angle },
   });
   return updated as ItemAction;
 }

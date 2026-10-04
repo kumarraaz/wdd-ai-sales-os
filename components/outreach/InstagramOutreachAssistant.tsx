@@ -31,6 +31,8 @@ interface OutreachItem {
   researchFailed: boolean;
   researchError: string | null;
   researchedAt: string | null;
+  pitchAngle: string | null;
+  websiteAnalysis: string | null;
   messageDraft: string | null;
   messageSource: string | null;
   messageEdited: string | null;
@@ -79,6 +81,26 @@ function ConfidenceBadge({ confidence }: { confidence: string | null }) {
   return (
     <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${cls}`}>
       {confidence === "INSUFFICIENT" ? "Insufficient info" : `${confidence} confidence`}
+    </span>
+  );
+}
+
+const PITCH_ANGLE_LABELS: Record<string, string> = {
+  NEW_WEBSITE: "New website",
+  REDESIGN: "Redesign",
+  UX_CONVERSION: "UX & enquiry flow",
+  SEO: "SEO",
+  LOCAL_SEO: "Local SEO",
+  PERFORMANCE: "Performance",
+  CONTENT: "Content",
+  GENERAL: "General opener",
+};
+
+function PitchAngleBadge({ angle }: { angle: string | null }) {
+  if (!angle) return null;
+  return (
+    <span className="rounded bg-[#D4AF37]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#D4AF37]" title="Recommended pitch angle from research">
+      Pitch: {PITCH_ANGLE_LABELS[angle] ?? angle}
     </span>
   );
 }
@@ -255,6 +277,7 @@ function OutreachCard({
           <StatusBadge status={item.status} />
           <ProvenanceBadge label={item.dataLabel} />
           <ConfidenceBadge confidence={item.researchConfidence} />
+          <PitchAngleBadge angle={item.pitchAngle} />
         </div>
       </div>
 
@@ -282,6 +305,13 @@ function OutreachCard({
 
       {item.observations && (
         <p className="mt-3 text-sm text-white/60">{item.observations}</p>
+      )}
+
+      {item.websiteAnalysis && (
+        <p className="mt-2 text-xs leading-relaxed text-white/45">
+          <span className="font-semibold text-white/60">Website check: </span>
+          {item.websiteAnalysis}
+        </p>
       )}
 
       <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/35">
