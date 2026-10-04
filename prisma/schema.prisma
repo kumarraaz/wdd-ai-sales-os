@@ -289,6 +289,7 @@ model Organization {
   leadScores    LeadScore[]
   jobs          Job[]
   agentMemories AgentMemory[]
+  agentApprovals AgentApproval[]
   files         LeadFile[]
   usageCounters UsageCounter[]
 
@@ -1047,6 +1048,53 @@ model AgentMemory {
   @@unique([organizationId, scope, scopeId, key])
   @@index([organizationId, scope, scopeId])
   @@index([organizationId, expiresAt])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  CANCELLED
+  EXECUTED
+  FAILED
+}
+
+enum ApprovalActionType {
+  OUTREACH_DRAFT
+  CRM_FOLLOWUP
+  CRM_TASK
+}
+
+/// Human approval gate for agent/workflow-proposed actions (Phase 7).
+/// The record is a SNAPSHOT: proposedInput/target/actionType are immutable
+/// after creation — approving executes exactly what was proposed.
+model AgentApproval {
+  id                String             @id @default(cuid())
+  organizationId    String
+  workflowId        String
+  workflowRunId     String
+  stageId           String
+  status            ApprovalStatus     @default(PENDING)
+  actionType        ApprovalActionType
+  proposedInput     Json
+  target            Json
+  reason            String             @db.Text
+  requestedByUserId String
+  reviewedByUserId  String?
+  reviewedAt        DateTime?
+  expiresAt         DateTime?
+  executionResult   Json?
+  /// Bounded checkpoint of the paused workflow (research stripped) so the
+  /// workflow can resume from the next stage without re-running discovery.
+  workflowSnapshot  Json?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
 }
 
 model Notification {

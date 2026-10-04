@@ -19,10 +19,14 @@
  */
 
 import { randomUUID } from "crypto";
+import { z } from "zod";
+import type { AgentApproval } from "@prisma/client";
 import type { WorkspaceContext } from "../../tenant";
 import { executeTool } from "../tools/registry";
 import { getWorkflowDefinition } from "./registry";
 import { recall, remember } from "../memory";
+import { createApproval } from "../approvals/service";
+import type { WorkflowCheckpoint } from "../approvals/types";
 import { isKillSwitchOn } from "../../automation/types";
 import { enqueueJob } from "../../automation/runner";
 import { audit } from "../../audit";
@@ -39,6 +43,7 @@ import {
   type StageOutcome,
   type WorkflowBudget,
   type WorkflowCounts,
+  type WorkflowDefinition,
   type WorkflowProspect,
   type WorkflowRequest,
   type WorkflowResult,
@@ -266,16 +271,57 @@ export async function runWorkflow(options: RunWorkflowOptions): Promise<Workflow
     // ignore
   }
 
-  // 4. Execute one stage at a time.
+  // 4. Execute one stage at a time (shared with resume-from-approval).
+  return executeFromStage(state, definition, 0, target, memoryRecalled);
+}
+
+/**
+ * Drive the stage loop from a start index to completion. Shared by fresh runs
+ * (startIndex 0) and approval resumes (startIndex = pausedIndex + 1).
+ */
+async function executeFromStage(
+  state: ExecutionState,
+  definition: WorkflowDefinition,
+  startIndex: number,
+  target: number,
+  memoryRecalled: number,
+): Promise<WorkflowResult> {
+  const { ctx, request, budget, workflowRunId, startedAt } = state;
+
+  const finish = (
+    status: WorkflowStatus,
+    extra?: Partial<WorkflowResult>,
+  ): WorkflowResult => {
+    const finishedAt = new Date().toISOString();
+    return {
+      status,
+      workflowId: request.workflowId,
+      workflowRunId,
+      requested: request,
+      effectiveBudget: budget,
+      budgetClampedNotes: state.budgetClampedNotes,
+      stages: state.stages,
+      counts: finalizeCounts(state, target),
+      prospects: state.prospects,
+      memoryRecalled: 0,
+      memoryPersisted: false,
+      startedAt: new Date(startedAt).toISOString(),
+      finishedAt,
+      durationMs: Date.now() - startedAt,
+      ...extra,
+    };
+  };
+
   const stages = definition.stages.slice(0, budget.maxStages);
   let halted = false;
 
-  for (const stageDef of stages) {
+  for (let i = startIndex; i < stages.length; i++) {
+    const stageDef = stages[i];
     if (halted) {
       state.stages.push(skippedOutcome(stageDef, "halted after deferral"));
       continue;
     }
-    if (signal?.aborted) {
+    if (state.signal?.aborted) {
       await logWorkflowEvent(ctx, "workflow.cancelled", { workflowId: request.workflowId, runId: workflowRunId });
       return finish("CANCELLED", { memoryRecalled, errorCode: "CANCELLED", errorMessage: "Workflow cancelled." });
     }
@@ -297,12 +343,7 @@ export async function runWorkflow(options: RunWorkflowOptions): Promise<Workflow
     state.stages.push(outcome);
 
     if (outcome.status === "waiting_approval") {
-      await logWorkflowEvent(ctx, "workflow.waiting_approval", {
-        workflowId: request.workflowId,
-        runId: workflowRunId,
-        stageId: stageDef.id,
-      });
-      return finish("WAITING_FOR_APPROVAL", { memoryRecalled, approval: state.approval });
+      return pauseForApproval(state, stageDef, target, memoryRecalled, finish);
     }
     if (outcome.status === "deferred") {
       // Bulk work delegated to the Phase-3 job engine; remaining stages cannot
@@ -348,7 +389,7 @@ export async function runWorkflow(options: RunWorkflowOptions): Promise<Workflow
         counts,
         stages: state.stages.map((s) => `${s.stageId}:${s.status}`),
         deferredJobId: state.deferredJobId ?? null,
-        budgetClamped: clamped,
+        budgetClamped: state.budgetClampedNotes,
         finishedAt: new Date().toISOString(),
       },
     });
@@ -868,4 +909,209 @@ function finalizeCounts(state: ExecutionState, target: number): WorkflowCounts {
     counts.deferred = target;
   }
   return counts;
+}
+
+// ─── approval pause & resume (Phase 7 integration) ───────────────────────────
+
+type FinishFn = (status: WorkflowStatus, extra?: Partial<WorkflowResult>) => WorkflowResult;
+
+/**
+ * Build the bounded resume checkpoint stored on the approval record.
+ * Prospect research is stripped to bound the size; it is not needed after
+ * the approval point (QUALIFY/SCORE already ran).
+ */
+function buildCheckpoint(
+  state: ExecutionState,
+  stageDef: StageDefinition,
+  target: number,
+  memoryRecalled: number,
+): WorkflowCheckpoint {
+  return {
+    v: 1,
+    request: state.request,
+    budget: state.budget,
+    budgetClampedNotes: state.budgetClampedNotes,
+    stages: state.stages,
+    prospects: state.prospects.map(({ research: _research, ...rest }) => rest),
+    leadContext: state.leadContext,
+    pausedStageId: stageDef.id,
+    target,
+    memoryRecalled,
+    startedAt: new Date(state.startedAt).toISOString(),
+  };
+}
+
+/**
+ * Persist the approval snapshot and pause. If the approval record cannot be
+ * persisted, fail closed — a WAITING_FOR_APPROVAL without a reviewable
+ * record would strand the workflow.
+ */
+async function pauseForApproval(
+  state: ExecutionState,
+  stageDef: StageDefinition,
+  target: number,
+  memoryRecalled: number,
+  finish: FinishFn,
+): Promise<WorkflowResult> {
+  const { ctx } = state;
+  const proposal = state.approval;
+  await logWorkflowEvent(ctx, "workflow.waiting_approval", {
+    workflowId: state.request.workflowId,
+    runId: state.workflowRunId,
+    stageId: stageDef.id,
+  });
+  if (!proposal) {
+    return finish("FAILED", {
+      memoryRecalled,
+      errorCode: "APPROVAL_PROPOSAL_MISSING",
+      errorMessage: "Approval stage produced no proposal.",
+    });
+  }
+  try {
+    const proposedInput = proposal.proposedInput as Record<string, unknown>;
+    const leadId = typeof proposedInput.leadId === "string" ? proposedInput.leadId : null;
+    const channel = typeof proposedInput.channel === "string" ? proposedInput.channel : null;
+    const approval = await createApproval(ctx, {
+      workflowId: state.request.workflowId,
+      workflowRunId: state.workflowRunId,
+      stageId: stageDef.id,
+      toolName: proposal.action,
+      proposedInput,
+      target: { label: proposal.target, leadId, channel },
+      reason: proposal.reason,
+      workflowSnapshot: buildCheckpoint(state, stageDef, target, memoryRecalled),
+    });
+    return finish("WAITING_FOR_APPROVAL", {
+      memoryRecalled,
+      approval: proposal,
+      approvalId: approval.id,
+    });
+  } catch (err) {
+    await logWorkflowEvent(ctx, "workflow.failed", {
+      workflowId: state.request.workflowId,
+      runId: state.workflowRunId,
+      stageId: stageDef.id,
+      error: "approval persistence failed",
+    });
+    return finish("FAILED", {
+      memoryRecalled,
+      errorCode: "APPROVAL_PERSIST_FAILED",
+      errorMessage: err instanceof Error ? err.message : "Could not persist the approval request.",
+    });
+  }
+}
+
+const checkpointSchema = z
+  .object({
+    v: z.literal(1),
+    request: WORKFLOW_REQUEST_SCHEMA,
+    budget: z.object({
+      maxStages: z.number(),
+      maxToolCalls: z.number(),
+      maxLeads: z.number(),
+      maxRuntimeMs: z.number(),
+      maxAiCalls: z.number(),
+    }),
+    budgetClampedNotes: z.array(z.string()),
+    stages: z.array(
+      z.object({
+        stageId: z.string(),
+        type: z.string(),
+        status: z.string(),
+        toolCalls: z.number(),
+      }).passthrough()
+    ),
+    prospects: z.array(z.record(z.string(), z.unknown())),
+    leadContext: z.record(z.string(), z.unknown()).nullable(),
+    pausedStageId: z.string(),
+    target: z.number(),
+    memoryRecalled: z.number(),
+    startedAt: z.string(),
+  })
+  .strict();
+
+export interface ResumeWorkflowOptions {
+  ctx: WorkspaceContext;
+  /** Must already be tenant-verified and EXECUTED (the approve flow guarantees this). */
+  approval: AgentApproval;
+  signal?: AbortSignal;
+}
+
+/**
+ * Resume a workflow paused at an approval stage. Rebuilds execution state
+ * from the approval's checkpoint and continues from the NEXT stage — never
+ * re-runs discovery/research. Budgets accumulate from the checkpoint.
+ */
+export async function resumeWorkflowFromCheckpoint(
+  options: ResumeWorkflowOptions,
+): Promise<WorkflowResult> {
+  const { ctx, approval, signal } = options;
+  if (approval.organizationId !== ctx.organization.id) {
+    throw new WorkflowExecutionError("TENANT_MISMATCH", "Approval belongs to another organization.");
+  }
+  if (approval.status !== "EXECUTED") {
+    throw new WorkflowExecutionError(
+      "APPROVAL_NOT_EXECUTED",
+      `Cannot resume: approval is ${approval.status}.`,
+    );
+  }
+  const parsed = checkpointSchema.safeParse(approval.workflowSnapshot);
+  if (!parsed.success) {
+    throw new WorkflowExecutionError("INVALID_CHECKPOINT", "Workflow checkpoint is missing or corrupt.");
+  }
+  const cp = parsed.data;
+  const definition = getWorkflowDefinition(cp.request.workflowId);
+  if (!definition) {
+    throw new WorkflowExecutionError("UNKNOWN_WORKFLOW", "Unknown workflow in checkpoint.");
+  }
+  const pausedIndex = definition.stages.findIndex((s) => s.id === cp.pausedStageId);
+  if (pausedIndex < 0) {
+    throw new WorkflowExecutionError("UNKNOWN_STAGE", "Paused stage not found in workflow definition.");
+  }
+
+  const prospects = (cp.prospects as unknown as WorkflowProspect[]).map((p) => ({
+    ...p,
+    research: null,
+  }));
+  const state: ExecutionState = {
+    ctx,
+    request: cp.request,
+    budget: cp.budget,
+    budgetClampedNotes: cp.budgetClampedNotes,
+    workflowRunId: approval.workflowRunId,
+    startedAt: Date.parse(cp.startedAt) || Date.now(),
+    toolCalls: cp.stages.reduce((n, s) => n + (s.toolCalls ?? 0), 0),
+    prospects,
+    stages: cp.stages as unknown as StageOutcome[],
+    leadContext: cp.leadContext,
+    signal,
+  };
+
+  // The paused stage was approved and its action executed — mark it complete.
+  const pausedOutcome = state.stages[pausedIndex] as StageOutcome | undefined;
+  if (pausedOutcome) {
+    pausedOutcome.status = "completed";
+    pausedOutcome.toolCalls += 1;
+    pausedOutcome.note = `approved and executed via approval ${approval.id}`;
+  }
+
+  await logWorkflowEvent(ctx, "approval.resume_started", {
+    approvalId: approval.id,
+    workflowId: cp.request.workflowId,
+    runId: approval.workflowRunId,
+  });
+  try {
+    const result = await executeFromStage(state, definition, pausedIndex + 1, cp.target, cp.memoryRecalled);
+    await logWorkflowEvent(ctx, "approval.resume_completed", {
+      approvalId: approval.id,
+      status: result.status,
+    });
+    return { ...result, resumedFromApprovalId: approval.id };
+  } catch (err) {
+    await logWorkflowEvent(ctx, "approval.resume_failed", {
+      approvalId: approval.id,
+      error: err instanceof Error ? err.message : "unknown",
+    });
+    throw err;
+  }
 }

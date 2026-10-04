@@ -266,6 +266,10 @@ export interface WorkflowResult {
   prospects: WorkflowProspect[];
   /** Set when status is WAITING_FOR_APPROVAL. */
   approval?: ApprovalProposal;
+  /** Persistent approval record id (Phase 7). Set when the pause was persisted. */
+  approvalId?: string;
+  /** Set when this result came from resuming after an approved action. */
+  resumedFromApprovalId?: string;
   /** Set when bulk work was delegated to the Phase-3 job engine. */
   deferredJobId?: string;
   memoryRecalled: number;

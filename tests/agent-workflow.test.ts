@@ -191,8 +191,21 @@ vi.mock("../lib/automation/runner", () => ({
   enqueueJob: mockEnqueueJob,
 }));
 
+const { mockApprovalCreate } = vi.hoisted(() => ({
+  mockApprovalCreate: vi.fn(async ({ data }: any) => ({
+    id: "appr-1",
+    ...data,
+    status: "PENDING",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  })),
+}));
+
 vi.mock("../lib/db", () => ({
-  db: { followUp: { findFirst: mockFindFirstFollowUp } },
+  db: {
+    followUp: { findFirst: mockFindFirstFollowUp },
+    agentApproval: { create: mockApprovalCreate },
+  },
 }));
 
 vi.mock("../lib/leads", () => ({
