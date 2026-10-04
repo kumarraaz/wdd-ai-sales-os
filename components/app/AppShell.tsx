@@ -22,6 +22,7 @@ import {
   ChevronDown,
   Sparkles,
   Crown,
+  type LucideIcon,
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { CommandPalette } from "./CommandPalette";
@@ -31,6 +32,18 @@ interface Org {
   name: string;
   role: string;
 }
+
+import { MOBILE_NAV_ITEMS, type MobileNavIconName } from "./mobile-nav";
+
+// Maps the icon name in MOBILE_NAV_ITEMS to the real lucide component.
+const MOBILE_NAV_ICONS: Record<MobileNavIconName, LucideIcon> = {
+  LayoutDashboard,
+  Users,
+  Radar,
+  Send,
+  KanbanSquare,
+  BrainCircuit,
+};
 
 const NAV_MAIN = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, live: true },
@@ -242,28 +255,22 @@ export function AppShell({
 
         <main className="flex-1 p-4 pb-28 sm:p-6 sm:pb-28 lg:pb-6">{children}</main>
 
-        {/* Mobile bottom nav — 5 key modules, safe-area aware */}
+        {/* Mobile bottom nav — 6 key modules, safe-area aware */}
         <nav
           className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#0D1B2A]/95 backdrop-blur lg:hidden"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
           aria-label="Mobile"
         >
-          <div className="grid grid-cols-5 px-1 pt-1.5">
-            {[
-              { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-              { href: "/leads", label: "Leads", icon: Users },
-              { href: "/discover", label: "Discover", icon: Radar },
-              { href: "/crm", label: "CRM", icon: KanbanSquare },
-              { href: "/intelligence", label: "Intel", icon: BrainCircuit },
-            ].map((item) => {
-              const Icon = item.icon;
+          <div className="grid grid-cols-6 px-1 pt-1.5">
+            {MOBILE_NAV_ITEMS.map((item) => {
+              const Icon = MOBILE_NAV_ICONS[item.icon];
               const active = pathname === item.href;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   aria-current={active ? "page" : undefined}
-                  className={`flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-[10px] font-medium ${
+                  className={`flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-[10px] font-medium ${
                     active ? "text-[#D4AF37]" : "text-white/60"
                   }`}
                 >
