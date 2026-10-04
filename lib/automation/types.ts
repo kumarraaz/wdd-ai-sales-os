@@ -14,7 +14,8 @@ export type JobTypeName =
   | "research.lead"
   | "lead.scoring"
   | "followup.create"
-  | "message.generate";
+  | "message.generate"
+  | "prospecting.instagram.daily";
 
 /** Trusted execution context for a job. organizationId comes from the job
  *  row (written at enqueue from server context) — never from the payload. */

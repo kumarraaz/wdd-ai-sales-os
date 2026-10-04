@@ -11,6 +11,14 @@ import Papa from "papaparse";
 import Link from "next/link";
 import { Plus, Upload, Download, Trash2, X, Globe, ChevronDown, Loader2 } from "lucide-react";
 import { DEMO_ACTION_DISABLED_MESSAGE } from "@/lib/demo";
+import {
+  SOURCE_OPTIONS,
+  IG_PRESET_VISIBLE,
+  ConnectionStatusDropdown,
+  MessageViewerModal,
+  RemarkModal,
+  ProfileLink,
+} from "./InstagramLeadCells";
 
 interface Lead {
   id: string;
@@ -22,6 +30,11 @@ interface Lead {
   opportunityType: string | null;
   contactable: boolean;
   industry: string | null;
+  instagramUrl: string | null;
+  instagramUsername: string | null;
+  instagramConnectionStatus: string | null;
+  aiMessage: string | null;
+  aiMessageSource: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
@@ -204,6 +217,9 @@ export function LeadsTable({
   const [page, setPage] = useState(1);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
+  const [sourceType, setSourceType] = useState("");
+  const [messageLead, setMessageLead] = useState<Lead | null>(null);
+  const [remarkLead, setRemarkLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [demoNotice, setDemoNotice] = useState<string | null>(null);
@@ -229,6 +245,7 @@ export function LeadsTable({
         pageSize: String(pageSize),
         ...(q ? { q } : {}),
         ...(status ? { status } : {}),
+        ...(sourceType ? { sourceType } : {}),
         sort: "updatedAt",
         order: "desc",
       });
@@ -243,7 +260,7 @@ export function LeadsTable({
     } finally {
       setLoading(false);
     }
-  }, [page, q, status, headers, apiBase]);
+  }, [page, q, status, sourceType, headers, apiBase]);
 
   useEffect(() => {
     fetchLeads();
@@ -459,6 +476,64 @@ export function LeadsTable({
           </span>
         ),
       }),
+      columnHelper.accessor("instagramUsername", {
+        id: "ig_username",
+        header: "Instagram Username",
+        cell: (info) => (
+          <span className="text-xs text-white/70">
+            {info.getValue() ? `@${info.getValue()}` : <span className="text-white/30">—</span>}
+          </span>
+        ),
+      }),
+      columnHelper.accessor("instagramUrl", {
+        id: "ig_profile",
+        header: "Profile URL",
+        cell: (info) => <ProfileLink url={info.getValue()} />,
+      }),
+      columnHelper.accessor("instagramConnectionStatus", {
+        id: "ig_connected",
+        header: "Connected",
+        cell: (info) => (
+          <ConnectionStatusDropdown
+            lead={info.row.original}
+            orgId={orgId}
+            apiBase={apiBase}
+            canWrite={canWrite}
+            demo={demo}
+            onBlocked={blockDemo}
+            onChanged={handleConnectionChanged}
+          />
+        ),
+      }),
+      columnHelper.accessor("aiMessage", {
+        id: "ai_message",
+        header: "AI Message",
+        cell: (info) =>
+          info.getValue() ? (
+            <button
+              type="button"
+              onClick={() => setMessageLead(info.row.original)}
+              className="rounded-lg border border-[#D4AF37]/30 px-2.5 py-1 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/10"
+            >
+              View Message
+            </button>
+          ) : (
+            <span className="text-white/30">—</span>
+          ),
+      }),
+      columnHelper.display({
+        id: "remark",
+        header: "Remark",
+        cell: (info) => (
+          <button
+            type="button"
+            onClick={() => setRemarkLead(info.row.original)}
+            className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-white/60 hover:text-white"
+          >
+            Remarks
+          </button>
+        ),
+      }),
       columnHelper.display({
         id: "inspect",
         header: "Site",
@@ -496,6 +571,11 @@ export function LeadsTable({
       { id: "contactable", label: "Contactability" },
       { id: "status", label: "Status" },
       { id: "source", label: "Source" },
+      { id: "ig_username", label: "Instagram Username" },
+      { id: "ig_profile", label: "Profile URL" },
+      { id: "ig_connected", label: "Connected" },
+      { id: "ai_message", label: "AI Message" },
+      { id: "remark", label: "Remark" },
       { id: "inspect", label: "Site" },
     ],
     [],
@@ -543,6 +623,16 @@ export function LeadsTable({
   const handleStatusChanged = useCallback((id: string, status: string) => {
     setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, status } : l)));
   }, []);
+  const handleConnectionChanged = useCallback((id: string, instagramConnectionStatus: string) => {
+    setLeads((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, instagramConnectionStatus } : l)),
+    );
+  }, []);
+  const handleMessageSaved = useCallback((id: string, aiMessage: string) => {
+    setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, aiMessage } : l)));
+    setMessageLead((prev) => (prev && prev.id === id ? { ...prev, aiMessage } : prev));
+  }, []);
+
   const table = useReactTable({
     data: leads,
     columns: visibleColumns,
@@ -588,6 +678,34 @@ export function LeadsTable({
           {STATUSES.map((s) => (
             <option key={s} value={s}>
               {s.charAt(0) + s.slice(1).toLowerCase()}
+            </option>
+          ))}
+        </select>
+        <select
+          value={sourceType}
+          onChange={(e) => {
+            const next = e.target.value;
+            setSourceType(next);
+            setPage(1);
+            // Instagram source → apply the Instagram-oriented column preset.
+            if (next === "INSTAGRAM") {
+              const hidden = TOGGLEABLE_COLUMNS.map((c) => c.id).filter(
+                (id) => !IG_PRESET_VISIBLE.includes(id),
+              );
+              setHiddenCols(hidden);
+              try {
+                localStorage.setItem("wdd-leads-columns", JSON.stringify(hidden));
+              } catch {
+                /* ignore */
+              }
+            }
+          }}
+          aria-label="Filter by source"
+          className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+        >
+          {SOURCE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
             </option>
           ))}
         </select>
@@ -758,6 +876,30 @@ export function LeadsTable({
       )}
       {showImport && (
         <ImportDialog orgId={orgId} onClose={() => setShowImport(false)} onDone={fetchLeads} />
+      )}
+      {messageLead && (
+        <MessageViewerModal
+          lead={messageLead}
+          orgId={orgId}
+          apiBase={apiBase}
+          canWrite={canWrite}
+          demo={demo}
+          onBlocked={blockDemo}
+          onClose={() => setMessageLead(null)}
+          onSaved={handleMessageSaved}
+        />
+      )}
+      {remarkLead && (
+        <RemarkModal
+          leadId={remarkLead.id}
+          leadLabel={remarkLead.company?.name ?? remarkLead.fullName ?? remarkLead.id}
+          orgId={orgId}
+          apiBase={apiBase}
+          canWrite={canWrite}
+          demo={demo}
+          onBlocked={blockDemo}
+          onClose={() => setRemarkLead(null)}
+        />
       )}
     </div>
   );

@@ -131,12 +131,19 @@ export function Kanban({
   const [cards, setCards] = useState<Record<string, Card[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sourceType, setSourceType] = useState("");
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${apiBase}/leads?pageSize=100&sort=leadScore&order=desc`, {
+        const params = new URLSearchParams({
+          pageSize: "100",
+          sort: "leadScore",
+          order: "desc",
+          ...(sourceType ? { sourceType } : {}),
+        });
+        const res = await fetch(`${apiBase}/leads?${params}`, {
           headers: { "x-org-id": orgId },
         });
         if (!res.ok) throw new Error("Failed to load pipeline.");
@@ -155,7 +162,7 @@ export function Kanban({
         setLoading(false);
       }
     })();
-  }, [orgId, apiBase]);
+  }, [orgId, apiBase, sourceType]);
 
   async function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -220,6 +227,25 @@ export function Kanban({
       {!canWrite && (
         <p className="mb-3 text-sm text-white/40">You have view-only access — cards cannot be moved.</p>
       )}
+      <div className="mb-3 flex items-center gap-2">
+        <label htmlFor="kanban-source" className="text-xs text-white/40">
+          Source:
+        </label>
+        <select
+          id="kanban-source"
+          value={sourceType}
+          onChange={(e) => setSourceType(e.target.value)}
+          aria-label="Filter pipeline by source"
+          className="rounded-lg border border-white/10 bg-black/30 px-3 py-1.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+        >
+          <option value="">All sources</option>
+          <option value="INSTAGRAM">Instagram</option>
+          <option value="GOOGLE_BUSINESS">Google Maps</option>
+          <option value="WEB_SEARCH">Google Search</option>
+          <option value="CSV">CSV</option>
+          <option value="MANUAL">Manual</option>
+        </select>
+      </div>
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
         {/* Board scrolls horizontally inside its own viewport; columns keep
             a usable minimum width and the page itself never overflows. */}

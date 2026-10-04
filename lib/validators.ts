@@ -27,6 +27,13 @@ export const leadSourceTypeSchema = z.enum([
   "MANUAL",
   "API",
   "DEMO",
+  "INSTAGRAM",
+]);
+
+export const instagramConnectionStatusSchema = z.enum([
+  "CONNECTED",
+  "NOT_CONNECTED",
+  "UNKNOWN",
 ]);
 
 export const createLeadSchema = z.object({
@@ -63,6 +70,16 @@ export const createLeadSchema = z.object({
   scoreReason: z.string().trim().max(500).optional(),
   googleMapsUrl: z.string().trim().max(1000).optional(),
   instagramUrl: z.string().trim().max(1000).optional(),
+  instagramUsername: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(30)
+    .regex(/^[a-z0-9._]+$/, "Invalid Instagram username")
+    .optional(),
+  instagramConnectionStatus: instagramConnectionStatusSchema.optional(),
+  aiMessage: z.string().trim().max(2000).optional(),
+  aiMessageSource: z.enum(["ai", "template"]).optional(),
   facebookUrl: z.string().trim().max(1000).optional(),
   linkedinUrl: z.string().trim().max(1000).optional(),
   lastVerifiedAt: z.string().datetime().optional(),
@@ -290,3 +307,40 @@ export const instagramItemLinkSchema = z.object({
   leadId: z.string().cuid().optional(),
   create: z.boolean().optional(),
 });
+
+// ── Instagram prospecting: 7-day weekly plan + daily runs ─────────────────
+
+export const prospectingDaySchema = z.object({
+  dayOfWeek: z.number().int().min(0).max(6),
+  industry: z.string().trim().min(1).max(200),
+  location: z.string().trim().max(200).optional(),
+  country: z.string().trim().max(120).optional(),
+  businessType: z.string().trim().max(200).optional(),
+  targetAudience: z.string().trim().max(300).optional(),
+  websitePreference: z.enum(["ANY", "NO_WEBSITE", "HAS_WEBSITE"]).optional(),
+  followerThreshold: z.number().int().min(0).max(100_000_000).optional(),
+  targetCount: z.number().int().min(1).max(200).optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const prospectingPlanSchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+  isActive: z.boolean().optional(),
+  timezone: z.string().trim().min(1).max(60).optional(),
+  runAtTime: z
+    .string()
+    .trim()
+    .regex(/^\d{2}:\d{2}$/, "runAtTime must be HH:MM")
+    .optional(),
+  days: z.array(prospectingDaySchema).max(7).optional(),
+});
+
+export type ProspectingPlanInput = z.infer<typeof prospectingPlanSchema>;
+
+// ── Universal CRM remarks (Note model: body + author + timestamps) ────────
+
+export const remarkSchema = z.object({
+  body: z.string().trim().min(1).max(2000),
+});
+
+export type RemarkInput = z.infer<typeof remarkSchema>;

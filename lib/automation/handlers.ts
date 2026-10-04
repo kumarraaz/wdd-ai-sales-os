@@ -36,6 +36,7 @@ import { SafeFetchError } from "../intelligence/safe-fetch";
 import { DiscoveryError } from "../discovery/types";
 import { getLead } from "../leads";
 import { getAIProvider } from "../ai/registry";
+import { runDailyProspecting } from "../prospecting/instagram-pipeline";
 import {
   checkDiscoveryQuota,
   recordDiscoveryUsage,
@@ -544,6 +545,40 @@ async function handleMessageGenerate(ctx: JobContext, raw: unknown) {
 
 type Handler = (ctx: JobContext, payload: unknown) => Promise<{ summary?: unknown } | unknown>;
 
+// ── prospecting.instagram.daily ──────────────────────────────────────────
+
+const prospectingInstagramDailyPayload = z
+  .object({
+    planId: z.string().cuid().optional(),
+    /** true when enqueued from the manual "Run Now" button. */
+    manual: z.boolean().optional(),
+    ...jobMetadataFields,
+  })
+  .strict();
+
+async function handleProspectingInstagramDaily(ctx: JobContext, raw: unknown) {
+  const input = parsePayload(
+    prospectingInstagramDailyPayload,
+    raw,
+    "prospecting.instagram.daily",
+  );
+  // The pipeline is idempotent per org/day and enforces quotas, kill
+  // switch, and global dedup internally.
+  const stats = await runDailyProspecting(ctx.organizationId, ctx.actorId, {
+    triggeredBy: input.manual ? "MANUAL" : "SCHEDULED",
+  });
+  if (stats.status === "FAILED") {
+    throw new JobError("PROSPECTING_RUN_FAILED", "Instagram prospecting run failed.", true);
+  }
+  return {
+    runId: stats.runId,
+    runDate: stats.runDate,
+    found: stats.found,
+    newCount: stats.newCount,
+    crmImported: stats.crmImported,
+  };
+}
+
 const JOB_HANDLERS: Record<JobTypeName, { schema: z.ZodTypeAny; handler: Handler }> = {
   "discovery.pipeline": { schema: discoveryPipelinePayload, handler: handleDiscoveryPipeline },
   "research.website": { schema: researchWebsitePayload, handler: handleResearchWebsite },
@@ -551,6 +586,10 @@ const JOB_HANDLERS: Record<JobTypeName, { schema: z.ZodTypeAny; handler: Handler
   "lead.scoring": { schema: leadScoringPayload, handler: handleLeadScoring },
   "followup.create": { schema: followupCreatePayload, handler: handleFollowupCreate },
   "message.generate": { schema: messageGeneratePayload, handler: handleMessageGenerate },
+  "prospecting.instagram.daily": {
+    schema: prospectingInstagramDailyPayload,
+    handler: handleProspectingInstagramDaily,
+  },
 };
 
 /** Payload schemas by job type — used by enqueueJob for validation. */

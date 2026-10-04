@@ -32,14 +32,70 @@ const ACTION_TO_JOB: Record<string, JobTypeName> = {
   "score-lead": "lead.scoring",
   "generate-message": "message.generate",
   "create-followup": "followup.create",
+  "run-instagram-prospecting": "prospecting.instagram.daily",
 };
 
 /** Known action types that Phase 3 deliberately refuses (no sending yet). */
 const SEND_ACTIONS = new Set(["send-email", "send-whatsapp", "send-telegram"]);
 
-const scheduleTriggerConfig = z
-  .object({ intervalMinutes: z.number().int().min(1).max(525_600) })
-  .strict();
+/**
+ * Schedule trigger config — two additive variants (existing interval-based
+ * configs keep working unchanged):
+ * - { intervalMinutes } — fire every N minutes from the last fire.
+ * - { atTime: "HH:MM", timezone, daysOfWeek? } — fire once per day when the
+ *   wall-clock time in the given timezone has passed. Used by the daily
+ *   9:00 AM Instagram prospecting run.
+ */
+const scheduleTriggerConfig = z.union([
+  z.object({ intervalMinutes: z.number().int().min(1).max(525_600) }).strict(),
+  z
+    .object({
+      atTime: z.string().regex(/^\d{2}:\d{2}$/),
+      timezone: z.string().min(1).max(60),
+      daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
+    })
+    .strict(),
+]);
+
+/** Current wall-clock time parts in a target timezone (no date-fns needed). */
+function tzParts(now: Date, timezone: string): { ymd: string; hm: string; dow: number } | null {
+  try {
+    const fmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      weekday: "short",
+    });
+    const parts: Record<string, string> = {};
+    for (const p of fmt.formatToParts(now)) parts[p.type] = p.value;
+    const ymd = `${parts.year}-${parts.month}-${parts.day}`;
+    const hm = `${parts.hour === "24" ? "00" : parts.hour}:${parts.minute}`;
+    const dowMap: Record<string, number> = {
+      Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+    };
+    return { ymd, hm, dow: dowMap[parts.weekday] ?? -1 };
+  } catch {
+    return null; // invalid timezone — fail closed
+  }
+}
+
+/** YYYY-MM-DD of the last fire, expressed in the target timezone. */
+function lastFireYmd(last: Date, timezone: string): string | null {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(last);
+  } catch {
+    return null;
+  }
+}
 
 type ConditionContext = Record<string, unknown>;
 
@@ -90,6 +146,30 @@ export interface SchedulerStats {
   skipped: number;
 }
 
+export interface AtTimeTriggerConfig {
+  atTime: string;
+  timezone: string;
+  daysOfWeek?: number[];
+}
+
+/**
+ * Pure wall-clock check: has today's atTime passed in the timezone, and did
+ * the last fire happen before today's atTime? Exported for unit testing.
+ */
+export function isAtTimeTriggerDue(
+  cfg: AtTimeTriggerConfig,
+  lastFireAt: Date | null,
+  now: Date,
+): boolean {
+  const parts = tzParts(now, cfg.timezone);
+  if (!parts) return false;
+  if (cfg.daysOfWeek && !cfg.daysOfWeek.includes(parts.dow)) return false;
+  if (parts.hm < cfg.atTime) return false; // today's run time not reached yet
+  if (!lastFireAt) return true;
+  const lastYmd = lastFireYmd(lastFireAt, cfg.timezone);
+  return lastYmd !== null && lastYmd < parts.ymd; // not yet fired today
+}
+
 async function shouldScheduleTriggerFire(
   automationId: string,
   config: unknown,
@@ -102,8 +182,15 @@ async function shouldScheduleTriggerFire(
     orderBy: { createdAt: "desc" },
     select: { createdAt: true },
   });
-  if (!last) return true;
-  return Date.now() - last.createdAt.getTime() >= parsed.data.intervalMinutes * 60_000;
+
+  const cfg = parsed.data;
+  if ("intervalMinutes" in cfg) {
+    if (!last) return true;
+    return Date.now() - last.createdAt.getTime() >= cfg.intervalMinutes * 60_000;
+  }
+
+  // Wall-clock variant: fire once per day after atTime in the timezone.
+  return isAtTimeTriggerDue(cfg, last?.createdAt ?? null, new Date());
 }
 
 export async function evaluateAutomations(

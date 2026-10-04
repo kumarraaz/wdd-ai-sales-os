@@ -119,6 +119,11 @@ export async function createLead(
     scoreReason: input.scoreReason?.trim() || null,
     googleMapsUrl: input.googleMapsUrl?.trim() || null,
     instagramUrl: input.instagramUrl?.trim() || null,
+    instagramUsername: input.instagramUsername?.trim().toLowerCase() || null,
+    instagramConnectionStatus: input.instagramConnectionStatus ?? "UNKNOWN",
+    aiMessage: input.aiMessage?.trim() || null,
+    aiMessageSource: input.aiMessageSource ?? null,
+    aiMessageAt: input.aiMessage ? new Date() : null,
     facebookUrl: input.facebookUrl?.trim() || null,
     linkedinUrl: input.linkedinUrl?.trim() || null,
     status: input.status ?? "NEW",
@@ -249,6 +254,15 @@ export async function updateLead(
   if (input.leadScore !== undefined) data.leadScore = input.leadScore;
   if (input.scoreReason !== undefined) data.scoreReason = input.scoreReason?.trim() || null;
   if (input.opportunityReason !== undefined) data.opportunityReason = input.opportunityReason?.trim() || null;
+  if (input.instagramUsername !== undefined)
+    data.instagramUsername = input.instagramUsername?.trim().toLowerCase() || null;
+  if (input.instagramConnectionStatus !== undefined)
+    data.instagramConnectionStatus = input.instagramConnectionStatus;
+  if (input.aiMessage !== undefined) {
+    data.aiMessage = input.aiMessage?.trim() || null;
+    data.aiMessageAt = input.aiMessage?.trim() ? new Date() : null;
+  }
+  if (input.aiMessageSource !== undefined) data.aiMessageSource = input.aiMessageSource ?? null;
 
   const lead = await db.lead.update({ where: { id }, data });
 

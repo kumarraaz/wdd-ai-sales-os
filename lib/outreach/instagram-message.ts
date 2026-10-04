@@ -240,7 +240,7 @@ export function validateOutreachMessage(
 
 const TEMPLATE_MESSAGES: Record<PitchAngle, string> = {
   NEW_WEBSITE:
-    "Hey, had a quick look at your page. I noticed there isn't a website linked for the business — a simple site makes it much easier for people to understand what you offer and get in touch.\n\nI build clean, simple websites for small businesses. Happy to share a quick idea if you're interested.",
+    "Hey, had a quick look at your page. I couldn't find a website for the business — a simple site makes it much easier for people to understand what you offer and get in touch.\n\nI build clean, simple websites for small businesses. Happy to share a quick idea if you're interested.",
   REDESIGN:
     "Hey, was checking out your page and then the website. What you do comes through clearly, but the site itself feels dated and a bit hard to browse, especially on a phone.\n\nI work on website redesigns that clean exactly this up. Happy to show you what I'd change if you're open to it.",
   UX_CONVERSION:

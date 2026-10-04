@@ -50,6 +50,13 @@ enum LeadSourceType {
   MANUAL
   API
   DEMO
+  INSTAGRAM
+}
+
+enum InstagramConnectionStatus {
+  CONNECTED
+  NOT_CONNECTED
+  UNKNOWN
 }
 
 enum DataLabel {
@@ -290,6 +297,8 @@ model Organization {
   messages      Message[]
   instagramOutreachBatches InstagramOutreachBatch[]
   instagramOutreachItems   InstagramOutreachItem[]
+  instagramProspectingPlans InstagramProspectingPlan[]
+  instagramProspectingRuns  InstagramProspectingRun[]
   discoveryRuns DiscoveryRun[]
   websiteInspections WebsiteInspection[]
   intelligenceReports LeadIntelligence[]
@@ -358,6 +367,11 @@ model Lead {
   contactable     Boolean @default(false) // true when phone/email/social/contact URL exists
   googleMapsUrl   String? // provider Google Maps link — VERIFIED_DATA only
   instagramUrl    String? // never invented; null when unknown
+  instagramUsername String? // normalized lowercase handle — dedup key for IG prospecting
+  instagramConnectionStatus InstagramConnectionStatus @default(UNKNOWN) // never guessed; UNKNOWN until verified or set by user
+  aiMessage       String? @db.Text // generated IG outreach draft (quality-gated); user sends manually
+  aiMessageSource String? // "ai" | "template"
+  aiMessageAt     DateTime? // when the draft was generated
   facebookUrl     String? // never invented; null when unknown
   linkedinUrl     String? // manual or provider-provided; null when unknown
   leadScore      Int            @default(0)
@@ -405,6 +419,7 @@ model Lead {
   @@index([organizationId, sourceType])
   @@index([organizationId, createdAt])
   @@index([organizationId, nextFollowUpAt])
+  @@index([organizationId, instagramUsername])
 }
 
 model Company {
@@ -826,6 +841,84 @@ model Message {
   @@index([leadId])
   @@index([campaignId])
   @@index([scheduledAt])
+}
+
+// ═══════════════ INSTAGRAM PROSPECTING — 7-DAY WEEKLY PLAN + DAILY RUNS ═══════════════
+// Extension of the Instagram Outreach architecture (not a replacement).
+// A plan defines one prospecting target per weekday; a scheduler-driven job
+// runs the current day's target daily at the plan's runAtTime.
+
+enum ProspectingRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model InstagramProspectingPlan {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String   @default("Weekly Instagram Prospecting")
+  isActive       Boolean  @default(true)
+  timezone       String   @default("Asia/Kolkata")
+  runAtTime      String   @default("09:00") // HH:MM in the plan timezone
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  days         InstagramProspectingDay[]
+  runs         InstagramProspectingRun[]
+
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+}
+
+model InstagramProspectingDay {
+  id                String   @id @default(cuid())
+  planId            String
+  dayOfWeek         Int      // 0=Sunday … 6=Saturday (JS getDay convention)
+  industry          String   // e.g. "jewellery", "fashion manufacturers" — never hardcoded in code
+  location          String?  // e.g. "Mumbai"
+  country           String?  // e.g. "India"
+  businessType      String?  // e.g. "manufacturer", "retailer"
+  targetAudience    String?  // free-text note, e.g. "B2B wholesalers"
+  websitePreference String   @default("ANY") // ANY | NO_WEBSITE | HAS_WEBSITE
+  followerThreshold Int?     // stored when configured; NOT enforceable from compliant sources (no follower data)
+  targetCount       Int      @default(75) // 70–80/day target
+  isActive          Boolean  @default(true)
+
+  plan InstagramProspectingPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, dayOfWeek])
+  @@index([planId])
+}
+
+model InstagramProspectingRun {
+  id               String               @id @default(cuid())
+  organizationId   String
+  planId           String?
+  dayOfWeek        Int
+  runDate          String               // YYYY-MM-DD in the plan timezone — one run per org per day
+  targetCount      Int
+  found            Int                  @default(0) // unique usernames discovered
+  newCount         Int                  @default(0) // passed global dedup
+  duplicatesSkipped Int                 @default(0)
+  researched       Int                  @default(0)
+  messagesGenerated Int                 @default(0)
+  crmImported      Int                  @default(0)
+  failed           Int                  @default(0)
+  status           ProspectingRunStatus @default(RUNNING)
+  triggeredBy      String               @default("SCHEDULED") // SCHEDULED | MANUAL
+  error            String?
+  startedAt        DateTime             @default(now())
+  finishedAt       DateTime?
+
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         InstagramProspectingPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, runDate])
+  @@index([organizationId])
+  @@index([organizationId, runDate])
 }
 
 // ═══════════════ CAMPAIGNS ═══════════════

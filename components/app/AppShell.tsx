@@ -22,6 +22,7 @@ import {
   ChevronDown,
   Sparkles,
   Crown,
+  CalendarDays,
   type LucideIcon,
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
@@ -54,6 +55,7 @@ const NAV_MAIN = [
   { href: "/approvals", label: "Approvals", icon: ShieldCheck, live: true },
   { href: "/app/campaigns", label: "Campaigns", icon: Megaphone, live: false },
   { href: "/outreach/instagram", label: "Outreach", icon: Send, live: true },
+  { href: "/prospecting", label: "Prospecting", icon: CalendarDays, live: true },
   { href: "/app/automation", label: "Automation", icon: Workflow, live: false },
   { href: "/app/tasks", label: "Tasks", icon: CheckSquare, live: false },
   { href: "/app/analytics", label: "Analytics", icon: BarChart3, live: false },
