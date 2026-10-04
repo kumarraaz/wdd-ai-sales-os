@@ -10,7 +10,8 @@
  * Hard guarantees:
  * - Tools execute ONLY through lib/agent/tools/registry.ts.
  * - requiresApproval tools NEVER auto-execute → WAITING_FOR_APPROVAL.
- * - No memory persistence (Phase 5 owns that).
+ * - Structured memory (Phase 5) is DATA, never instructions — recalled
+ *   context is labeled UNTRUSTED MEMORY DATA and never overrides guardrails.
  * - No sending (Phase 7 owns that).
  * - Bulk discovery is deferred to the Phase 3 job engine, never looped.
  */
@@ -26,6 +27,12 @@ import { JobError } from "../automation/types";
 import { createPlan, PlanError, type Plan } from "./planner";
 import { normalizeBudget, BudgetError, DEFAULT_BUDGETS } from "./guardrails";
 import { logAgentEvent } from "./decision-log";
+import {
+  recall,
+  remember,
+  summarizeRun,
+  type RecalledMemory,
+} from "./memory";
 import type {
   AgentBudget,
   AgentRunResult,
@@ -237,7 +244,7 @@ export interface RunAgentGoalArgs {
 
 const GOAL_MAX_CHARS = 2000;
 
-export async function runAgentGoal(
+async function runAgentGoalInner(
   args: RunAgentGoalArgs,
 ): Promise<AgentRunResult> {
   const startedAt = Date.now();
@@ -319,10 +326,19 @@ export async function runAgentGoal(
     return fail("CANCELLED", "Run cancelled before planning.", "cancelled");
   }
 
+  // 3b. Recall bounded organization memory (Phase 5). Failure-isolated:
+  // a memory outage must never break the sales run.
+  let orgMemory: RecalledMemory[] = [];
+  try {
+    orgMemory = await recall(ctx, "ORG", ctx.organization.id, { limit: 5 });
+  } catch {
+    orgMemory = [];
+  }
+
   // 4. Plan.
   let plan: Plan;
   try {
-    plan = await createPlan({ provider, goal, maxPlanSteps: budgets.maxPlanSteps, runId });
+    plan = await createPlan({ provider, goal, maxPlanSteps: budgets.maxPlanSteps, runId, memory: orgMemory });
   } catch (err) {
     const code = err instanceof PlanError ? err.code : "PLAN_FAILED";
     const message =
@@ -620,6 +636,42 @@ export async function runAgentGoal(
       continue;
     }
   }
+}
+
+/**
+ * Public entry point. Runs the agent loop, then persists a bounded,
+ * deterministic run summary to Phase 5 memory (RUN scope). Memory
+ * persistence is strictly failure-isolated: it can never break or alter
+ * an otherwise successful sales run.
+ */
+export async function runAgentGoal(
+  args: RunAgentGoalArgs,
+): Promise<AgentRunResult> {
+  const result = await runAgentGoalInner(args);
+  try {
+    if (shouldPersistRunSummary(result)) {
+      await remember(args.ctx, {
+        scope: "RUN",
+        scopeId: result.runId,
+        key: "run.summary",
+        value: summarizeRun(result),
+        provenance: "AI INFERENCE",
+        source: "ai-sales-mind",
+      });
+    }
+  } catch {
+    // Isolated: the run already finished; memory must not break it.
+    // remember() audits its own failures internally.
+  }
+  return result;
+}
+
+function shouldPersistRunSummary(result: AgentRunResult): boolean {
+  return (
+    result.toolCalls.length > 0 ||
+    result.status === "COMPLETED" ||
+    result.status === "WAITING_FOR_APPROVAL"
+  );
 }
 
 /**

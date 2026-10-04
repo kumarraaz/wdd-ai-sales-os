@@ -116,6 +116,13 @@ enum JobStatus {
   CANCELLED
 }
 
+/** Scope of an AgentMemory record (Phase 5). */
+enum AgentMemoryScope {
+  ORG
+  RUN
+  LEAD
+}
+
 enum TaskStatus {
   TODO
   IN_PROGRESS
@@ -281,6 +288,7 @@ model Organization {
   intelligenceReports LeadIntelligence[]
   leadScores    LeadScore[]
   jobs          Job[]
+  agentMemories AgentMemory[]
   files         LeadFile[]
   usageCounters UsageCounter[]
 
@@ -1015,6 +1023,30 @@ model Job {
   @@index([status])
   @@index([name, status])
   @@index([createdAt])
+}
+
+// ═══════════════ AGENT MEMORY (Phase 5) ═══════════════════════════════
+// Structured, tenant-isolated memory for the AI Sales Mind. Memory is
+// DATA, not instructions — the Mind must never treat it as system rules.
+// - ORG:  org-wide sales preferences / ICP / business rules (scopeId = organizationId)
+// - RUN:  bounded summary of one AI Sales Mind run (scopeId = runId, short-lived)
+// - LEAD: researched facts about one lead (scopeId = lead id, ownership verified in code)
+model AgentMemory {
+  id             String           @id @default(cuid())
+  organizationId String
+  scope          AgentMemoryScope
+  scopeId        String
+  key            String
+  value          Json
+  expiresAt      DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, scope, scopeId, key])
+  @@index([organizationId, scope, scopeId])
+  @@index([organizationId, expiresAt])
 }
 
 model Notification {
