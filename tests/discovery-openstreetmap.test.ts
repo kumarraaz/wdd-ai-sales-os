@@ -72,7 +72,7 @@ describe("OpenStreetMapProvider identity", () => {
     const p = new OpenStreetMapProvider(mockFetch({}));
     expect(p.id).toBe("openstreetmap");
     expect(p.label).toBe("OpenStreetMap (Overpass)");
-    expect(p.sourceType).toBe("DIRECTORY");
+    expect(p.sourceType).toBe("OPENSTREETMAP");
     expect(p.searchable).toBe(true);
   });
 

@@ -47,7 +47,7 @@ const NAV_MAIN = [
 ];
 
 const NAV_WORKSPACE = [
-  { href: "/app/integrations", label: "Integrations", icon: Plug, live: false },
+  { href: "/integrations", label: "Integrations", icon: Plug, live: true },
   { href: "/app/billing", label: "Billing", icon: Crown, live: false },
   { href: "/app/security", label: "Security", icon: ShieldCheck, live: false },
   { href: "/app/settings", label: "Settings", icon: Settings, live: false },

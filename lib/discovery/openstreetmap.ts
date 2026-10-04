@@ -17,7 +17,9 @@ import {
   type DiscoveryResult,
   type DiscoveredCompany,
   type LeadDiscoveryProvider,
+  type ProviderCapabilities,
 } from "./types";
+import type { LeadSourceType } from "@prisma/client";
 import { toSafeHttpUrl } from "./google-places";
 
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
@@ -190,8 +192,18 @@ function mapElement(el: OsmElement): DiscoveredCompany | null {
 export class OpenStreetMapProvider implements LeadDiscoveryProvider {
   readonly id = "openstreetmap";
   readonly label = "OpenStreetMap (Overpass)";
-  readonly sourceType = "DIRECTORY" as const;
+  readonly sourceType: LeadSourceType = "OPENSTREETMAP";
   readonly searchable = true;
+  readonly capabilities: ProviderCapabilities = {
+    // OSM tags are sparse — an absent website tag is NOT proof of no website.
+    websiteAuthority: "unreliable",
+    supportsPhone: true,
+    supportsEmail: false,
+    supportsSocial: false,
+    supportsPagination: false,
+    supportsRecentEvidence: false,
+    discoverySupported: true,
+  };
 
   private fetcher: typeof fetch;
 

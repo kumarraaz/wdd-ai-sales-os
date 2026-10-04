@@ -39,8 +39,13 @@ enum LeadStatus {
 
 enum LeadSourceType {
   GOOGLE_BUSINESS
+  GEOAPIFY
+  OPENSTREETMAP
+  WEB_SEARCH
   WEBSITE_SEARCH
   DIRECTORY
+  META
+  GOVERNMENT_REGISTRY
   CSV
   MANUAL
   API
@@ -292,6 +297,9 @@ model Organization {
   agentApprovals AgentApproval[]
   files         LeadFile[]
   usageCounters UsageCounter[]
+  discoveryProfiles DiscoveryProfile[]
+  discoveryHistory  DiscoveryHistory[]
+  providerUsage     ProviderUsage[]
 
   @@index([slug])
 }
@@ -340,6 +348,15 @@ model Lead {
   rating       Float?    // provider rating — only when returned, never invented
   reviewCount  Int?      // provider review count — only when returned
   discoveredAt DateTime? // when this lead was discovered
+  lastVerifiedAt DateTime? // when a source last confirmed this lead's data
+  // discovery workspace (Phase 8) — set only from normalized LeadCandidate data
+  websiteStatus   String? // NO_WEBSITE | HAS_WEBSITE | UNKNOWN — never invented
+  opportunityType String? // NO_WEBSITE | WEBSITE_IMPROVEMENT | SEO_OPPORTUNITY | WEBSITE_CONVERSION | UNKNOWN
+  contactable     Boolean @default(false) // true when phone/email/social/contact URL exists
+  googleMapsUrl   String? // provider Google Maps link — VERIFIED_DATA only
+  instagramUrl    String? // never invented; null when unknown
+  facebookUrl     String? // never invented; null when unknown
+  linkedinUrl     String? // manual or provider-provided; null when unknown
   leadScore      Int            @default(0)
   qualityStars   Int            @default(0) // 0–5, no fake precision
   // outreach state
@@ -1231,4 +1248,80 @@ model PaymentEvent {
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   @@index([subscriptionId])
+}
+
+// ── Discovery workspace (lead acquisition) ──────────────────────────────
+// Saved discovery profiles: quick daily source switching without a
+// scheduler. Config is a JSON snapshot of the run input (sources, filters,
+// scoring prefs, outreach channel) — never secrets.
+
+model DiscoveryProfile {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  config         Json     // DiscoveryProfileConfig (see lib/discovery/profiles.ts)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  runs         DiscoveryHistory[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// One row per user-triggered discovery run. Counts are truthful:
+// requested vs actually discovered/contactable/imported are stored
+// separately and the UI must render them as-is.
+
+model DiscoveryHistory {
+  id             String   @id @default(cuid())
+  organizationId String
+  profileId      String?
+  label          String   // human label, e.g. "Manufacturers · Gujarat, India"
+  providerIds    Json     @default("[]") // ordered provider ids attempted
+  params         Json     // sanitized run params (no secrets)
+  requested      Int
+  discovered     Int      @default(0) // raw candidates across providers
+  deduplicated   Int      @default(0) // after cross-source dedup
+  withWebsite    Int      @default(0)
+  withoutWebsite Int      @default(0)
+  contactable    Int      @default(0)
+  unreachable    Int      @default(0)
+  imported       Int      @default(0) // leads actually imported to CRM
+  duplicate      Int      @default(0) // already in CRM
+  perSource      Json     @default("[]") // per-provider breakdown + status
+  durationMs     Int?
+  status         String   @default("COMPLETE") // COMPLETE | PARTIAL | FAILED | LIMIT_REACHED
+  error          String?  @db.Text
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  profile      DiscoveryProfile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([organizationId, createdAt])
+}
+
+// Zero-spend enforcement ledger. One row per org × provider × period.
+// Periods: monthly (YYYY-MM-01 UTC) or daily (YYYY-MM-DD UTC) depending on
+// the provider's ceiling. The app blocks BEFORE the ceiling is reached —
+// vendor billing alerts are not relied upon.
+
+model ProviderUsage {
+  id              String   @id @default(cuid())
+  organizationId  String
+  provider        String   // provider id, e.g. "google-places"
+  period          String   // "month" | "day"
+  periodStart     DateTime // UTC start of the period
+  requests        Int      @default(0)
+  credits         Int      @default(0)
+  blockedRequests Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider, period, periodStart])
+  @@index([organizationId, provider])
 }

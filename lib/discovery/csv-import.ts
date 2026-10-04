@@ -15,6 +15,7 @@ import {
   type DiscoveryResult,
   type LeadDiscoveryProvider,
 } from "./types";
+import type { LeadSourceType } from "@prisma/client";
 
 export interface CsvRowMapping {
   name?: string;
@@ -37,7 +38,7 @@ function cell(row: Record<string, string>, col: string | undefined): string | un
 export class CsvImportProvider implements LeadDiscoveryProvider {
   readonly id = "csv-import";
   readonly label = "CSV Import";
-  readonly sourceType = "CSV" as const;
+  readonly sourceType: LeadSourceType = "CSV";
   readonly searchable = false;
 
   isConfigured(): boolean {

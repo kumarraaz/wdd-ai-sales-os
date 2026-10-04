@@ -18,6 +18,9 @@ interface Lead {
   email: string | null;
   phone: string | null;
   website: string | null;
+  websiteStatus: string | null;
+  opportunityType: string | null;
+  contactable: boolean;
   leadScore: number;
   status: string;
   sourceType: string;
@@ -210,6 +213,33 @@ export function LeadsTable({
       columnHelper.accessor("email", {
         header: "Email",
         cell: (info) => <span className="text-white/70">{info.getValue() || "—"}</span>,
+      }),
+      columnHelper.accessor("phone", {
+        header: "Phone",
+        cell: (info) => <span className="text-white/70">{info.getValue() || "—"}</span>,
+      }),
+      columnHelper.accessor("websiteStatus", {
+        header: "Website",
+        cell: (info) => {
+          const v = info.getValue();
+          if (v === "NO_WEBSITE")
+            return (
+              <span className="rounded-full bg-[#D4AF37]/15 px-2.5 py-0.5 text-xs font-semibold text-[#D4AF37]">
+                NO WEBSITE
+              </span>
+            );
+          if (v === "HAS_WEBSITE")
+            return <span className="text-xs text-white/50">Has website</span>;
+          return <span className="text-white/30">—</span>;
+        },
+      }),
+      columnHelper.accessor("opportunityType", {
+        header: "Opportunity",
+        cell: (info) => (
+          <span className="text-xs text-white/50">
+            {(info.getValue() ?? "").replace(/_/g, " ") || "—"}
+          </span>
+        ),
       }),
       columnHelper.accessor("leadScore", {
         header: "Score",

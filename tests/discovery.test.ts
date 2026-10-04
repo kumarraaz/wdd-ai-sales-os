@@ -65,7 +65,7 @@ afterEach(() => {
 describe("provider abstraction", () => {
   it("registry lists openstreetmap, google-places and csv-import with the required interface", () => {
     const providers = listDiscoveryProviders();
-    expect(providers.map((p) => p.id).sort()).toEqual(["csv-import", "google-places", "openstreetmap"]);
+    expect(providers.map((p) => p.id).sort()).toEqual(["csv-import", "gemini-grounding", "geoapify", "google-places", "india-registry", "meta", "openstreetmap", "tavily"]);
     expect(providers[0].id).toBe("openstreetmap"); // free default is first
     for (const p of providers) {
       expect(typeof p.label).toBe("string");
@@ -73,12 +73,12 @@ describe("provider abstraction", () => {
       expect(typeof p.setupInstructions).toBe("function");
       expect(typeof p.search).toBe("function");
       expect(typeof p.searchable).toBe("boolean");
-      expect(["GOOGLE_BUSINESS", "CSV", "DIRECTORY", "API"]).toContain(p.sourceType);
+      expect(["GOOGLE_BUSINESS", "GEOAPIFY", "OPENSTREETMAP", "WEB_SEARCH", "META", "GOVERNMENT_REGISTRY", "CSV", "DIRECTORY", "API"]).toContain(p.sourceType);
     }
   });
 
   it("getDiscoveryProvider resolves by id and returns undefined for unknown", () => {
-    expect(getDiscoveryProvider("google-places")?.label).toBe("Google Places");
+    expect(getDiscoveryProvider("google-places")?.label).toBe("Google Maps");
     expect(getDiscoveryProvider("csv-import")?.label).toBe("CSV Import");
     expect(getDiscoveryProvider("nope")).toBeUndefined();
   });

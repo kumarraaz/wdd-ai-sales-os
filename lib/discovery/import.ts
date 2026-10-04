@@ -320,6 +320,7 @@ export async function importDiscoveredCompanies(
         {
           // Discovery yields companies; a contact name is never invented.
           phone: company.phone,
+          email: company.email,
           companyName: company.name,
           industry: company.category,
           country: company.country,
@@ -335,6 +336,15 @@ export async function importDiscoveredCompanies(
           rating: company.rating,
           reviewCount: company.reviewCount,
           discoveredAt: company.discoveredAt,
+          lastVerifiedAt: company.lastVerifiedAt ?? company.discoveredAt,
+          // Enrichment — computed from verified evidence only, never invented.
+          websiteStatus: company.websiteStatus,
+          opportunityType: company.opportunityType,
+          contactable: company.contactable ?? false,
+          googleMapsUrl: company.googleMapsUrl,
+          instagramUrl: company.instagramUrl,
+          facebookUrl: company.facebookUrl,
+          linkedinUrl: company.linkedinUrl,
         },
         { sourceType: provider.sourceType, dataLabel },
       );

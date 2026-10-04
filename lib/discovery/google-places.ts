@@ -1,5 +1,5 @@
 /**
- * Google Places provider — the Phase 2 primary discovery source.
+ * Google Places provider — the primary discovery source.
  *
  * Uses ONLY the official Places API (New) Text Search endpoint. No scraping,
  * no CAPTCHA/bot-protection bypass, no proxy rotation, no fake accounts.
@@ -9,6 +9,22 @@
  *
  * Fields are mapped ONLY from what the API returns. Missing fields stay
  * undefined — the UI renders "not provided" instead of inventing values.
+ *
+ * ── BILLING (verified against the official Places API (New) field docs) ──
+ * Field masks set the price: you are billed at the HIGHEST tier of any
+ * field in the mask.
+ *   https://developers.google.com/maps/documentation/places/web-service/text-search
+ * The mask below intentionally includes Enterprise-tier fields because they
+ * are core product requirements:
+ *   - places.websiteUri            → Enterprise (needed for NO_WEBSITE detection)
+ *   - places.internationalPhoneNumber → Enterprise (needed for contactability)
+ *   - places.rating / places.userRatingCount → Enterprise (social proof)
+ * Everything else in the mask (id, displayName, formattedAddress,
+ * addressComponents, googleMapsUri, primaryType) is a lower tier.
+ * Cost control therefore happens in the APP, not in the mask:
+ * lib/discovery/cost.ts enforces a conservative monthly request ceiling
+ * (default 4,000) and ZERO_SPEND_MODE blocks paid usage entirely.
+ * testConnection() uses an id-only mask — the Essentials SKU ($0).
  */
 import {
   DiscoveryError,
@@ -16,12 +32,16 @@ import {
   type DiscoveryResult,
   type DiscoveredCompany,
   type LeadDiscoveryProvider,
+  type ProviderCapabilities,
 } from "./types";
+import type { LeadSourceType } from "@prisma/client";
 
 const PLACES_TEXT_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText";
 
 // Field mask controls both the response shape and the billed SKU — keep it
-// to exactly what the discovery UI shows.
+// to exactly what the discovery UI shows. See the billing note above before
+// adding any field: adding an Enterprise/Atmosphere field reprices EVERY
+// request.
 const FIELD_MASK = [
   "places.id",
   "places.displayName",
@@ -33,7 +53,14 @@ const FIELD_MASK = [
   "places.rating",
   "places.userRatingCount",
   "places.primaryType",
+  "nextPageToken",
 ].join(",");
+
+// Id-only mask for the free connectivity check (Essentials SKU — $0).
+const ID_ONLY_MASK = ["places.id", "nextPageToken"].join(",");
+
+/** Max Text Search pages per query — each page is a billed request. */
+const MAX_PAGES = 3;
 
 interface PlacesAddressComponent {
   longText?: string;
@@ -107,7 +134,10 @@ function mapPlace(place: PlacesPlace): DiscoveredCompany | null {
   const website = toSafeHttpUrl(place.websiteUri);
   if (website) company.website = website;
   const sourceUrl = toSafeHttpUrl(place.googleMapsUri);
-  if (sourceUrl) company.sourceUrl = sourceUrl;
+  if (sourceUrl) {
+    company.sourceUrl = sourceUrl;
+    company.googleMapsUrl = sourceUrl;
+  }
   if (typeof place.rating === "number") company.rating = place.rating;
   if (typeof place.userRatingCount === "number") company.reviewCount = place.userRatingCount;
   return company;
@@ -115,9 +145,18 @@ function mapPlace(place: PlacesPlace): DiscoveredCompany | null {
 
 export class GooglePlacesProvider implements LeadDiscoveryProvider {
   readonly id = "google-places";
-  readonly label = "Google Places";
-  readonly sourceType = "GOOGLE_BUSINESS" as const;
+  readonly label = "Google Maps";
+  readonly sourceType: LeadSourceType = "GOOGLE_BUSINESS";
   readonly searchable = true;
+  readonly capabilities: ProviderCapabilities = {
+    websiteAuthority: "authoritative",
+    supportsPhone: true,
+    supportsEmail: false,
+    supportsSocial: false,
+    supportsPagination: true,
+    supportsRecentEvidence: false,
+    discoverySupported: true,
+  };
 
   private fetcher: typeof fetch;
 
@@ -135,46 +174,44 @@ export class GooglePlacesProvider implements LeadDiscoveryProvider {
       "Create a project in the Google Cloud Console and enable the Places API (New).",
       "Create an API key and restrict it to the Places API.",
       'Set GOOGLE_PLACES_API_KEY="<your-key>" in your server environment (.env.local for local dev).',
+      "The app enforces a conservative monthly request ceiling (default 4,000) — see GOOGLE_PLACES_MONTHLY_CEILING.",
       "Restart the app server so the new variable is loaded.",
     ];
   }
 
-  async search(query: DiscoveryQuery): Promise<DiscoveryResult> {
+  /** Cheap connectivity check — id-only mask bills at the Essentials ($0) SKU. */
+  async testConnection(): Promise<{ ok: boolean; message: string }> {
     const apiKey = readEnv("GOOGLE_PLACES_API_KEY");
     if (!apiKey) {
-      throw new DiscoveryError(
-        "PROVIDER_NOT_CONFIGURED",
-        "Google Places is not connected. Set GOOGLE_PLACES_API_KEY to enable discovery.",
-      );
+      return { ok: false, message: "GOOGLE_PLACES_API_KEY is not set." };
     }
-    if (!query.keyword?.trim()) {
-      throw new DiscoveryError("INVALID_QUERY", "A search keyword is required.");
-    }
-
-    const textQuery = [query.keyword.trim(), query.city, query.state, query.country]
-      .map((p) => p?.trim())
-      .filter(Boolean)
-      .join(", ");
-
-    const body: Record<string, unknown> = {
-      textQuery,
-      maxResultCount: Math.min(Math.max(query.maxResults, 1), 20),
-    };
-    // Radius is honored only when a center is supplied — we never geocode
-    // place names server-side in Phase 2.
-    if (
-      query.radiusMeters &&
-      typeof query.latitude === "number" &&
-      typeof query.longitude === "number"
-    ) {
-      body.locationBias = {
-        circle: {
-          center: { latitude: query.latitude, longitude: query.longitude },
-          radius: Math.min(Math.max(query.radiusMeters, 100), 50000),
+    try {
+      const res = await this.fetcher(PLACES_TEXT_SEARCH_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": ID_ONLY_MASK,
         },
+        body: JSON.stringify({ textQuery: "test", maxResultCount: 1 }),
+      });
+      if (!res.ok) {
+        return { ok: false, message: `Places API returned HTTP ${res.status}. Check the key and that the Places API (New) is enabled.` };
+      }
+      return { ok: true, message: "Connected — Places API (New) responded." };
+    } catch (err) {
+      return {
+        ok: false,
+        message: `Could not reach the Places API: ${err instanceof Error ? err.message : "network error"}`,
       };
     }
+  }
 
+  private async postSearch(
+    apiKey: string,
+    body: Record<string, unknown>,
+    fieldMask: string,
+  ): Promise<{ places: PlacesPlace[]; nextPageToken?: string; status: number }> {
     let res: Response;
     try {
       res = await this.fetcher(PLACES_TEXT_SEARCH_URL, {
@@ -182,7 +219,7 @@ export class GooglePlacesProvider implements LeadDiscoveryProvider {
         headers: {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": apiKey,
-          "X-Goog-FieldMask": FIELD_MASK,
+          "X-Goog-FieldMask": fieldMask,
         },
         body: JSON.stringify(body),
       });
@@ -203,6 +240,9 @@ export class GooglePlacesProvider implements LeadDiscoveryProvider {
       } catch {
         detail = undefined;
       }
+      if (res.status === 429) {
+        throw new DiscoveryError("RATE_LIMITED", "Google Places API rate limit hit.", detail);
+      }
       throw new DiscoveryError(
         "PROVIDER_ERROR",
         `Google Places API returned ${res.status}.`,
@@ -210,12 +250,74 @@ export class GooglePlacesProvider implements LeadDiscoveryProvider {
       );
     }
 
-    const data = (await res.json()) as { places?: PlacesPlace[] };
-    const companies: DiscoveredCompany[] = [];
-    for (const place of data.places ?? []) {
-      const company = mapPlace(place);
-      if (company) companies.push(company);
+    const data = (await res.json()) as { places?: PlacesPlace[]; nextPageToken?: string };
+    return { places: data.places ?? [], nextPageToken: data.nextPageToken, status: res.status };
+  }
+
+  async search(query: DiscoveryQuery): Promise<DiscoveryResult> {
+    const apiKey = readEnv("GOOGLE_PLACES_API_KEY");
+    if (!apiKey) {
+      throw new DiscoveryError(
+        "PROVIDER_NOT_CONFIGURED",
+        "Google Places is not connected. Set GOOGLE_PLACES_API_KEY to enable discovery.",
+      );
     }
-    return { provider: this.id, companies, searchedAt: new Date().toISOString() };
+    if (!query.keyword?.trim()) {
+      throw new DiscoveryError("INVALID_QUERY", "A search keyword is required.");
+    }
+
+    const textQuery = [query.keyword.trim(), query.city, query.state, query.country]
+      .map((p) => p?.trim())
+      .filter(Boolean)
+      .join(", ");
+
+    const baseBody: Record<string, unknown> = {
+      textQuery,
+      maxResultCount: Math.min(Math.max(query.maxResults, 1), 20),
+    };
+    // Radius is honored only when a center is supplied — we never geocode
+    // place names server-side.
+    if (
+      query.radiusMeters &&
+      typeof query.latitude === "number" &&
+      typeof query.longitude === "number"
+    ) {
+      baseBody.locationBias = {
+        circle: {
+          center: { latitude: query.latitude, longitude: query.longitude },
+          radius: Math.min(Math.max(query.radiusMeters, 100), 50000),
+        },
+      };
+    }
+
+    // Paginate through nextPageToken (each page is a billed request).
+    // Bounded at MAX_PAGES so one query can never run away in cost.
+    const companies: DiscoveredCompany[] = [];
+    let requestsMade = 0;
+    let pageToken: string | undefined;
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const body = { ...baseBody, ...(pageToken ? { pageToken } : {}) };
+      const { places, nextPageToken } = await this.postSearch(apiKey, body, FIELD_MASK);
+      requestsMade++;
+      for (const place of places) {
+        const company = mapPlace(place);
+        if (company) companies.push(company);
+      }
+      // A short delay between pages is required by the API for the token
+      // to become valid — and it also keeps us polite.
+      if (nextPageToken) {
+        pageToken = nextPageToken;
+        await new Promise((r) => setTimeout(r, 2000));
+      } else {
+        break;
+      }
+    }
+
+    return {
+      provider: this.id,
+      companies,
+      searchedAt: new Date().toISOString(),
+      meta: { requestsMade },
+    };
   }
 }

@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getDemoSession } from "@/lib/demo-session";
 import { LeadDetail } from "@/components/app/LeadDetail";
+import { LeadOutreach } from "@/components/app/LeadOutreach";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,7 @@ export default async function LeadDetailPage({
         </p>
       </div>
       <LeadDetail leadId={id} apiBase="/api" />
+      <LeadOutreach leadId={id} apiBase="/api" />
     </div>
   );
 }

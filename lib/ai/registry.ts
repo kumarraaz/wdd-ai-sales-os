@@ -11,6 +11,7 @@
  */
 import type { AIProvider } from "./provider";
 import { GeminiProvider } from "./providers/gemini";
+import { GroqProvider } from "./providers/groq";
 
 /** Provider used when AI_PROVIDER is unset. */
 export const DEFAULT_AI_PROVIDER = "gemini";
@@ -26,7 +27,7 @@ export class UnknownAIProviderError extends Error {
 
 /** Provider names available in this build. Grows as providers are added. */
 export function listProviderNames(): string[] {
-  return ["gemini"];
+  return ["gemini", "groq"];
 }
 
 /**
@@ -48,6 +49,9 @@ export function resolveAIProvider(name?: string): AIProvider {
   const selected = (name ?? getConfiguredProviderName()).trim().toLowerCase();
   if (selected === "gemini") {
     return new GeminiProvider();
+  }
+  if (selected === "groq") {
+    return new GroqProvider();
   }
   throw new UnknownAIProviderError(selected);
 }

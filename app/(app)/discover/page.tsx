@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getDemoSession } from "@/lib/demo-session";
 import { DiscoveryPipeline } from "@/components/app/DiscoveryPipeline";
+import { DiscoveryWorkspace } from "@/components/discovery/DiscoveryWorkspace";
 
 export const dynamic = "force-dynamic";
 
@@ -32,15 +33,5 @@ export default async function DiscoverPage() {
     );
   }
 
-  return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">Discover</h1>
-        <p className="text-sm text-white/50">
-          Find real companies and import them into your lead database.
-        </p>
-      </div>
-      <DiscoveryPipeline apiBase="/api" />
-    </div>
-  );
+  return <DiscoveryWorkspace />;
 }

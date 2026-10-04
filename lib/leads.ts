@@ -106,6 +106,14 @@ export async function createLead(
     rating: input.rating ?? null,
     reviewCount: input.reviewCount ?? null,
     discoveredAt: input.discoveredAt ? new Date(input.discoveredAt) : null,
+    lastVerifiedAt: input.lastVerifiedAt ? new Date(input.lastVerifiedAt) : null,
+    websiteStatus: input.websiteStatus ?? null,
+    opportunityType: input.opportunityType ?? null,
+    contactable: input.contactable ?? false,
+    googleMapsUrl: input.googleMapsUrl?.trim() || null,
+    instagramUrl: input.instagramUrl?.trim() || null,
+    facebookUrl: input.facebookUrl?.trim() || null,
+    linkedinUrl: input.linkedinUrl?.trim() || null,
     status: input.status ?? "NEW",
     sourceType: (input.sourceType as never) ?? (opts.sourceType as never) ?? "MANUAL",
     sourceDetail: input.sourceDetail?.trim() || null,
@@ -160,6 +168,9 @@ export async function listLeads(organizationId: string, query: ListQuery) {
   if (query.sourceType) where.sourceType = query.sourceType;
   if (query.minScore !== undefined) where.leadScore = { gte: query.minScore };
   if (query.tag) where.tags = { some: { tag: { name: query.tag } } };
+  if (query.websiteStatus) where.websiteStatus = query.websiteStatus;
+  if (query.contactable !== undefined) where.contactable = query.contactable;
+  if (query.opportunityType) where.opportunityType = query.opportunityType;
 
   const sort = query.sort ?? "createdAt";
   const order = query.order ?? "desc";
