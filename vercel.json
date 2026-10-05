@@ -1,1 +1,1 @@
-{"$schema":"https://openapi.vercel.sh/vercel.json","crons":[{"path":"/api/automation/tick","schedule":"*/5 * * * *"}]}
+{"$schema":"https://openapi.vercel.sh/vercel.json","crons":[{"path":"/api/automation/tick","schedule":"30 3 * * *"}]}
