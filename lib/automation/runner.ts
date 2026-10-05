@@ -182,6 +182,53 @@ export async function claimJob(organizationId?: string): Promise<ClaimedJob | nu
   return claimed;
 }
 
+/**
+ * Claim one specific job by id (org-scoped). Same atomic guard as claimJob:
+ * the UPDATE … WHERE status IN (QUEUED, RETRYING) makes the claim safe under
+ * races — a concurrent worker's UPDATE matches zero rows and this returns
+ * null instead of double-executing. Used by manual "run now" triggers so the
+ * just-enqueued job starts immediately instead of waiting for the next tick.
+ */
+export async function claimJobById(
+  jobId: string,
+  organizationId: string,
+): Promise<ClaimedJob | null> {
+  const now = Date.now();
+  const claimed = await db.$transaction(async (tx) => {
+    const job = await tx.job.findUnique({ where: { id: jobId } });
+    if (!job || job.organizationId !== organizationId) return null;
+    if (job.status !== "QUEUED" && job.status !== "RETRYING") return null;
+    if (
+      job.status === "RETRYING" &&
+      job.updatedAt.getTime() > now - backoffMs(job.attempts)
+    ) {
+      return null; // backoff not elapsed yet
+    }
+    const updated = await tx.job.updateMany({
+      where: { id: job.id, status: { in: ["QUEUED", "RETRYING"] } },
+      data: {
+        status: "RUNNING",
+        attempts: { increment: 1 },
+        startedAt: new Date(),
+        error: null,
+      },
+    });
+    if (updated.count !== 1) return null; // lost the race
+    return { ...job, status: "RUNNING" as const, attempts: job.attempts + 1 };
+  });
+  if (claimed) {
+    await audit({
+      organizationId: claimed.organizationId,
+      action: "job.claimed",
+      resource: "Job",
+      resourceId: claimed.id,
+      result: "SUCCESS",
+      metadata: { type: claimed.name, attempt: claimed.attempts, manual: true },
+    });
+  }
+  return claimed;
+}
+
 // ── Execute ──────────────────────────────────────────────────────────────
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {

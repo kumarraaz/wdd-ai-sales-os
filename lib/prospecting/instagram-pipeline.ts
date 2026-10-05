@@ -58,6 +58,16 @@ export interface DailyRunDeps {
   now?: Date;
 }
 
+/**
+ * How long a RUNNING run may go without finishing before a new trigger is
+ * allowed to take it over. Aligned with the job engine's stale-job recovery
+ * (15 min): if the worker died mid-run (e.g. serverless timeout), the next
+ * manual press or scheduled tick resumes instead of 409-blocking forever.
+ * A genuinely live run is always younger than this, so one-run-per-day
+ * protection is preserved.
+ */
+export const STALE_RUN_TAKEOVER_MS = 15 * 60_000;
+
 /** Pitch angle → deterministic CRM opportunity tier. */
 function opportunityForAngle(angle: PitchAngle): { type: string; reason: string } {
   switch (angle) {
@@ -175,7 +185,9 @@ export async function runDailyProspecting(
   const { plan, day, runDate, dayOfWeek } = today;
 
   // One run per org per day: reuse a completed run (idempotent), refuse to
-  // double-run while RUNNING, allow retry after FAILED.
+  // double-run while one is queued or freshly running, allow retry after
+  // FAILED, and take over a stale RUNNING/QUEUED run whose worker died
+  // (e.g. serverless timeout) instead of blocking forever.
   const existingRun = await db.instagramProspectingRun.findUnique({
     where: { organizationId_runDate: { organizationId, runDate } },
   });
@@ -198,8 +210,29 @@ export async function runDailyProspecting(
       triggeredBy: s.triggeredBy,
     };
   }
-  if (existingRun?.status === "RUNNING") {
+  const isStale = (startedAt: Date) => now.getTime() - startedAt.getTime() > STALE_RUN_TAKEOVER_MS;
+  if (existingRun?.status === "RUNNING" && !isStale(existingRun.startedAt)) {
     throw new Error("RUN_ALREADY_IN_PROGRESS");
+  }
+
+  const takeOver =
+    existingRun?.status === "QUEUED" ||
+    (existingRun?.status === "RUNNING" && isStale(existingRun.startedAt));
+  if (takeOver && existingRun) {
+    await audit({
+      organizationId,
+      actorId,
+      action: "prospecting.instagram.run_takeover",
+      resource: "instagram_prospecting_run",
+      resourceId: existingRun.id,
+      result: "SUCCESS",
+      metadata: {
+        runDate,
+        previousStatus: existingRun.status,
+        previousStartedAt: existingRun.startedAt.toISOString(),
+        triggeredBy,
+      },
+    });
   }
 
   // Quota gate — respects the existing per-day discovery quotas.
@@ -222,6 +255,7 @@ export async function runDailyProspecting(
           status: "RUNNING",
           error: null,
           finishedAt: null,
+          startedAt: now,
           found: 0,
           newCount: 0,
           duplicatesSkipped: 0,

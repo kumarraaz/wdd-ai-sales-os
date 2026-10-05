@@ -849,6 +849,7 @@ model Message {
 // runs the current day's target daily at the plan's runAtTime.
 
 enum ProspectingRunStatus {
+  QUEUED
   RUNNING
   COMPLETED
   FAILED

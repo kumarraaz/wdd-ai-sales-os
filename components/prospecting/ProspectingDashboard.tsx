@@ -94,14 +94,19 @@ export function ProspectingDashboard({
 
   const headers = useMemo(() => ({ "x-org-id": orgId }), [orgId]);
 
+  const loadRuns = useCallback(async () => {
+    const rRes = await fetch("/api/prospecting/runs?take=30", { headers });
+    if (rRes.ok) {
+      const data = await rRes.json();
+      setRuns(data.runs ?? []);
+    }
+  }, [headers]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [pRes, rRes] = await Promise.all([
-        fetch("/api/prospecting/plan", { headers }),
-        fetch("/api/prospecting/runs?take=30", { headers }),
-      ]);
+      const pRes = await fetch("/api/prospecting/plan", { headers });
       if (pRes.ok) {
         const data = await pRes.json();
         if (data.plan) {
@@ -116,22 +121,28 @@ export function ProspectingDashboard({
           setDays(DISPLAY_ORDER.map((dow) => byDow.get(dow) ?? emptyDay(dow)));
         }
       }
-      if (rRes.ok) {
-        const data = await rRes.json();
-        setRuns(data.runs ?? []);
-      }
+      await loadRuns();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load.");
     } finally {
       setLoading(false);
     }
-  }, [headers]);
+  }, [headers, loadRuns]);
 
   useEffect(() => {
     (async () => {
       await load();
     })();
   }, [load]);
+
+  // Live-refresh run history while a run is queued or in progress.
+  useEffect(() => {
+    if (!runs.some((r) => r.status === "QUEUED" || r.status === "RUNNING")) return;
+    const t = setInterval(() => {
+      void loadRuns();
+    }, 10000);
+    return () => clearInterval(t);
+  }, [runs, loadRuns]);
 
   function updateDay(dow: number, patch: Partial<PlanDay>) {
     setDays((prev) => prev.map((d) => (d.dayOfWeek === dow ? { ...d, ...patch } : d)));
@@ -190,13 +201,22 @@ export function ProspectingDashboard({
         headers,
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "Run failed to start.");
-      setNotice(
-        data.alreadyRan
-          ? "Today's run already completed — see history below."
-          : "Run enqueued — refresh history in a minute to see results.",
-      );
-      await load();
+      if (res.status === 409) {
+        throw new Error(
+          "A run is already queued or in progress for today — see the run history below.",
+        );
+      }
+      if (!res.ok) throw new Error(data.message ?? data.error ?? "Run failed to start.");
+      if (data.alreadyRan) {
+        setNotice("Today's run already completed — see history below.");
+      } else {
+        setNotice("Run started — watch the run history below for live progress.");
+        // Show the run immediately; the 10s poller keeps it fresh.
+        if (data.run) {
+          setRuns((prev) => [data.run, ...prev.filter((r) => r.id !== data.run.id)]);
+        }
+      }
+      await loadRuns();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Run failed.");
     } finally {
@@ -325,7 +345,7 @@ export function ProspectingDashboard({
                     >
                       {run.status === "COMPLETED"
                         ? `Done · ${run.crmImported} imported`
-                        : run.status}
+                        : runStatusLabel(run.status)}
                     </span>
                   ) : (
                     <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/50">
@@ -481,7 +501,7 @@ export function ProspectingDashboard({
                               : "bg-amber-400/15 text-amber-300"
                         }`}
                       >
-                        {r.status}
+                        {runStatusLabel(r.status)}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-xs text-white/40">{r.triggeredBy}</td>
@@ -494,6 +514,13 @@ export function ProspectingDashboard({
       </div>
     </div>
   );
+}
+
+/** Human-friendly run status for badges. */
+function runStatusLabel(status: string): string {
+  if (status === "QUEUED") return "Queued";
+  if (status === "RUNNING") return "Running";
+  return status;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
