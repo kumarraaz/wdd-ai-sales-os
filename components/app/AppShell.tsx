@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { CommandPalette } from "./CommandPalette";
+import { NotificationBell } from "./NotificationBell";
+import { RunCompletionBanner } from "./RunCompletionBanner";
 
 interface Org {
   id: string;
@@ -90,6 +92,7 @@ export function AppShell({
   const router = useRouter();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [aiNote, setAiNote] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const activeOrg = orgs.find((o) => o.id === activeOrgId) ?? orgs[0];
 
   useEffect(() => {
@@ -105,7 +108,7 @@ export function AppShell({
 
   async function signOut() {
     await authClient.signOut();
-    router.push("/");
+    router.push("/login");
   }
 
   async function exitDemo() {
@@ -226,11 +229,11 @@ export function AppShell({
             ) : (
               <button
                 onClick={signOut}
-                aria-label="Sign out"
                 title="Sign out"
-                className="rounded p-1.5 text-white/50 transition hover:bg-white/10 hover:text-white"
+                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-white/50 transition hover:bg-white/10 hover:text-white"
               >
-                <LogOut size={16} />
+                <LogOut size={15} />
+                Sign out
               </button>
             )}
           </div>
@@ -253,7 +256,57 @@ export function AppShell({
           <span className="hidden rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-3 py-1 text-xs font-medium text-[#D4AF37] md:inline">
             {activeOrg?.name}
           </span>
+          {!demo && <NotificationBell apiBase="/api" />}
+          {/* Mobile account menu — the sidebar user block is hidden on small screens */}
+          <div className="relative lg:hidden">
+            <button
+              onClick={() => setAccountOpen((v) => !v)}
+              aria-label="Account"
+              title={user.email}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white transition hover:bg-white/20"
+            >
+              {(user.name || user.email).charAt(0).toUpperCase()}
+            </button>
+            {accountOpen && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setAccountOpen(false)} />
+                <div className="absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded-xl border border-white/10 bg-[#0D1B2A] shadow-2xl">
+                  <div className="border-b border-white/10 px-4 py-3">
+                    <p className="truncate text-sm font-medium text-white">{user.name || "User"}</p>
+                    <p className="truncate text-xs text-white/50">{user.email}</p>
+                    {activeOrg && (
+                      <p className="mt-1 truncate text-xs text-[#D4AF37]">{activeOrg.name}</p>
+                    )}
+                  </div>
+                  {demo ? (
+                    <button
+                      onClick={() => {
+                        setAccountOpen(false);
+                        exitDemo();
+                      }}
+                      className="block w-full px-4 py-2.5 text-left text-sm text-[#D4AF37] transition hover:bg-white/5"
+                    >
+                      Exit Demo
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setAccountOpen(false);
+                        signOut();
+                      }}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-white/80 transition hover:bg-white/5 hover:text-white"
+                    >
+                      <LogOut size={15} />
+                      Sign out
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </header>
+
+        {!demo && <RunCompletionBanner apiBase="/api" />}
 
         <main className="flex-1 p-4 pb-28 sm:p-6 sm:pb-28 lg:pb-6">{children}</main>
 

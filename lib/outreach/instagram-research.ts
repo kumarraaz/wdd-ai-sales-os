@@ -19,6 +19,7 @@
  */
 import { getAIProvider } from "../ai/registry";
 import type { AIProvider } from "../ai/provider";
+import { getWebSearchProvider } from "../research/search-provider";
 import { instagramProfileUrl } from "./instagram";
 import {
   analyzeWebsite,
@@ -81,34 +82,12 @@ function isInstagramUrl(url: string): boolean {
 }
 
 /**
- * Default Tavily web search. Public API only; instagram.com results are
- * dropped before they reach the extractor (listed, never fetched).
+ * Default web search via the shared provider abstraction (Tavily today).
+ * Public API only; instagram.com results are dropped before they reach the
+ * extractor (listed, never fetched).
  */
-async function tavilySearch(query: string): Promise<WebSearchResult[]> {
-  const apiKey = process.env.TAVILY_API_KEY;
-  if (!apiKey) return [];
-  const res = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      api_key: apiKey,
-      query,
-      search_depth: "basic",
-      max_results: 5,
-      include_answer: false,
-    }),
-  });
-  if (!res.ok) throw new Error(`Tavily returned HTTP ${res.status}.`);
-  const data = (await res.json()) as {
-    results?: { title?: string; url?: string; content?: string }[];
-  };
-  return (data.results ?? [])
-    .filter((r) => r.url && !isInstagramUrl(r.url))
-    .map((r) => ({
-      title: r.title ?? "",
-      url: r.url as string,
-      snippet: (r.content ?? "").slice(0, 600),
-    }));
+async function defaultWebSearch(query: string): Promise<WebSearchResult[]> {
+  return getWebSearchProvider().search(query, { maxResults: 5, excludeInstagramUrls: true });
 }
 
 const EXTRACT_SYSTEM = `You extract business facts from public web-search snippets about an Instagram username.
@@ -157,7 +136,7 @@ export async function researchInstagramProfile(
   const researchedAt = new Date().toISOString();
   const base = { ...INSUFFICIENT, username, profileUrl, researchedAt };
 
-  const webSearch = deps.webSearch ?? tavilySearch;
+  const webSearch = deps.webSearch ?? defaultWebSearch;
   let results: WebSearchResult[];
   try {
     results = await webSearch(`"${username}" instagram business`);

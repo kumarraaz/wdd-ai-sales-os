@@ -226,12 +226,21 @@ import {
   executeManualJobNow,
   ManualRunError,
 } from "../lib/prospecting/instagram-manual";
+import {
+  dayOfWeekInTimezone,
+  runDateInTimezone,
+} from "../lib/prospecting/instagram-plan";
 import { enqueueJob } from "../lib/automation/runner";
 import { runBatch } from "../lib/automation/runner";
 
 const PLAN_ID = "ckkkkkkkkkkkkkkkkkkkkkkk"; // valid cuid shape for payload validation
-// Monday 2026-10-05 10:00 IST.
-const MONDAY = new Date("2026-10-05T04:30:00Z");
+// Reference "now" for manual triggers. Deliberately the REAL now (not a fixed
+// date): the job handler resolves "today" from the real clock, so the test
+// stays green on any weekday. The plan day below is set to today's weekday
+// in Asia/Kolkata to match.
+const MONDAY = new Date();
+const EXPECTED_RUN_DATE = runDateInTimezone(MONDAY, "Asia/Kolkata");
+const TODAY_DOW = dayOfWeekInTimezone(MONDAY, "Asia/Kolkata");
 
 function mockDiscovery(usernames: string[]) {
   vi.mocked(discoverInstagramUsernames).mockResolvedValue({
@@ -272,7 +281,7 @@ describe("manual Run Now", () => {
       runAtTime: "09:00",
       days: [
         {
-          dayOfWeek: 1,
+          dayOfWeek: TODAY_DOW,
           industry: "jewellery",
           location: "Mumbai",
           country: "India",
@@ -376,7 +385,7 @@ describe("manual Run Now", () => {
       organizationId: "org-1",
       planId: PLAN_ID,
       dayOfWeek: 1,
-      runDate: "2026-10-05",
+      runDate: EXPECTED_RUN_DATE,
       targetCount: 2,
       status: "COMPLETED",
       triggeredBy: "MANUAL",
@@ -400,7 +409,7 @@ describe("manual Run Now", () => {
       organizationId: "org-1",
       planId: PLAN_ID,
       dayOfWeek: 1,
-      runDate: "2026-10-05",
+      runDate: EXPECTED_RUN_DATE,
       targetCount: 2,
       status: "RUNNING",
       triggeredBy: "SCHEDULED",
@@ -433,7 +442,7 @@ describe("manual Run Now", () => {
       organizationId: "org-1",
       planId: PLAN_ID,
       dayOfWeek: 1,
-      runDate: "2026-10-05",
+      runDate: EXPECTED_RUN_DATE,
       targetCount: 2,
       status: "RUNNING",
       triggeredBy: "SCHEDULED",
@@ -483,7 +492,7 @@ describe("scheduled path (untouched)", () => {
       runAtTime: "09:00",
       days: [
         {
-          dayOfWeek: 1,
+          dayOfWeek: TODAY_DOW,
           industry: "jewellery",
           location: "Mumbai",
           country: "India",

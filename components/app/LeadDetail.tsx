@@ -28,6 +28,15 @@ interface LeadDetailData {
   opportunityReason: string | null;
   websiteStatus: string | null;
   contactable: boolean;
+  verificationConfidence: string | null;
+  verificationReason: string | null;
+  verificationSources: { provider: string; sourceType: string; url?: string; retrievedAt: string; label?: string }[] | null;
+  verifiedAt: string | null;
+  industryRelevance: number | null;
+  industryReasoning: string | null;
+  followerCount: number | null;
+  followerCountStatus: string | null;
+  mergedSourceTypes: string[] | null;
   googleMapsUrl: string | null;
   company: { id: string; name: string } | null;
   scores: { id: string; score: number; scoreBand: string; createdAt: string }[];
@@ -228,6 +237,76 @@ export function LeadDetail({
             )}
           </Field>
         </div>
+        {lead.verificationConfidence && (
+          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium uppercase tracking-wide text-white/40">
+                Verification
+              </span>
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                  lead.verificationConfidence === "HIGH"
+                    ? "bg-emerald-400/15 text-emerald-300"
+                    : lead.verificationConfidence === "MEDIUM"
+                      ? "bg-sky-400/15 text-sky-300"
+                      : lead.verificationConfidence === "LOW"
+                        ? "bg-amber-400/15 text-amber-300"
+                        : "bg-red-400/15 text-red-300"
+                }`}
+              >
+                {lead.verificationConfidence}
+              </span>
+              {lead.industryRelevance != null && (
+                <span className="text-xs text-white/50">
+                  industry relevance {lead.industryRelevance}/100
+                </span>
+              )}
+              {lead.verifiedAt && (
+                <span className="text-xs text-white/40">
+                  verified {new Date(lead.verifiedAt).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+            {lead.verificationReason && (
+              <p className="text-xs text-white/60">{lead.verificationReason}</p>
+            )}
+            {lead.industryReasoning && (
+              <p className="mt-1 text-xs text-white/50">
+                <span className="text-white/40">Industry: </span>
+                {lead.industryReasoning}
+              </p>
+            )}
+            {lead.verificationSources && lead.verificationSources.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {lead.verificationSources.map((src, i) => (
+                  <li key={i} className="text-xs text-white/50">
+                    <span className="text-[#D4AF37]">{src.provider}</span>
+                    {" — "}
+                    {src.label ?? src.sourceType}
+                    {src.url && (
+                      <>
+                        {" · "}
+                        <a
+                          href={src.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline hover:text-white"
+                        >
+                          source
+                        </a>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {lead.followerCountStatus === "UNVERIFIED" && (
+              <p className="mt-2 text-xs text-amber-300/70">
+                Follower count unverifiable from compliant sources.
+              </p>
+            )}
+          </div>
+        )}
         {lead.googleMapsUrl && (
           <div className="mt-4">
             <a

@@ -35,6 +35,9 @@ interface Lead {
   instagramConnectionStatus: string | null;
   aiMessage: string | null;
   aiMessageSource: string | null;
+  verificationConfidence: string | null;
+  verificationReason: string | null;
+  industryRelevance: number | null;
   city: string | null;
   state: string | null;
   country: string | null;
@@ -47,8 +50,8 @@ interface Lead {
 }
 
 const STATUSES = [
-  "NEW", "RESEARCHING", "QUALIFIED", "CONTACTED", "REPLIED",
-  "MEETING", "PROPOSAL", "NEGOTIATION", "WON", "LOST", "NURTURE",
+  "NEW", "RESEARCHING", "VERIFIED", "QUALIFIED", "CONTACTED", "FOLLOW_UP", "REPLIED",
+  "MEETING", "PROPOSAL", "NEGOTIATION", "WON", "CONVERTED", "LOST", "NOT_RELEVANT", "NURTURE",
 ];
 
 const LEAD_FIELDS = [
@@ -218,6 +221,8 @@ export function LeadsTable({
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [sourceType, setSourceType] = useState("");
+  const [verification, setVerification] = useState("");
+  const [minScore, setMinScore] = useState("");
   const [messageLead, setMessageLead] = useState<Lead | null>(null);
   const [remarkLead, setRemarkLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
@@ -246,6 +251,8 @@ export function LeadsTable({
         ...(q ? { q } : {}),
         ...(status ? { status } : {}),
         ...(sourceType ? { sourceType } : {}),
+        ...(verification ? { verification } : {}),
+        ...(minScore ? { minScore } : {}),
         sort: "updatedAt",
         order: "desc",
       });
@@ -260,7 +267,7 @@ export function LeadsTable({
     } finally {
       setLoading(false);
     }
-  }, [page, q, status, sourceType, headers, apiBase]);
+  }, [page, q, status, sourceType, verification, minScore, headers, apiBase]);
 
   useEffect(() => {
     fetchLeads();
@@ -440,6 +447,28 @@ export function LeadsTable({
           </span>
         ),
       }),
+      columnHelper.accessor("verificationConfidence", {
+        id: "verification",
+        header: "Verification",
+        cell: (info) => {
+          const v = info.getValue() as string | null;
+          const reason = (info.row.original as { verificationReason?: string | null }).verificationReason;
+          if (!v) return <span className="text-white/30">—</span>;
+          const cls =
+            v === "HIGH"
+              ? "bg-emerald-400/15 text-emerald-300"
+              : v === "MEDIUM"
+                ? "bg-sky-400/15 text-sky-300"
+                : v === "LOW"
+                  ? "bg-amber-400/15 text-amber-300"
+                  : "bg-red-400/15 text-red-300";
+          return (
+            <span title={reason ?? undefined} className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${cls}`}>
+              {v}
+            </span>
+          );
+        },
+      }),
       columnHelper.accessor("contactable", {
         id: "contactable",
         header: "Contactability",
@@ -568,6 +597,7 @@ export function LeadsTable({
       { id: "industry", label: "Industry" },
       { id: "opportunity", label: "Opportunity" },
       { id: "score", label: "Score" },
+      { id: "verification", label: "Verification" },
       { id: "contactable", label: "Contactability" },
       { id: "status", label: "Status" },
       { id: "source", label: "Source" },
@@ -709,6 +739,35 @@ export function LeadsTable({
             </option>
           ))}
         </select>
+        <select
+          value={verification}
+          onChange={(e) => {
+            setVerification(e.target.value);
+            setPage(1);
+          }}
+          aria-label="Filter by verification"
+          title="Verification confidence from the AI sales agent"
+          className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+        >
+          <option value="">All verification</option>
+          <option value="HIGH">Verified · High</option>
+          <option value="MEDIUM">Verified · Medium</option>
+          <option value="LOW">Low confidence</option>
+          <option value="REJECTED">Rejected</option>
+          <option value="UNVERIFIED">Not verified</option>
+        </select>
+        <input
+          value={minScore}
+          onChange={(e) => {
+            const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 3);
+            setMinScore(v);
+            setPage(1);
+          }}
+          placeholder="Min score"
+          aria-label="Minimum lead score"
+          title="Minimum lead score (0-100)"
+          className="w-24 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none placeholder:text-white/25 focus:border-[#D4AF37]"
+        />
         <div ref={columnsRef} className="relative">
           <button
             onClick={() => setShowColumns((v) => !v)}
@@ -807,11 +866,11 @@ export function LeadsTable({
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-2xl border border-white/10">
+      <div className="max-h-[70vh] overflow-auto rounded-2xl border border-white/10">
         <table className="w-full min-w-[720px] text-left text-sm">
-          <thead>
+          <thead className="sticky top-0 z-10">
             {table.getHeaderGroups().map((hg) => (
-              <tr key={hg.id} className="border-b border-white/10 bg-white/5">
+              <tr key={hg.id} className="border-b border-white/10 bg-[#101c2e]">
                 {hg.headers.map((h) => (
                   <th key={h.id} className="px-4 py-3 font-medium text-white/60">
                     {flexRender(h.column.columnDef.header, h.getContext())}

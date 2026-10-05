@@ -22,6 +22,7 @@
  */
 import { normalizeUsername } from "../outreach/instagram";
 import { industryMatchesTarget } from "../discovery/candidates";
+import { getWebSearchProvider } from "../research/search-provider";
 
 export interface ProspectingDayTarget {
   industry: string;
@@ -40,7 +41,7 @@ export interface SearchHit {
 }
 
 export interface DiscoveryDeps {
-  /** Tavily-style web search. Defaults to the real Tavily API. */
+  /** Web search. Defaults to the shared provider (Tavily). */
   webSearch?: (query: string) => Promise<SearchHit[]>;
   /** Maximum search queries to spend on one daily run (quota guard). */
   maxQueries?: number;
@@ -80,31 +81,12 @@ export function usernameFromInstagramUrl(url: string): string | null {
   return normalized.ok ? normalized.username : null;
 }
 
-async function tavilySearch(query: string): Promise<SearchHit[]> {
-  const apiKey = process.env.TAVILY_API_KEY;
-  if (!apiKey) return [];
-  const res = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      api_key: apiKey,
-      query,
-      search_depth: "basic",
-      max_results: 10,
-      include_answer: false,
-    }),
-  });
-  if (!res.ok) throw new Error(`Tavily returned HTTP ${res.status}.`);
-  const data = (await res.json()) as {
-    results?: { title?: string; url?: string; content?: string }[];
-  };
-  return (data.results ?? [])
-    .filter((r) => r.url)
-    .map((r) => ({
-      title: r.title ?? "",
-      url: r.url as string,
-      snippet: (r.content ?? "").slice(0, 500),
-    }));
+/**
+ * Default web search via the shared provider abstraction (Tavily today).
+ * Public web index only; instagram.com pages are never fetched.
+ */
+async function defaultWebSearch(query: string): Promise<SearchHit[]> {
+  return getWebSearchProvider().search(query, { maxResults: 10 });
 }
 
 /** Build query variations from the day's target (industry-first). */
@@ -146,7 +128,7 @@ export async function discoverInstagramUsernames(
   target: ProspectingDayTarget,
   deps: DiscoveryDeps = {},
 ): Promise<UsernameDiscovery> {
-  const webSearch = deps.webSearch ?? tavilySearch;
+  const webSearch = deps.webSearch ?? defaultWebSearch;
   const maxQueries = deps.maxQueries ?? 8;
   const queries = buildDiscoveryQueries(target).slice(0, maxQueries);
 

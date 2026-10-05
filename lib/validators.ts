@@ -12,6 +12,10 @@ export const leadStatusSchema = z.enum([
   "WON",
   "LOST",
   "NURTURE",
+  "VERIFIED",
+  "FOLLOW_UP",
+  "CONVERTED",
+  "NOT_RELEVANT",
 ]);
 
 export const leadSourceTypeSchema = z.enum([
@@ -83,6 +87,28 @@ export const createLeadSchema = z.object({
   facebookUrl: z.string().trim().max(1000).optional(),
   linkedinUrl: z.string().trim().max(1000).optional(),
   lastVerifiedAt: z.string().datetime().optional(),
+  // verification (AI sales agent) — source-backed, never invented
+  verificationConfidence: z.enum(["HIGH", "MEDIUM", "LOW", "REJECTED"]).optional(),
+  verificationReason: z.string().trim().max(2000).optional(),
+  verificationSources: z
+    .array(
+      z.object({
+        provider: z.string().max(60),
+        sourceType: z.string().max(40),
+        url: z.string().max(1000).optional(),
+        retrievedAt: z.string().max(40),
+        label: z.string().max(200).optional(),
+      }),
+    )
+    .max(8)
+    .optional(),
+  verifiedAt: z.string().datetime().optional(),
+  industryRelevance: z.number().int().min(0).max(100).optional(),
+  industryReasoning: z.string().trim().max(2000).optional(),
+  followerCount: z.number().int().min(0).optional(),
+  followerCountStatus: z.enum(["UNKNOWN", "VERIFIED", "UNVERIFIED"]).optional(),
+  mergedSourceTypes: z.array(z.string().max(40)).max(10).optional(),
+  aiMessageAt: z.string().datetime().optional(),
 });
 
 export const updateLeadSchema = createLeadSchema.partial().extend({
@@ -94,6 +120,7 @@ export const listLeadsQuerySchema = z.object({
   status: leadStatusSchema.optional(),
   sourceType: leadSourceTypeSchema.optional(),
   minScore: z.coerce.number().int().min(0).max(100).optional(),
+  verification: z.enum(["HIGH", "MEDIUM", "LOW", "REJECTED", "UNVERIFIED"]).optional(),
   tag: z.string().trim().max(60).optional(),
   websiteStatus: z.enum(["NO_WEBSITE", "HAS_WEBSITE", "UNKNOWN"]).optional(),
   contactable: z.coerce.boolean().optional(),

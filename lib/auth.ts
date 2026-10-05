@@ -59,7 +59,10 @@ export const auth = betterAuth({
     : {}),
 
   session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    // Remember-me semantics (better-auth): rememberMe=true → expiresIn below;
+    // rememberMe=false (unchecked) → 1-day session. The login form passes the
+    // checkbox value through; cookies stay HttpOnly + server-managed.
+    expiresIn: 60 * 60 * 24 * 30, // 30 days when "Remember me" is checked
     updateAge: 60 * 60 * 24, // refresh daily
     cookieCache: { enabled: true, maxAge: 60 * 5 },
   },

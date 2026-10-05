@@ -47,9 +47,23 @@ interface Run {
   messagesGenerated: number;
   crmImported: number;
   failed: number;
+  verified: number;
+  rejected: number;
+  sourceBreakdown: Record<string, number> | null;
+  durationMs: number | null;
   status: string;
   triggeredBy: string;
   startedAt: string;
+  finishedAt: string | null;
+}
+
+interface Health {
+  tavily: string;
+  tavilyDetail: string;
+  googlePlaces: string;
+  aiProvider: string;
+  database: string;
+  automation: string;
 }
 
 function emptyDay(dow: number): PlanDay {
@@ -85,6 +99,7 @@ export function ProspectingDashboard({
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [health, setHealth] = useState<Health | null>(null);
   // Local editable copy of the 7 days.
   const [days, setDays] = useState<PlanDay[]>(DISPLAY_ORDER.map(emptyDay));
   const [name, setName] = useState("Weekly Instagram Prospecting");
@@ -122,6 +137,12 @@ export function ProspectingDashboard({
         }
       }
       await loadRuns();
+      try {
+        const hRes = await fetch("/api/system/health", { headers });
+        if (hRes.ok) setHealth(await hRes.json());
+      } catch {
+        /* health is best-effort */
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load.");
     } finally {
@@ -225,6 +246,8 @@ export function ProspectingDashboard({
   }
 
   /** Latest run per weekday, for the weekly plan status column. */
+  const latestRun = runs.length > 0 ? runs[0] : null;
+
   const latestByDow = useMemo(() => {
     const map = new Map<number, Run>();
     for (const r of runs) {
@@ -317,6 +340,98 @@ export function ProspectingDashboard({
           )}
         </div>
       </div>
+
+      {/* Today: latest run at a glance */}
+      {latestRun && (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold text-white">
+              Today <span className="text-sm font-normal text-white/40">· {latestRun.runDate}</span>
+            </h2>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                latestRun.status === "COMPLETED"
+                  ? "bg-emerald-400/15 text-emerald-300"
+                  : latestRun.status === "FAILED"
+                    ? "bg-red-400/15 text-red-300"
+                    : "bg-amber-400/15 text-amber-300"
+              }`}
+            >
+              {runStatusLabel(latestRun.status)}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {[
+              ["Target", latestRun.targetCount],
+              ["Candidates", latestRun.found],
+              ["Verified", latestRun.verified ?? 0],
+              ["Imported", latestRun.crmImported],
+              ["Duplicates", latestRun.duplicatesSkipped],
+              ["Rejected", latestRun.rejected ?? 0],
+            ].map(([label, value]) => (
+              <div key={label as string} className="rounded-xl bg-black/30 px-3 py-2.5 text-center">
+                <p className="text-xl font-bold text-white">{value}</p>
+                <p className="text-[11px] uppercase tracking-wide text-white/40">{label}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/50">
+            {latestRun.sourceBreakdown &&
+              Object.entries(latestRun.sourceBreakdown)
+                .filter(([, n]) => n > 0)
+                .map(([k, n]) => (
+                  <span key={k}>
+                    {k.replace(/_/g, " ").toLowerCase()}:{" "}
+                    <span className="font-semibold text-white/80">{n}</span>
+                  </span>
+                ))}
+            {latestRun.triggeredBy && <span>triggered by {latestRun.triggeredBy.toLowerCase()}</span>}
+            {latestRun.durationMs != null && (
+              <span>took {(latestRun.durationMs / 1000).toFixed(0)}s</span>
+            )}
+            <span className="ml-auto">next run tomorrow {runAtTime} ({timezone})</span>
+          </div>
+        </div>
+      )}
+
+      {/* System health: which providers the agent can actually use */}
+      {health && (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-white/50">
+            System status
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {[
+              ["Public web search", health.tavily],
+              ["Google Places", health.googlePlaces],
+              ["AI provider", health.aiProvider],
+              ["Database", health.database],
+              ["Automation", health.automation],
+            ].map(([label, status]) => {
+              const ok =
+                status === "CONFIGURED" || status === "CONNECTED" || status === "ACTIVE";
+              return (
+                <span
+                  key={label as string}
+                  title={label === "Public web search" ? health.tavilyDetail : undefined}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                    ok ? "bg-emerald-400/10 text-emerald-300" : "bg-amber-400/10 text-amber-300"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${ok ? "bg-emerald-400" : "bg-amber-400"}`} />
+                  {label}: {status.replace(/_/g, " ").toLowerCase()}
+                </span>
+              );
+            })}
+          </div>
+          {health.tavily === "NOT_CONFIGURED" && (
+            <p className="mt-2 text-xs text-amber-300/80">
+              Public web search provider is not configured — set TAVILY_API_KEY for the
+              agent to discover prospects.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Weekly plan */}
       <div>
@@ -470,7 +585,7 @@ export function ProspectingDashboard({
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead>
                 <tr className="border-b border-white/10 bg-white/5">
-                  {["Date", "Day", "Target", "Found", "New", "Duplicates", "Messages", "Imported", "Failed", "Status", "By"].map(
+                  {["Date", "Day", "Target", "Found", "Verified", "Rejected", "Duplicates", "Messages", "Imported", "Failed", "Time", "Status", "By"].map(
                     (h) => (
                       <th key={h} className="px-4 py-3 font-medium text-white/60">
                         {h}
@@ -486,11 +601,15 @@ export function ProspectingDashboard({
                     <td className="px-4 py-2.5 text-white/60">{DAY_LABELS[r.dayOfWeek]}</td>
                     <td className="px-4 py-2.5 text-white/80">{r.targetCount}</td>
                     <td className="px-4 py-2.5 text-white/80">{r.found}</td>
-                    <td className="px-4 py-2.5 text-white/80">{r.newCount}</td>
+                    <td className="px-4 py-2.5 text-emerald-300/90">{r.verified ?? 0}</td>
+                    <td className="px-4 py-2.5 text-white/60">{r.rejected ?? 0}</td>
                     <td className="px-4 py-2.5 text-white/60">{r.duplicatesSkipped}</td>
                     <td className="px-4 py-2.5 text-white/80">{r.messagesGenerated}</td>
                     <td className="px-4 py-2.5 font-semibold text-emerald-300">{r.crmImported}</td>
                     <td className="px-4 py-2.5 text-white/60">{r.failed}</td>
+                    <td className="px-4 py-2.5 text-white/60">
+                      {r.durationMs != null ? `${(r.durationMs / 1000).toFixed(0)}s` : "—"}
+                    </td>
                     <td className="px-4 py-2.5">
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
@@ -520,6 +639,7 @@ export function ProspectingDashboard({
 function runStatusLabel(status: string): string {
   if (status === "QUEUED") return "Queued";
   if (status === "RUNNING") return "Running";
+  if (status === "PARTIAL") return "Partial";
   return status;
 }
 

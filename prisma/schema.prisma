@@ -35,6 +35,10 @@ enum LeadStatus {
   WON
   LOST
   NURTURE
+  VERIFIED
+  FOLLOW_UP
+  CONVERTED
+  NOT_RELEVANT
 }
 
 enum LeadSourceType {
@@ -372,6 +376,16 @@ model Lead {
   aiMessage       String? @db.Text // generated IG outreach draft (quality-gated); user sends manually
   aiMessageSource String? // "ai" | "template"
   aiMessageAt     DateTime? // when the draft was generated
+  // ── Verification (AI sales agent; source-backed, never invented) ──
+  verificationConfidence VerificationConfidence? // HIGH/MEDIUM/LOW/REJECTED; null = not run through the verification engine
+  verificationReason     String? @db.Text // why this confidence was assigned (source-backed)
+  verificationSources    Json? // bounded array of {provider, sourceType, url, retrievedAt, label}
+  verifiedAt             DateTime?
+  industryRelevance      Int? // 0-100 from the industry classifier; null when not classified
+  industryReasoning      String? @db.Text // source-backed reasoning for the industry classification
+  followerCount          Int? // only when a compliant source provides it; never invented
+  followerCountStatus    FollowerCountStatus @default(UNKNOWN) // UNVERIFIED when a threshold is configured but count is unavailable
+  mergedSourceTypes      Json? // source types merged into this lead by cross-source entity matching, e.g. ["GOOGLE_BUSINESS","INSTAGRAM"]
   facebookUrl     String? // never invented; null when unknown
   linkedinUrl     String? // manual or provider-provided; null when unknown
   leadScore      Int            @default(0)
@@ -852,7 +866,29 @@ enum ProspectingRunStatus {
   QUEUED
   RUNNING
   COMPLETED
+  PARTIAL
   FAILED
+}
+
+/**
+ * Verification confidence for a lead candidate. Assigned by the verification
+ * engine from source-backed evidence only — never invented.
+ * HIGH: multiple independent sources agree. MEDIUM: one strong source +
+ * supporting evidence. LOW: weak/incomplete evidence. REJECTED: contradictory
+ * or clearly irrelevant.
+ */
+enum VerificationConfidence {
+  HIGH
+  MEDIUM
+  LOW
+  REJECTED
+}
+
+/** Follower count provenance — never guessed. */
+enum FollowerCountStatus {
+  UNKNOWN
+  VERIFIED
+  UNVERIFIED
 }
 
 model InstagramProspectingPlan {
@@ -908,6 +944,10 @@ model InstagramProspectingRun {
   messagesGenerated Int                 @default(0)
   crmImported      Int                  @default(0)
   failed           Int                  @default(0)
+  verified         Int                  @default(0) // HIGH + acceptable MEDIUM candidates
+  rejected         Int                  @default(0) // LOW/REJECTED or failed verification
+  sourceBreakdown  Json? // imported counts per primary source type, e.g. {"GOOGLE_BUSINESS":30,"INSTAGRAM":12}
+  durationMs       Int? // wall-clock run duration
   status           ProspectingRunStatus @default(RUNNING)
   triggeredBy      String               @default("SCHEDULED") // SCHEDULED | MANUAL
   error            String?
@@ -1296,6 +1336,7 @@ model Notification {
   title          String
   body           String?  @db.Text
   link           String?
+  metadata       Json?
   readAt         DateTime?
   createdAt      DateTime @default(now())
 

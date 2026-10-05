@@ -124,6 +124,16 @@ export async function createLead(
     aiMessage: input.aiMessage?.trim() || null,
     aiMessageSource: input.aiMessageSource ?? null,
     aiMessageAt: input.aiMessage ? new Date() : null,
+    // verification (AI sales agent) — source-backed, never invented
+    verificationConfidence: input.verificationConfidence ?? null,
+    verificationReason: input.verificationReason?.trim() || null,
+    verificationSources: input.verificationSources ?? undefined,
+    verifiedAt: input.verifiedAt ? new Date(input.verifiedAt) : null,
+    industryRelevance: input.industryRelevance ?? null,
+    industryReasoning: input.industryReasoning?.trim() || null,
+    followerCount: input.followerCount ?? null,
+    followerCountStatus: input.followerCountStatus ?? "UNKNOWN",
+    mergedSourceTypes: input.mergedSourceTypes ?? undefined,
     facebookUrl: input.facebookUrl?.trim() || null,
     linkedinUrl: input.linkedinUrl?.trim() || null,
     status: input.status ?? "NEW",
@@ -179,6 +189,11 @@ export async function listLeads(organizationId: string, query: ListQuery) {
   if (query.status) where.status = query.status;
   if (query.sourceType) where.sourceType = query.sourceType;
   if (query.minScore !== undefined) where.leadScore = { gte: query.minScore };
+  if (query.verification === "UNVERIFIED") {
+    where.verificationConfidence = null;
+  } else if (query.verification) {
+    where.verificationConfidence = query.verification;
+  }
   if (query.tag) where.tags = { some: { tag: { name: query.tag } } };
   if (query.websiteStatus) where.websiteStatus = query.websiteStatus;
   if (query.contactable !== undefined) where.contactable = query.contactable;

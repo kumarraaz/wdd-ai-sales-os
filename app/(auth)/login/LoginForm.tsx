@@ -13,6 +13,7 @@ export function LoginForm({ demoEnabled }: { demoEnabled: boolean }) {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -21,7 +22,7 @@ export function LoginForm({ demoEnabled }: { demoEnabled: boolean }) {
     setError(null);
     setLoading(true);
     const { error } = await authClient.signIn.email(
-      { email, password },
+      { email, password, rememberMe },
       {
         onSuccess: () => router.push(searchParams.get("next") || "/dashboard"),
       },
@@ -65,6 +66,18 @@ export function LoginForm({ demoEnabled }: { demoEnabled: boolean }) {
             />
           </div>
           {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-white/70">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 accent-[#D4AF37]"
+            />
+            Remember me
+            <span className="text-xs text-white/40">
+              {rememberMe ? "(stay signed in for 30 days)" : "(1-day session)"}
+            </span>
+          </label>
           <button
             type="submit" disabled={loading}
             className="w-full rounded-lg bg-[#D4AF37] py-2.5 font-semibold text-black transition hover:brightness-110 disabled:opacity-50"

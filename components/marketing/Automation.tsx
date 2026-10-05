@@ -52,12 +52,13 @@ export default function Automation() {
             id="automation-heading"
             className="mt-3 font-display text-3xl font-bold tracking-tight text-white sm:text-4xl"
           >
-            Visual workflows with a human in the loop
+            Scheduled workflows with a human in the loop
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-white/60">
-            Build trigger → condition → action sequences in a visual builder.
-            Automation does the heavy lifting; nothing external goes out
-            without your approval unless you explicitly allow it.
+            Schedule-driven automation does the heavy lifting — daily
+            prospecting runs, follow-up reminders, and enrichment jobs.
+            Nothing external goes out without your approval unless you
+            explicitly allow it.
           </p>
         </Reveal>
 
@@ -94,9 +95,9 @@ export default function Automation() {
                 Automation you can trust with your reputation
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-white/60">
-                Follow-up sequences stop automatically when a lead replies, a
-                meeting is booked, or you hit stop. Every automated step is
-                written to the audit log — who approved what, and when.
+                A kill switch pauses every automated job instantly, and every
+                automated step is written to the audit log — who approved
+                what, and when.
               </p>
             </Reveal>
             <ul className="mt-6 space-y-4">

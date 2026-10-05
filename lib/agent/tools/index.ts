@@ -8,7 +8,9 @@
  *   discovery.search, discovery.import,
  *   research.website, research.lead,
  *   crm.createLead, crm.createTask, crm.createFollowUp, crm.logActivity,
- *   outreach.createDraft
+ *   outreach.createDraft,
+ *   prospecting.verifyCandidate, prospecting.classifyIndustry,
+ *   prospecting.matchEntities
  */
 import { registerTool, executeTool, getTool, listTools, listToolDefinitions } from "./registry";
 import type { WorkspaceContext } from "./registry";
@@ -21,6 +23,11 @@ import {
   logActivityTool,
 } from "./crm";
 import { outreachCreateDraftTool } from "./outreach";
+import {
+  prospectVerifyCandidateTool,
+  prospectClassifyIndustryTool,
+  prospectMatchEntitiesTool,
+} from "./prospecting";
 
 registerTool(discoverySearchTool);
 registerTool(discoveryImportTool);
@@ -31,6 +38,9 @@ registerTool(createTaskTool);
 registerTool(createFollowUpTool);
 registerTool(logActivityTool);
 registerTool(outreachCreateDraftTool);
+registerTool(prospectVerifyCandidateTool);
+registerTool(prospectClassifyIndustryTool);
+registerTool(prospectMatchEntitiesTool);
 
 export { executeTool, getTool, listTools, listToolDefinitions, registerTool };
 export type { WorkspaceContext };
