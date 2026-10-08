@@ -46,10 +46,19 @@ export async function POST(req: NextRequest) {
   }
 
   let limit = 5;
+  let onlyOrganizationId: string | undefined;
   try {
-    const body = (await req.json().catch(() => ({}))) as { limit?: unknown };
+    const body = (await req.json().catch(() => ({}))) as {
+      limit?: unknown;
+      organizationId?: unknown;
+    };
     if (typeof body.limit === "number" && Number.isFinite(body.limit)) {
       limit = Math.min(Math.max(Math.floor(body.limit), 1), 20);
+    }
+    // Scoped drain: the run-now route asks the worker to drain just the
+    // requesting org's queue (server-to-server, CRON_SECRET-authenticated).
+    if (typeof body.organizationId === "string" && body.organizationId.length > 0) {
+      onlyOrganizationId = body.organizationId;
     }
   } catch {
     // ignore malformed bodies; defaults apply
@@ -83,7 +92,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const batch = await runBatch({ limit });
+  const batch = await runBatch({ limit, organizationId: onlyOrganizationId });
 
   return NextResponse.json({
     killSwitch: killed || batch.killed,

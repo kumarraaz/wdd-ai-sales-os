@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Navbar from "@/components/marketing/Navbar";
+import { resolveSiteUrl } from "@/lib/site-url";
 import Hero from "@/components/marketing/Hero";
 import HowItWorks from "@/components/marketing/HowItWorks";
 import Features from "@/components/marketing/Features";
@@ -15,8 +16,7 @@ import FinalCTA from "@/components/marketing/FinalCTA";
 import Footer from "@/components/marketing/Footer";
 
 // TODO: set NEXT_PUBLIC_SITE_URL to the production domain (e.g. https://wddaisalesos.com)
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://wdd-ai-sales-os.vercel.app";
+const siteUrl = resolveSiteUrl();
 
 const title = "WDD AI SALES OS — Turn the Internet Into Your Sales Pipeline";
 const description =

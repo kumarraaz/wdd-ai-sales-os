@@ -63,6 +63,14 @@ export interface SourceNote {
   status: "ok" | "skipped" | "error";
   count: number;
   note: string;
+  /** Observability (§6): queries attempted against the provider. */
+  queriesAttempted?: number;
+  /** Raw results returned by the provider. */
+  resultsReturned?: number;
+  /** Results that became usable candidates. */
+  usableCandidates?: number;
+  /** Safe error message when status === "error" (never secrets). */
+  error?: string;
 }
 
 export interface AcquireResult {
@@ -115,6 +123,20 @@ async function acquireInstagram(
   discoveryDeps?: DiscoveryDeps,
 ): Promise<{ candidates: AgentCandidate[]; note: SourceNote; searchesMade: number }> {
   const retrievedAt = nowIso();
+  if (budget <= 0) {
+    return {
+      candidates: [],
+      searchesMade: 0,
+      note: {
+        provider: "tavily",
+        status: "skipped",
+        count: 0,
+        note: getWebSearchProvider().isConfigured()
+          ? "No budget allocated (redistributed to primary sources)."
+          : "Public web search provider is not configured.",
+      },
+    };
+  }
   try {
     const found = await discoverInstagramUsernames(target, {
       ...discoveryDeps,
@@ -147,6 +169,7 @@ async function acquireInstagram(
         ],
       } satisfies AgentCandidate;
     });
+    const configured = getWebSearchProvider().isConfigured();
     return {
       candidates,
       searchesMade: found.searchesMade,
@@ -155,9 +178,12 @@ async function acquireInstagram(
         status: "ok",
         count: candidates.length,
         note:
-          found.usernames.length === 0 && !getWebSearchProvider().isConfigured()
+          found.usernames.length === 0 && !configured
             ? "Public web search provider is not configured."
             : `${found.searchesMade} searches, ${(found.queriesUsed ?? []).length} queries`,
+        queriesAttempted: (found.queriesUsed ?? []).length,
+        resultsReturned: found.usernames.length,
+        usableCandidates: candidates.length,
       },
     };
   } catch (err) {
@@ -168,7 +194,8 @@ async function acquireInstagram(
         provider: "tavily",
         status: "error",
         count: 0,
-        note: err instanceof Error ? err.message : "Instagram discovery failed.",
+        note: "Instagram discovery failed.",
+        error: err instanceof Error ? err.message.slice(0, 300) : "Instagram discovery failed.",
       },
     };
   }
@@ -177,11 +204,12 @@ async function acquireInstagram(
 async function acquireGooglePlaces(
   target: ProspectingDayTarget,
   budget: number,
-): Promise<{ candidates: AgentCandidate[]; note: SourceNote }> {
+): Promise<{ candidates: AgentCandidate[]; note: SourceNote; searchesMade: number }> {
   const provider = getDiscoveryProvider("google-places");
   if (!provider || !provider.isConfigured()) {
     return {
       candidates: [],
+      searchesMade: 0,
       note: {
         provider: "google-places",
         status: "skipped",
@@ -190,19 +218,53 @@ async function acquireGooglePlaces(
       },
     };
   }
+  if (budget <= 0) {
+    return {
+      candidates: [],
+      searchesMade: 0,
+      note: {
+        provider: "google-places",
+        status: "skipped",
+        count: 0,
+        note: "No budget allocated (redistributed to other sources).",
+      },
+    };
+  }
   try {
-    const keyword = [target.industry, target.businessType].filter(Boolean).join(" ");
-    const result = await provider.search({
-      keyword,
-      city: target.location ?? undefined,
-      country: target.country ?? undefined,
-      maxResults: Math.min(Math.max(budget, 1), 20),
-      category: target.businessType ?? undefined,
-    });
+    // Multiple keyword variations so a larger budget actually widens
+    // coverage instead of over-fetching one query's pages.
+    const keywords = [
+      [target.industry, target.businessType].filter(Boolean).join(" "),
+      target.businessType ? `${target.businessType} ${target.location ?? ""}`.trim() : null,
+      `${target.industry} ${target.location ?? ""}`.trim(),
+    ].filter((k): k is string => !!k && k.length > 0);
+    const uniqueKeywords = [...new Set(keywords)].slice(0, 3);
+    const perQuery = Math.max(1, Math.ceil(budget / uniqueKeywords.length));
+
     const retrievedAt = nowIso();
-    const candidates = result.companies.map(
-      (c) =>
-        ({
+    const candidates: AgentCandidate[] = [];
+    const seenPlaceIds = new Set<string>();
+    let requestsMade = 0;
+    let resultsReturned = 0;
+    const queriesAttempted: string[] = [];
+
+    for (const keyword of uniqueKeywords) {
+      if (candidates.length >= budget) break;
+      const result = await provider.search({
+        keyword,
+        city: target.location ?? undefined,
+        country: target.country ?? undefined,
+        maxResults: Math.min(perQuery, 20),
+        category: target.businessType ?? undefined,
+      });
+      queriesAttempted.push(keyword);
+      requestsMade += result.meta?.requestsMade ?? 1;
+      resultsReturned += result.companies.length;
+      for (const c of result.companies) {
+        if (candidates.length >= budget) break;
+        if (seenPlaceIds.has(c.providerId)) continue;
+        seenPlaceIds.add(c.providerId);
+        candidates.push({
           businessName: c.name,
           category: c.category ?? null,
           address: c.address ?? null,
@@ -225,25 +287,32 @@ async function acquireGooglePlaces(
               label: "Google Places business listing",
             } satisfies AgentCandidateSource,
           ],
-        }) satisfies AgentCandidate,
-    );
+        } satisfies AgentCandidate);
+      }
+    }
     return {
       candidates,
+      searchesMade: requestsMade,
       note: {
         provider: "google-places",
         status: "ok",
         count: candidates.length,
-        note: `${result.meta?.requestsMade ?? 1} Places request(s)`,
+        note: `${requestsMade} Places request(s) across ${queriesAttempted.length} queries`,
+        queriesAttempted: queriesAttempted.length,
+        resultsReturned,
+        usableCandidates: candidates.length,
       },
     };
   } catch (err) {
     return {
       candidates: [],
+      searchesMade: 0,
       note: {
         provider: "google-places",
         status: "error",
         count: 0,
-        note: err instanceof Error ? err.message : "Google Places search failed.",
+        note: "Google Places search failed.",
+        error: err instanceof Error ? err.message.slice(0, 300) : "Google Places search failed.",
       },
     };
   }
@@ -252,16 +321,29 @@ async function acquireGooglePlaces(
 async function acquireWeb(
   target: ProspectingDayTarget,
   budget: number,
-): Promise<{ candidates: AgentCandidate[]; note: SourceNote }> {
+): Promise<{ candidates: AgentCandidate[]; note: SourceNote; searchesMade: number }> {
   const provider = getWebSearchProvider();
   if (!provider.isConfigured()) {
     return {
       candidates: [],
+      searchesMade: 0,
       note: {
         provider: "tavily-web",
         status: "skipped",
         count: 0,
         note: "Public web search provider is not configured.",
+      },
+    };
+  }
+  if (budget <= 0) {
+    return {
+      candidates: [],
+      searchesMade: 0,
+      note: {
+        provider: "tavily-web",
+        status: "skipped",
+        count: 0,
+        note: "No budget allocated (redistributed to primary sources).",
       },
     };
   }
@@ -273,9 +355,13 @@ async function acquireWeb(
     ];
     const seen = new Set<string>();
     const candidates: AgentCandidate[] = [];
+    let resultsReturned = 0;
+    let queriesAttempted = 0;
     for (const q of queries) {
       if (candidates.length >= budget) break;
       const hits = await provider.search(q, { maxResults: 10 });
+      queriesAttempted++;
+      resultsReturned += hits.length;
       for (const hit of hits) {
         if (candidates.length >= budget) break;
         if (!looksLikeBusinessHomepage(hit.url)) continue;
@@ -317,21 +403,27 @@ async function acquireWeb(
     }
     return {
       candidates,
+      searchesMade: queriesAttempted,
       note: {
         provider: "tavily-web",
         status: "ok",
         count: candidates.length,
-        note: `${queries.length} web queries`,
+        note: `${queriesAttempted} web queries`,
+        queriesAttempted,
+        resultsReturned,
+        usableCandidates: candidates.length,
       },
     };
   } catch (err) {
     return {
       candidates: [],
+      searchesMade: 0,
       note: {
         provider: "tavily-web",
         status: "error",
         count: 0,
-        note: err instanceof Error ? err.message : "Web search failed.",
+        note: "Web search failed.",
+        error: err instanceof Error ? err.message.slice(0, 300) : "Web search failed.",
       },
     };
   }
@@ -387,33 +479,76 @@ export function mergeCandidates(candidates: AgentCandidate[]): AgentCandidate[] 
 
 /**
  * Acquire a research pool of candidates from all configured sources.
- * poolSize caps the total (default 150); each source is budgeted and every
- * source failure is isolated + reported (never fails the whole acquisition).
+ *
+ * Dynamic source budgeting (§4): each source receives a meaningful budget
+ * based on its configured status — Google Places is primary when
+ * configured, Tavily web search is secondary, Instagram public-search is
+ * supplementary. Unconfigured sources get zero budget and their share
+ * redistributes to the configured ones. No source can block the pipeline:
+ * acquisition runs in parallel and every failure is isolated + reported.
+ *
+ * poolSize caps the total (default 150); per-source budgets are caps, not
+ * guarantees — a source returning 0 never wastes the run budget.
  */
 export async function acquireCandidates(
   target: ProspectingDayTarget,
   deps: AcquireDeps = {},
 ): Promise<AcquireResult> {
   const poolSize = Math.min(Math.max(deps.poolSize ?? 150, 1), 400);
-  const googleBudget = Math.min(20, Math.ceil(poolSize * 0.25));
-  const instagramBudget = Math.ceil(poolSize * 0.5);
+
+  const googleConfigured = (() => {
+    try {
+      const p = getDiscoveryProvider("google-places");
+      return !!p && p.isConfigured();
+    } catch {
+      return false;
+    }
+  })();
+  const webConfigured = (() => {
+    try {
+      return getWebSearchProvider().isConfigured();
+    } catch {
+      return false;
+    }
+  })();
+  // Instagram discovery rides on the web-search provider (public search).
+  const instagramConfigured = webConfigured;
+
+  // Shares: Google 50% (primary) / Web 35% (secondary) / Instagram 15%
+  // (supplementary). Unconfigured sources contribute 0 and their share is
+  // redistributed proportionally across the configured ones.
+  const shares: { key: "google" | "web" | "instagram"; share: number; configured: boolean }[] = [
+    { key: "google", share: 0.5, configured: googleConfigured },
+    { key: "web", share: 0.35, configured: webConfigured },
+    { key: "instagram", share: 0.15, configured: instagramConfigured },
+  ];
+  const configuredShare = shares
+    .filter((s) => s.configured)
+    .reduce((sum, s) => sum + s.share, 0);
+
+  const budgetFor = (key: "google" | "web" | "instagram", cap: number): number => {
+    const s = shares.find((x) => x.key === key)!;
+    if (!s.configured || configuredShare <= 0) return 0;
+    return Math.min(cap, Math.ceil((poolSize * s.share) / configuredShare));
+  };
+
+  const googleBudget = budgetFor("google", 40);
+  const webBudget = budgetFor("web", 40);
+  const instagramBudget = budgetFor("instagram", 30);
 
   const [ig, google, web] = await Promise.all([
     acquireInstagram(target, instagramBudget, deps.discoveryDeps),
     acquireGooglePlaces(target, googleBudget),
-    acquireWeb(target, Math.max(poolSize - googleBudget - instagramBudget, 0)),
+    acquireWeb(target, webBudget),
   ]);
 
   const candidates = [...google.candidates, ...ig.candidates, ...web.candidates].slice(
     0,
     poolSize,
   );
-  // Searches spent: IG discovery searches + Google Places requests + web queries.
-  const googleSearches = google.note.status === "ok" ? 1 : 0;
-  const webSearches = web.note.status === "ok" ? 2 : 0;
   return {
     candidates,
     sourceNotes: [google.note, ig.note, web.note],
-    searchesMade: ig.searchesMade + googleSearches + webSearches,
+    searchesMade: ig.searchesMade + google.searchesMade + web.searchesMade,
   };
 }

@@ -1,5 +1,5 @@
 /**
- * Manual "Run Now" orchestration for Instagram prospecting.
+ * Manual "Run Now" orchestration for AI prospecting.
  *
  * Problem it solves: POST /api/prospecting/run-now used to only enqueue a
  * job. Nothing drains the job queue except /api/automation/tick, which on
@@ -7,15 +7,24 @@
  * and never appeared in run history (the run row is created by the pipeline
  * when the job executes).
  *
- * This module:
+ * A later iteration drove claim+execute in a post-response waitUntil. That
+ * proved too fragile for a multi-minute pipeline on serverless (the
+ * background execution is killed at the platform's maxDuration, leaving
+ * the job stuck RUNNING until stale recovery).
+ *
+ * Current design (durable):
  *   1. runs the same guards as before (kill switch, plan/day, quota),
  *   2. claims today's run slot up-front by creating the
  *      InstagramProspectingRun row with status QUEUED — so the run is
  *      visible in run history immediately,
- *   3. enqueues the job through the existing engine (unchanged lifecycle),
- *   4. the route then drives claim+execute for that exact job via the
- *      existing runner (claimJobById → executeJob) in a post-response
- *      waitUntil — no second execution engine, no lifecycle bypass.
+ *   3. enqueues exactly one job through the existing engine,
+ *   4. returns immediately. The route best-effort dispatches the existing
+ *      /api/automation/tick worker, which drains the queue through the
+ *      job engine (claim → execute → COMPLETED/RETRYING/FAILED).
+ *
+ * The job engine is the SOLE execution mechanism — no second engine, no
+ * lifecycle bypass, and the heavy pipeline never depends on the HTTP
+ * request lifecycle staying alive.
  *
  * Duplicate presses are safe: the run row is unique per org/day, a second
  * press sees QUEUED/RUNNING and gets RUN_ALREADY_IN_PROGRESS, and a racing
@@ -23,7 +32,7 @@
  */
 import { db } from "../db";
 import { audit } from "../audit";
-import { enqueueJob, claimJobById, executeJob } from "../automation/runner";
+import { enqueueJob } from "../automation/runner";
 import { isKillSwitchOn } from "../automation/types";
 import { checkDiscoveryQuota } from "../quotas";
 import { getTodayDay } from "./instagram-plan";
@@ -90,8 +99,8 @@ const isStale = (startedAt: Date, now: Date) =>
 
 /**
  * Validate, claim today's run slot (QUEUED row), and enqueue the job.
- * Does NOT execute the job — the caller drives execution via
- * executeManualJobNow (route: inside waitUntil so the response is fast).
+ * Does NOT execute the job — execution happens durably through the job
+ * engine when the /api/automation/tick worker drains the queue.
  */
 export async function startManualRunNow(
   organizationId: string,
@@ -200,24 +209,4 @@ export async function startManualRunNow(
   });
 
   return { status: "started", run: serializeRun(run), jobId: job.id };
-}
-
-/**
- * Immediately claim + execute one specific job through the existing engine
- * (same claim/execute/kill-switch/audit/timeout/retry path as the tick
- * worker — no second engine, no lifecycle bypass). Returns the execution
- * disposition; null when the job was already claimed elsewhere.
- */
-export async function executeManualJobNow(
-  organizationId: string,
-  jobId: string,
-): Promise<{ claimed: boolean; disposition?: string }> {
-  const claimed = await claimJobById(jobId, organizationId);
-  if (!claimed) {
-    // Already claimed by the tick worker or another trigger — it is (or
-    // will be) executing; nothing more to do here.
-    return { claimed: false };
-  }
-  const result = await executeJob(claimed);
-  return { claimed: true, disposition: result.disposition };
 }

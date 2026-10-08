@@ -87,6 +87,7 @@ const fake = vi.hoisted(() => {
         }),
       },
       lead: {
+        findUnique: vi.fn(async ({ where }: any) => leads.find((l: any) => l.id === where.id) ?? null),
         findFirst: vi.fn(async ({ where }: any) => {
           const org = where?.organizationId;
           const ors: any[] = where?.OR ?? [];

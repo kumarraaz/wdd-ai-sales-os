@@ -568,7 +568,21 @@ async function handleProspectingInstagramDaily(ctx: JobContext, raw: unknown) {
     triggeredBy: input.manual ? "MANUAL" : "SCHEDULED",
   });
   if (stats.status === "FAILED") {
-    throw new JobError("PROSPECTING_RUN_FAILED", "Instagram prospecting run failed.", true);
+    // §9: config/data outcomes are NOT retryable — retrying the same run
+    // cannot fix "no sources configured" or "no candidates found".
+    // Transient failures (provider errors, timeouts, DB errors) retry.
+    const nonRetryable: (typeof stats.failureReason)[] = [
+      "NO_SOURCE_CONFIGURED",
+      "NO_CANDIDATES",
+      "ALL_CANDIDATES_REJECTED",
+      "QUOTA_EXCEEDED",
+    ];
+    const retryable = !nonRetryable.includes(stats.failureReason);
+    throw new JobError(
+      "PROSPECTING_RUN_FAILED",
+      `AI prospecting run failed (${stats.failureReason ?? "UNKNOWN"}).`,
+      retryable,
+    );
   }
   return {
     runId: stats.runId,

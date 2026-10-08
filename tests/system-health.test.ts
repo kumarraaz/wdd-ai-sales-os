@@ -9,10 +9,28 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 const fake = vi.hoisted(() => {
   return {
     planActive: true,
+    lastOkRun: {
+      runDate: "2026-10-07",
+      crmImported: 12,
+      finishedAt: new Date("2026-10-07T09:30:00Z"),
+    },
+    lastFailedRun: {
+      runDate: "2026-10-06",
+      failureReason: "NO_SOURCE_CONFIGURED",
+      error: "No discovery sources configured.\nstack trace line 2\nstack trace line 3",
+      finishedAt: new Date("2026-10-06T09:30:00Z"),
+    },
     db: {
       $queryRaw: vi.fn(async () => [{ "?column?": 1 }]),
       instagramProspectingPlan: {
         findFirst: vi.fn(async () => ({ isActive: fake.planActive })),
+      },
+      instagramProspectingRun: {
+        findFirst: vi.fn(async ({ where }: any) => {
+          if (where?.status === "COMPLETED") return fake.lastOkRun;
+          if (where?.status === "FAILED") return fake.lastFailedRun;
+          return null;
+        }),
       },
     },
   };
@@ -108,5 +126,31 @@ describe("GET /api/system/health", () => {
     const res = await GET(r, params);
     const body = await res.json();
     expect(body.automation).toBe("PAUSED");
+  });
+
+  it("exposes last successful/failed run info without secrets (§19)", async () => {
+    const { req: r, params } = req();
+    const res = await GET(r, params);
+    const body = await res.json();
+    expect(body.lastSuccessfulRun).toMatchObject({ runDate: "2026-10-07", crmImported: 12 });
+    expect(body.lastImportCount).toBe(12);
+    expect(body.lastFailedRun).toMatchObject({
+      runDate: "2026-10-06",
+      failureReason: "NO_SOURCE_CONFIGURED",
+    });
+    // First line only — never stack traces.
+    expect(body.lastFailedRun.error).toBe("No discovery sources configured.");
+    expect(body.lastFailedRun.error).not.toContain("stack trace");
+  });
+
+  it("omits run fields gracefully when no runs exist", async () => {
+    (fake as any).lastOkRun = null;
+    (fake as any).lastFailedRun = null;
+    const { req: r, params } = req();
+    const res = await GET(r, params);
+    const body = await res.json();
+    expect(body.lastSuccessfulRun).toBeNull();
+    expect(body.lastFailedRun).toBeNull();
+    expect(body.lastImportCount).toBeNull();
   });
 });

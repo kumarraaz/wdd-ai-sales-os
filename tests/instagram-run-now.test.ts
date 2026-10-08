@@ -149,6 +149,7 @@ const fake = vi.hoisted(() => {
 
     lead: {
       findFirst: vi.fn(async () => null), // no duplicates in these tests
+      findUnique: vi.fn(async ({ where }: any) => fake.leads.find((l: any) => l.id === where.id) ?? null),
       create: vi.fn(async ({ data }: any) => {
         // Real Prisma resolves the nested organization/company connect into
         // the FK scalar; mirror that so tenant assertions are meaningful.
@@ -213,17 +214,30 @@ vi.mock("../lib/prospecting/instagram-discovery", async (importOriginal) => {
   const orig = await importOriginal<typeof import("../lib/prospecting/instagram-discovery")>();
   return { ...orig, discoverInstagramUsernames: vi.fn() };
 });
+vi.mock("../lib/research/search-provider", () => ({
+  getWebSearchProvider: vi.fn(() => ({
+    id: "tavily",
+    isConfigured: () => true,
+    statusDetail: () => "Configured (mocked)",
+    search: vi.fn(async () => []),
+  })),
+  TavilySearchProvider: vi.fn(),
+}));
 
-vi.mock("../lib/outreach/instagram-service", async (importOriginal) => {
-  const orig = await importOriginal<typeof import("../lib/outreach/instagram-service")>();
-  return { ...orig, researchAndDraft: vi.fn() };
+vi.mock("../lib/outreach/instagram-research", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("../lib/outreach/instagram-research")>();
+  return { ...orig, researchInstagramProfile: vi.fn() };
+});
+vi.mock("../lib/outreach/instagram-message", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("../lib/outreach/instagram-message")>();
+  return { ...orig, generateOutreachMessage: vi.fn() };
 });
 
 import { discoverInstagramUsernames } from "../lib/prospecting/instagram-discovery";
-import { researchAndDraft } from "../lib/outreach/instagram-service";
+import { researchInstagramProfile } from "../lib/outreach/instagram-research";
+import { generateOutreachMessage } from "../lib/outreach/instagram-message";
 import {
   startManualRunNow,
-  executeManualJobNow,
   ManualRunError,
 } from "../lib/prospecting/instagram-manual";
 import {
@@ -250,21 +264,20 @@ function mockDiscovery(usernames: string[]) {
 }
 
 function mockResearch() {
-  vi.mocked(researchAndDraft).mockImplementation(async (username: string) => ({
-    research: {
-      username,
-      profileUrl: `https://www.instagram.com/${username}/`,
-      businessName: `Biz ${username}`,
-      category: "jewellery",
-      location: "Mumbai",
-      website: null,
-      observations: "Handcrafted jewellery.",
-      confidence: "MEDIUM",
-      websiteAnalysis: null,
-    },
-    decision: { angle: "NEW_WEBSITE" },
-    websiteSummary: null,
-    generated: { text: VALID_DM, source: "ai" as const },
+  vi.mocked(researchInstagramProfile).mockImplementation(async (username: string) => ({
+    username,
+    profileUrl: `https://www.instagram.com/${username}/`,
+    businessName: `Biz ${username}`,
+    category: "jewellery",
+    location: "Mumbai",
+    website: null,
+    observations: "Handcrafted jewellery.",
+    confidence: "MEDIUM",
+    websiteAnalysis: null,
+  }) as any);
+  vi.mocked(generateOutreachMessage).mockImplementation(async () => ({
+    text: VALID_DM,
+    source: "ai" as const,
   }) as any);
 }
 
@@ -321,15 +334,16 @@ describe("manual Run Now", () => {
     );
   });
 
-  it("executes the queued job immediately via the existing runner (no tick)", async () => {
+  it("queued job is drained by the tick worker (sole execution mechanism)", async () => {
     const started = await startManualRunNow("org-1", "user-1", { now: MONDAY });
     if (started.status !== "started") throw new Error("unreachable");
 
-    // This is what the route does post-response via waitUntil — the same
-    // claim → execute path the tick worker uses. The tick is never called.
-    const exec = await executeManualJobNow("org-1", started.jobId);
-    expect(exec.claimed).toBe(true);
-    expect(exec.disposition).toBe("completed");
+    // The route returns immediately after enqueue; the tick worker drains
+    // the queue through the job engine (claim → execute). No waitUntil,
+    // no second execution path.
+    const batch = await runBatch({ limit: 1, organizationId: "org-1" });
+    expect(batch.claimed).toBe(1);
+    expect(batch.completed).toBe(1);
 
     const run = fake.runs[0];
     expect(run.status).toBe("COMPLETED");
@@ -428,8 +442,8 @@ describe("manual Run Now", () => {
     expect(fake.runs.length).toBe(1); // row reused, not duplicated
 
     if (started.status !== "started") throw new Error("unreachable");
-    const exec = await executeManualJobNow("org-1", started.jobId);
-    expect(exec.disposition).toBe("completed");
+    const batch = await runBatch({ limit: 1, organizationId: "org-1" });
+    expect(batch.completed).toBe(1);
     expect(fake.runs[0].status).toBe("COMPLETED");
     expect(
       fake.auditCalls.map((a: any) => a.action).includes("prospecting.instagram.run_takeover"),
@@ -469,13 +483,14 @@ describe("manual Run Now", () => {
     expect(fake.jobs.length).toBe(0);
   });
 
-  it("executeManualJobNow is a no-op when the job was already claimed elsewhere", async () => {
+  it("tick worker does not double-execute an already-claimed job", async () => {
     const started = await startManualRunNow("org-1", "user-1", { now: MONDAY });
     if (started.status !== "started") throw new Error("unreachable");
-    fake.jobs[0].status = "RUNNING"; // claimed by the tick worker in a race
+    fake.jobs[0].status = "RUNNING"; // claimed by another worker in a race
 
-    const exec = await executeManualJobNow("org-1", started.jobId);
-    expect(exec.claimed).toBe(false);
+    const batch = await runBatch({ limit: 1, organizationId: "org-1" });
+    expect(batch.claimed).toBe(0);
+    expect(batch.completed).toBe(0);
   });
 });
 

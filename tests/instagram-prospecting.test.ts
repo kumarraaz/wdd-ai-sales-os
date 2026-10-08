@@ -55,6 +55,7 @@ const fake = vi.hoisted(() => {
         }),
       },
       lead: {
+        findUnique: vi.fn(async ({ where }: any) => fake.leads.find((l: any) => l.id === where.id) ?? null),
         findFirst: vi.fn(async ({ where }: any) => {
           const org = where?.organizationId;
           const ors: any[] = where?.OR ?? [];
@@ -124,6 +125,21 @@ const fake = vi.hoisted(() => {
 });
 
 vi.mock("../lib/db", () => ({ db: fake.db }));
+
+// Providers are "configured" in these tests; the webSearch mock below feeds
+// discovery results through the real acquireCandidates budgeting.
+vi.mock("../lib/discovery/registry", () => ({
+  getDiscoveryProvider: () => ({ isConfigured: () => false }),
+}));
+vi.mock("../lib/research/search-provider", () => ({
+  getWebSearchProvider: () => ({
+    id: "tavily",
+    isConfigured: () => true,
+    statusDetail: () => "Configured (test)",
+    search: (...args: any[]) => (globalThis as any).__testWebSearch(...args),
+  }),
+  TavilySearchProvider: vi.fn(),
+}));
 
 import {
   usernameFromInstagramUrl,
@@ -452,13 +468,15 @@ describe("runDailyProspecting", () => {
       instagramUrl: null,
     });
 
+    const webSearchResults = [
+      { title: "Jaipur Jewels jewellery Mumbai", url: "https://www.instagram.com/jaipur_jewels/", snippet: "jewellery Mumbai" },
+      { title: "Old Handle jewellery Mumbai", url: "https://www.instagram.com/old_handle/", snippet: "jewellery Mumbai" },
+      { title: "Broken jewellery Mumbai", url: "https://www.instagram.com/broken_handle/", snippet: "jewellery Mumbai" },
+      { title: "Silver House jewellery Mumbai", url: "https://www.instagram.com/silver_house/", snippet: "jewellery Mumbai" },
+    ];
+    (globalThis as any).__testWebSearch = vi.fn(async () => webSearchResults);
     const discoveryDeps = {
-      webSearch: vi.fn(async () => [
-        { title: "Jaipur Jewels jewellery Mumbai", url: "https://www.instagram.com/jaipur_jewels/", snippet: "jewellery Mumbai" },
-        { title: "Old Handle jewellery Mumbai", url: "https://www.instagram.com/old_handle/", snippet: "jewellery Mumbai" },
-        { title: "Broken jewellery Mumbai", url: "https://www.instagram.com/broken_handle/", snippet: "jewellery Mumbai" },
-        { title: "Silver House jewellery Mumbai", url: "https://www.instagram.com/silver_house/", snippet: "jewellery Mumbai" },
-      ]),
+      webSearch: (globalThis as any).__testWebSearch,
       maxQueries: 2,
     };
     const researchDeps = {
@@ -481,7 +499,10 @@ describe("runDailyProspecting", () => {
       deps: { discoveryDeps, researchDeps },
     });
 
-    expect(stats.status).toBe("COMPLETED");
+    // One import intentionally fails ("db boom") while others succeed → PARTIAL
+    // with CRM_IMPORT_FAILURE (§9 case D). The failure is isolated and recorded.
+    expect(stats.status).toBe("PARTIAL");
+    expect((stats as any).failureReason).toBe("CRM_IMPORT_FAILURE");
     expect(stats.found).toBe(4);
     expect(stats.duplicatesSkipped).toBe(1); // old_handle
     expect(stats.failed).toBe(1); // broken_handle — run continued
@@ -504,7 +525,8 @@ describe("runDailyProspecting", () => {
 
     // Run history persisted with honest stats.
     expect(fake.runs.length).toBe(1);
-    expect(fake.runs[0].status).toBe("COMPLETED");
+    expect(fake.runs[0].status).toBe("PARTIAL");
+    expect(fake.runs[0].failureReason).toBe("CRM_IMPORT_FAILURE");
     expect(fake.runs[0].crmImported).toBe(2);
     expect(fake.runs[0].runDate).toBe("2026-10-05");
 

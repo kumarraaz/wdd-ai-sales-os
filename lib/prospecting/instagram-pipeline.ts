@@ -39,16 +39,16 @@ import { createLead, findDuplicate } from "../leads";
 import { isKillSwitchOn } from "../automation/types";
 import { checkDiscoveryQuota, recordDiscoveryUsage } from "../quotas";
 import { instagramProfileUrl } from "../outreach/instagram";
-import { researchAndDraft } from "../outreach/instagram-service";
+import { researchInstagramProfile } from "../outreach/instagram-research";
 import { scoreDiscoveredCompany } from "../discovery/candidates";
-import type { PitchAngle } from "../outreach/instagram-pitch";
+import type { PitchAngle, PitchDecision } from "../outreach/instagram-pitch";
 import { decidePitchAngle } from "../outreach/instagram-pitch";
 import {
   analyzeWebsite,
   summarizeWebsiteAnalysis,
   type WebsiteAnalysis,
 } from "../outreach/instagram-website";
-import { generateBusinessMessage } from "../outreach/instagram-message";
+import { generateBusinessMessage, generateOutreachMessage } from "../outreach/instagram-message";
 import { getTodayDay } from "./instagram-plan";
 import {
   type DiscoveryDeps,
@@ -62,7 +62,7 @@ import {
   type VerificationConfidence,
   type SourceRef,
 } from "./verification";
-import { classifyIndustry, type IndustryClassification } from "./industry-classify";
+import { classifyIndustry, deterministicRelevance, type IndustryClassification } from "./industry-classify";
 import {
   matchEntities,
   normalizeBusinessName,
@@ -96,6 +96,70 @@ export interface DailyRunStats {
   durationMs: number | null;
   status: "COMPLETED" | "PARTIAL" | "FAILED";
   triggeredBy: string;
+  /**
+   * Machine-readable failure reason (§8/§9). Null on success.
+   * NO_SOURCE_CONFIGURED | NO_CANDIDATES | ALL_CANDIDATES_REJECTED |
+   * CRM_IMPORT_FAILURE | PROVIDER_ERROR | QUOTA_EXCEEDED | JOB_TIMEOUT |
+   * DATABASE_ERROR
+   */
+  failureReason: ProspectingFailureReason | null;
+}
+
+/** Machine-readable run failure reasons — never a generic "Run failed". */
+export type ProspectingFailureReason =
+  | "NO_SOURCE_CONFIGURED"
+  | "NO_CANDIDATES"
+  | "ALL_CANDIDATES_REJECTED"
+  | "CRM_IMPORT_FAILURE"
+  | "PROVIDER_ERROR"
+  | "QUOTA_EXCEEDED"
+  | "JOB_TIMEOUT"
+  | "DATABASE_ERROR";
+
+/** One recorded candidate-level failure (§7) — no stack traces, no secrets. */
+export interface CandidateProcessingError {
+  stage: string;
+  candidateLabel: string;
+  source: string;
+  code: string;
+  message: string;
+  at: string;
+}
+
+/** Bounded per-candidate failure recorder: isolation without silence. */
+function createFailureRecorder() {
+  const errors: CandidateProcessingError[] = [];
+  const MAX_ERRORS = 50;
+  return {
+    record(
+      stage: string,
+      candidate: { businessName?: string | null; instagramUsername?: string | null; website?: string | null },
+      source: string,
+      err: unknown,
+    ) {
+      if (errors.length >= MAX_ERRORS) return;
+      const raw = err instanceof Error ? err.message : "Candidate processing failed.";
+      // First line only, truncated — stack traces and secrets never persist.
+      const message = raw.split("\n")[0].slice(0, 300);
+      const code =
+        err instanceof Error && /^[A-Z_]{3,40}$/.test(err.name)
+          ? err.name
+          : "CANDIDATE_PROCESSING_ERROR";
+      errors.push({
+        stage,
+        candidateLabel:
+          candidate.businessName?.trim() ||
+          (candidate.instagramUsername ? `@${candidate.instagramUsername}` : null) ||
+          candidate.website ||
+          "unknown candidate",
+        source,
+        code,
+        message,
+        at: new Date().toISOString(),
+      });
+    },
+    list: () => errors,
+  };
 }
 
 export interface DailyRunDeps {
@@ -168,12 +232,29 @@ export async function findExistingInstagramProspect(
   return null;
 }
 
+/** Strip diagnostic-only keys from a partial stats object (they're persisted explicitly). */
+function statsOnly(
+  partial: Partial<DailyRunStats> & {
+    acquisitionNotes?: unknown;
+    processingErrors?: CandidateProcessingError[];
+    rejectionReasons?: Record<string, number>;
+  },
+): Partial<DailyRunStats> {
+  const { acquisitionNotes, processingErrors, rejectionReasons, ...rest } = partial;
+  return rest;
+}
+
 async function failRun(
   organizationId: string,
   actorId: string,
   runId: string,
   error: string,
-  partial: Partial<DailyRunStats>,
+  failureReason: ProspectingFailureReason,
+  partial: Partial<DailyRunStats> & {
+    acquisitionNotes?: unknown;
+    processingErrors?: CandidateProcessingError[];
+    rejectionReasons?: Record<string, number>;
+  },
 ): Promise<DailyRunStats> {
   const finishedAt = new Date();
   await db.instagramProspectingRun.update({
@@ -181,12 +262,16 @@ async function failRun(
     data: {
       status: "FAILED",
       error,
+      failureReason,
       finishedAt,
       verified: partial.verified ?? 0,
       rejected: partial.rejected ?? 0,
       sourceBreakdown: partial.sourceBreakdown ?? {},
       durationMs: partial.durationMs ?? null,
-      ...partial,
+      acquisitionNotes: (partial.acquisitionNotes as object | undefined) ?? undefined,
+      processingErrors: (partial.processingErrors ?? []) as object[],
+      rejectionReasons: (partial.rejectionReasons ?? {}) as object,
+      ...statsOnly(partial),
     },
   });
   await audit({
@@ -196,7 +281,7 @@ async function failRun(
     resource: "instagram_prospecting_run",
     resourceId: runId,
     result: "FAILED",
-    metadata: { error },
+    metadata: { error, failureReason },
   });
   // Best-effort: a notification failure must never fail the run itself.
   try {
@@ -237,7 +322,8 @@ async function failRun(
     durationMs: null,
     status: "FAILED",
     triggeredBy: "SCHEDULED",
-    ...partial,
+    failureReason,
+    ...statsOnly(partial),
   } as DailyRunStats;
 }
 
@@ -325,6 +411,7 @@ export async function runDailyProspecting(
       durationMs: s.durationMs,
       status: "COMPLETED",
       triggeredBy: s.triggeredBy,
+      failureReason: (s.failureReason as ProspectingFailureReason | null) ?? null,
     };
   }
   const isStale = (startedAt: Date) => now.getTime() - startedAt.getTime() > STALE_RUN_TAKEOVER_MS;
@@ -384,6 +471,10 @@ export async function runDailyProspecting(
           rejected: 0,
           sourceBreakdown: {},
           durationMs: null,
+          failureReason: null,
+          acquisitionNotes: {},
+          processingErrors: [],
+          rejectionReasons: {},
           triggeredBy,
           targetCount: day.targetCount,
           dayOfWeek,
@@ -424,6 +515,21 @@ export async function runDailyProspecting(
     rejected: 0,
   };
   const sourceBreakdown: Record<string, number> = {};
+  /** Per-source candidate yields (Google Places / Web / Instagram). */
+  const sourceCandidateCounts: Record<string, number> = {};
+  /** Aggregated verification rejection reasons (§8). */
+  const rejectionReasons: Record<string, number> = {};
+  const failures = createFailureRecorder();
+  /** Per-source acquisition observability (§6) — set after acquisition. */
+  let acquisitionNotes: {
+    provider: string;
+    status: string;
+    queriesAttempted: number;
+    resultsReturned: number;
+    usableCandidates: number;
+    note: string;
+    error?: string;
+  }[] = [];
 
   interface VerifiedItem {
     candidate: AgentCandidate;
@@ -452,7 +558,7 @@ export async function runDailyProspecting(
       websitePreference: day.websitePreference,
       targetCount: day.targetCount,
     };
-    const poolSize = Math.min(Math.max(day.targetCount * 3, 1), 200);
+    const poolSize = Math.min(Math.max(day.targetCount * 3, 1), 150);
     const acquired = await acquireCandidates(target, {
       discoveryDeps: deps.discoveryDeps,
       poolSize,
@@ -462,29 +568,129 @@ export async function runDailyProspecting(
     const merged = mergeCandidates(acquired.candidates);
     stats.found = merged.length;
 
+    // Per-source acquisition observability (§6) — persisted to the run.
+    acquisitionNotes = acquired.sourceNotes.map((n) => ({
+      provider: n.provider,
+      status: n.status,
+      queriesAttempted: n.queriesAttempted ?? 0,
+      resultsReturned: n.resultsReturned ?? 0,
+      usableCandidates: n.usableCandidates ?? n.count,
+      note: n.note,
+      ...(n.error ? { error: n.error } : {}),
+    }));
+    // Candidate yields per source family for the run health view.
+    for (const c of merged) {
+      const family = c.sources[0]?.provider === "google-places"
+        ? "google-places"
+        : c.sources[0]?.sourceType === "INSTAGRAM"
+          ? "instagram"
+          : "web-search";
+      sourceCandidateCounts[family] = (sourceCandidateCounts[family] ?? 0) + 1;
+    }
+
     const anySourceError = acquired.sourceNotes.some((n) => n.status === "error");
     const allSkipped = acquired.sourceNotes.every((n) => n.status === "skipped");
 
-    // ── 2b. Empty pool: honest FAILED — never fake data ────────────
+    // ── 2b. Empty pool ──────────────────────────────────────────────
+    // CASE A (config problem): no providers configured → FAILED with
+    //   NO_SOURCE_CONFIGURED. Needs operator action; never retried (§9).
+    // CASE B (data outcome): providers ran OK, 0 candidates → COMPLETED
+    //   with NO_CANDIDATES. The run did its job; nothing to import (§9).
+    // CASE E-empty: a source ERRORED and the pool is empty → FAILED with
+    //   PROVIDER_ERROR. We don't know what was missed; not a clean run.
     if (merged.length === 0) {
-      const reason = allSkipped
-        ? "No discovery sources configured — set TAVILY_API_KEY and/or GOOGLE_PLACES_API_KEY to enable the AI sales agent."
-        : `Discovery returned no candidates. ${acquired.sourceNotes
-            .map((n) => `${n.provider}: ${n.note}`)
-            .join(" ")}`;
-      return failRun(organizationId, actorId, run.id, reason, {
+      if (allSkipped) {
+        return failRun(
+          organizationId,
+          actorId,
+          run.id,
+          "No discovery sources configured — set TAVILY_API_KEY and/or GOOGLE_PLACES_API_KEY to enable the AI sales agent.",
+          "NO_SOURCE_CONFIGURED",
+          {
+            runDate,
+            dayOfWeek,
+            industry: day.industry,
+            targetCount: day.targetCount,
+            triggeredBy,
+            ...stats,
+            sourceBreakdown,
+            durationMs: elapsedMs(),
+            acquisitionNotes,
+            processingErrors: failures.list(),
+            rejectionReasons,
+          },
+        );
+      }
+      if (anySourceError) {
+        const errorNotes = acquired.sourceNotes
+          .filter((n) => n.status === "error")
+          .map((n) => `${n.provider}: ${n.error ?? n.note}`)
+          .join(" ");
+        return failRun(
+          organizationId,
+          actorId,
+          run.id,
+          `Discovery providers failed and no candidates were acquired. ${errorNotes}`,
+          "PROVIDER_ERROR",
+          {
+            runDate,
+            dayOfWeek,
+            industry: day.industry,
+            targetCount: day.targetCount,
+            triggeredBy,
+            ...stats,
+            sourceBreakdown,
+            durationMs: elapsedMs(),
+            acquisitionNotes,
+            processingErrors: failures.list(),
+            rejectionReasons,
+          },
+        );
+      }
+      const finalDurationMs = elapsedMs();
+      await db.instagramProspectingRun.update({
+        where: { id: run.id },
+        data: {
+          status: "COMPLETED",
+          failureReason: "NO_CANDIDATES",
+          finishedAt: new Date(),
+          durationMs: finalDurationMs,
+          sourceBreakdown,
+          acquisitionNotes: acquisitionNotes as object[],
+          processingErrors: failures.list() as object[],
+          rejectionReasons: rejectionReasons as object,
+          ...stats,
+        },
+      });
+      await audit({
+        organizationId,
+        actorId,
+        action: "prospecting.instagram.run_completed",
+        resource: "instagram_prospecting_run",
+        resourceId: run.id,
+        metadata: { runDate, triggeredBy, failureReason: "NO_CANDIDATES", ...stats, sourceBreakdown },
+      });
+      return {
+        runId: run.id,
         runDate,
         dayOfWeek,
         industry: day.industry,
         targetCount: day.targetCount,
+        status: "COMPLETED" as const,
         triggeredBy,
+        failureReason: "NO_CANDIDATES" as ProspectingFailureReason,
         ...stats,
         sourceBreakdown,
-        durationMs: elapsedMs(),
-      });
+        durationMs: finalDurationMs,
+      };
     }
 
     // ── 3. Verify → research → score (per-item failure isolation) ───
+    // Every per-candidate failure is recorded with stage/source/code —
+    // isolation without silence (§7).
+    const recordRejection = (key: string) => {
+      rejectionReasons[key] = (rejectionReasons[key] ?? 0) + 1;
+    };
     const verifiedItems: VerifiedItem[] = [];
     const seenInRun = new Set<string>();
     let aiClassifications = 0;
@@ -493,6 +699,7 @@ export async function runDailyProspecting(
 
     for (const candidate of merged) {
       index++;
+      const candidateSource = candidate.sources[0]?.provider ?? "unknown";
       try {
         // In-run dedup across sources (identity key).
         const runKey =
@@ -515,44 +722,42 @@ export async function runDailyProspecting(
           continue;
         }
 
-        const skipAi = aiClassifications >= AI_CLASSIFY_BUDGET;
+        const aiBudgetLeft = aiClassifications < AI_CLASSIFY_BUDGET;
 
         if (candidate.instagramUsername) {
-          // ── Instagram path: research first (business facts are only
-          // known after research), then classify + verify.
+          // ── Instagram path: light research first (public web search +
+          // website analysis). The AI draft is generated ONLY for
+          // candidates that survive verification (§10).
           const username = candidate.instagramUsername;
-          const { research, decision, generated } = await researchAndDraft(
-            username,
-            deps.researchDeps,
-            index % 5,
-          );
+          const research = await researchInstagramProfile(username, deps.researchDeps);
           stats.researched++;
 
           const hasWebsite = !!research.website;
           if (day.websitePreference === "NO_WEBSITE" && hasWebsite) {
+            recordRejection("website_preference");
             stats.rejected++;
             continue;
           }
           if (day.websitePreference === "HAS_WEBSITE" && !hasWebsite) {
+            recordRejection("website_preference");
             stats.rejected++;
             continue;
           }
 
-          const classification = await classifyIndustry(
-            {
-              businessName: research.businessName,
-              category: research.category,
-              location: research.location,
-              website: research.website,
-              observations: research.observations,
-              sourceLabels: [
-                "Tavily public web search",
-                ...(research.website ? ["business website"] : []),
-              ],
-            },
-            day.industry,
-            { skipAi },
-          );
+          const evidence = {
+            businessName: research.businessName,
+            category: research.category,
+            location: research.location,
+            website: research.website,
+            observations: research.observations,
+            sourceLabels: [
+              "Tavily public web search",
+              ...(research.website ? ["business website"] : []),
+            ],
+          };
+          // §11: deterministic screen before spending an AI call.
+          const skipAi = !aiBudgetLeft || deterministicRelevance(evidence, day.industry) < 40;
+          const classification = await classifyIndustry(evidence, day.industry, { skipAi });
           if (classification.classifiedBy === "ai") aiClassifications++;
 
           const sources: SourceRef[] = [...candidate.sources];
@@ -580,9 +785,28 @@ export async function runDailyProspecting(
             industryRelevance: classification.relevanceScore,
           });
           if (!isImportable(verification, classification.relevanceScore)) {
+            recordRejection(
+              verification.confidence === "REJECTED" ? "verification_rejected" : "low_confidence",
+            );
             stats.rejected++;
             continue;
           }
+
+          // Verified → pitch decision + AI draft (message only for verified).
+          const decision: PitchDecision = decidePitchAngle({
+            website: research.website,
+            websiteAnalysis: research.websiteAnalysis,
+            location: research.location,
+            confidence: verification.confidence,
+          });
+          const websiteSummary = summarizeWebsiteAnalysis(research.websiteAnalysis);
+          const generated = await generateOutreachMessage(
+            research,
+            decision,
+            websiteSummary,
+            deps.researchDeps?.ai,
+            { variationSeed: index % 5 },
+          );
           stats.verified++;
 
           const scored = scoreDiscoveredCompany(
@@ -638,19 +862,18 @@ export async function runDailyProspecting(
           // ── Business path (Google Places / web): classify + verify
           // BEFORE expensive research — only verified candidates get a
           // website analysis and a generated message.
-          const classification = await classifyIndustry(
-            {
-              businessName: candidate.businessName,
-              category: candidate.category,
-              location:
-                [candidate.city, candidate.country].filter(Boolean).join(", ") || null,
-              website: candidate.website,
-              observations: candidate.address,
-              sourceLabels: candidate.sources.map((s) => s.label),
-            },
-            day.industry,
-            { skipAi },
-          );
+          const evidence = {
+            businessName: candidate.businessName,
+            category: candidate.category,
+            location:
+              [candidate.city, candidate.country].filter(Boolean).join(", ") || null,
+            website: candidate.website,
+            observations: candidate.address,
+            sourceLabels: candidate.sources.map((s) => s.label),
+          };
+          // §11: deterministic screen before spending an AI call.
+          const skipAi = !aiBudgetLeft || deterministicRelevance(evidence, day.industry) < 40;
+          const classification = await classifyIndustry(evidence, day.industry, { skipAi });
           if (classification.classifiedBy === "ai") aiClassifications++;
 
           const verification = verifyCandidate({
@@ -669,6 +892,9 @@ export async function runDailyProspecting(
             industryRelevance: classification.relevanceScore,
           });
           if (!isImportable(verification, classification.relevanceScore)) {
+            recordRejection(
+              verification.confidence === "REJECTED" ? "verification_rejected" : "low_confidence",
+            );
             stats.rejected++;
             continue;
           }
@@ -686,10 +912,12 @@ export async function runDailyProspecting(
 
           const hasWebsite = !!candidate.website;
           if (day.websitePreference === "NO_WEBSITE" && hasWebsite) {
+            recordRejection("website_preference");
             stats.rejected++;
             continue;
           }
           if (day.websitePreference === "HAS_WEBSITE" && !hasWebsite) {
+            recordRejection("website_preference");
             stats.rejected++;
             continue;
           }
@@ -751,8 +979,9 @@ export async function runDailyProspecting(
             activityType: "prospected",
           });
         }
-      } catch {
+      } catch (err) {
         stats.failed++;
+        failures.record("candidate_processing", candidate, candidateSource, err);
       }
     }
 
@@ -852,6 +1081,23 @@ export async function runDailyProspecting(
           stats.crmImported++;
           sourceBreakdown[item.primarySourceType] =
             (sourceBreakdown[item.primarySourceType] ?? 0) + 1;
+          // §12: verify the lead actually exists in this organization.
+          const persisted = await db.lead.findUnique({
+            where: { id: lead.id },
+            select: { id: true, organizationId: true },
+          });
+          if (!persisted || persisted.organizationId !== organizationId) {
+            stats.crmImported--;
+            sourceBreakdown[item.primarySourceType]--;
+            stats.failed++;
+            failures.record(
+              "crm_import_verify",
+              item.candidate,
+              item.candidate.sources[0]?.provider ?? "unknown",
+              new Error("CRM_IMPORT_VERIFY_FAILED: lead not found after createLead"),
+            );
+            continue;
+          }
         }
 
         await db.leadActivity.create({
@@ -866,21 +1112,52 @@ export async function runDailyProspecting(
         });
 
         stats.messagesGenerated++;
-      } catch {
+      } catch (err) {
         stats.failed++;
+        failures.record("crm_import", item.candidate, item.candidate.sources[0]?.provider ?? "unknown", err);
       }
     }
 
-    // ── 6. Finish: PARTIAL when a source errored, else COMPLETED ────
-    const finalStatus = anySourceError ? "PARTIAL" : "COMPLETED";
+    // ── 6. Finish: §9 outcome mapping ─────────────────────────────
+    // CASE C: candidates found but verification rejected all → COMPLETED
+    //   (or PARTIAL when a source errored) with ALL_CANDIDATES_REJECTED.
+    // CASE D: verified candidates exist but CRM inserts failed → FAILED
+    //   (0 imported) or PARTIAL (some imported) with CRM_IMPORT_FAILURE.
+    // CASE E: some sources errored, others produced → PARTIAL.
+    let finalStatus: "COMPLETED" | "PARTIAL" | "FAILED" = anySourceError
+      ? "PARTIAL"
+      : "COMPLETED";
+    let failureReason: ProspectingFailureReason | null = null;
+
+    if (stats.verified === 0 && stats.crmImported === 0 && stats.found > 0) {
+      failureReason = "ALL_CANDIDATES_REJECTED";
+      // Status stays COMPLETED/PARTIAL per source health — the run did its
+      // job; verification filtered everything. The reason explains why.
+    }
+    const crmImportFailures = failures
+      .list()
+      .filter((e) => e.stage === "crm_import" || e.stage === "crm_import_verify").length;
+    if (stats.verified > 0 && stats.crmImported === 0) {
+      // CASE D: verified candidates existed but nothing reached the CRM.
+      failureReason = "CRM_IMPORT_FAILURE";
+      finalStatus = "FAILED";
+    } else if (crmImportFailures > 0 && stats.crmImported > 0) {
+      failureReason = "CRM_IMPORT_FAILURE";
+      finalStatus = "PARTIAL";
+    }
+
     const finalDurationMs = elapsedMs();
     await db.instagramProspectingRun.update({
       where: { id: run.id },
       data: {
         status: finalStatus,
+        failureReason,
         finishedAt: new Date(),
         durationMs: finalDurationMs,
         sourceBreakdown,
+        acquisitionNotes: acquisitionNotes as object[],
+        processingErrors: failures.list() as object[],
+        rejectionReasons: rejectionReasons as object,
         ...stats,
       },
     });
@@ -926,13 +1203,23 @@ export async function runDailyProspecting(
       targetCount: day.targetCount,
       status: finalStatus,
       triggeredBy,
+      failureReason,
       ...stats,
       sourceBreakdown,
       durationMs: finalDurationMs,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Run failed.";
-    return failRun(organizationId, actorId, run.id, message, {
+    // Classify the terminal error for honest reporting (§8).
+    const failureReason: ProspectingFailureReason =
+      /QUOTA_EXCEEDED/.test(message)
+        ? "QUOTA_EXCEEDED"
+        : /KILL_SWITCH_ACTIVE/.test(message)
+          ? "PROVIDER_ERROR" // kill switch is operator action, surfaced via audit
+          : /timeout|timed out|TIMEOUT/.test(message)
+            ? "JOB_TIMEOUT"
+            : "DATABASE_ERROR";
+    return failRun(organizationId, actorId, run.id, message, failureReason, {
       runDate,
       dayOfWeek,
       industry: day.industry,
@@ -941,6 +1228,9 @@ export async function runDailyProspecting(
       ...stats,
       sourceBreakdown,
       durationMs: elapsedMs(),
+      acquisitionNotes,
+      processingErrors: failures.list(),
+      rejectionReasons,
     });
   }
 }

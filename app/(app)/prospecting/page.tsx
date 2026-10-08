@@ -30,10 +30,12 @@ export default async function ProspectingPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold">Instagram Prospecting</h1>
+        <h1 className="text-2xl font-bold">AI Prospecting</h1>
         <p className="text-sm text-white/50">
-          7-day weekly plan, daily automated discovery at 9:00 AM, and CRM import —
-          drafts only, nothing is ever sent automatically.
+          Find real prospects from connected data sources, verify them, research
+          them, and import qualified leads into CRM. 7-day weekly plan, daily
+          automated discovery at 9:00 AM — drafts only, nothing is sent
+          automatically.
         </p>
       </div>
       <ProspectingDashboard

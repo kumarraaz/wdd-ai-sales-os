@@ -63,6 +63,21 @@ function deterministicClassify(
   };
 }
 
+/**
+ * Cheap deterministic relevance screen (§11). The pipeline runs this BEFORE
+ * spending an AI call: candidates scoring below the bar are classified
+ * deterministically (and labeled as such) because the AI sees the same
+ * evidence and cannot honestly rescue them — verification would reject
+ * them anyway (industry relevance < 30 → REJECTED).
+ */
+export function deterministicRelevance(
+  evidence: IndustryEvidence,
+  targetIndustry: string,
+): number {
+  const haystack = `${evidence.category ?? ""} ${evidence.businessName ?? ""} ${evidence.observations ?? ""}`;
+  return industryMatchesTarget(haystack, "", targetIndustry) ? 85 : 20;
+}
+
 export async function classifyIndustry(
   evidence: IndustryEvidence,
   targetIndustry: string,

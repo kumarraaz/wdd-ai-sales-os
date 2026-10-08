@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * Instagram Prospecting dashboard — 7-day weekly plan editor, manual
- * "Run Now", and daily run history. All writes go through tenant-isolated,
+ * AI Prospecting dashboard — 7-day weekly plan editor, manual "Run Now",
+ * and daily run history across Google Places, public web search, and
+ * Instagram public search. All writes go through tenant-isolated,
  * RBAC-checked API routes; the 9:00 AM run itself is driven by the existing
  * automation scheduler (no new scheduler).
  */
@@ -55,6 +56,22 @@ interface Run {
   triggeredBy: string;
   startedAt: string;
   finishedAt: string | null;
+  failureReason: string | null;
+  acquisitionNotes:
+    | {
+        provider: string;
+        status: string;
+        queriesAttempted: number;
+        resultsReturned: number;
+        usableCandidates: number;
+        note: string;
+        error?: string;
+      }[]
+    | null;
+  processingErrors:
+    | { stage: string; candidateLabel: string; source: string; code: string; message: string; at: string }[]
+    | null;
+  rejectionReasons: Record<string, number> | null;
 }
 
 interface Health {
@@ -64,6 +81,9 @@ interface Health {
   aiProvider: string;
   database: string;
   automation: string;
+  lastSuccessfulRun: { runDate: string; crmImported: number; finishedAt: string | null } | null;
+  lastFailedRun: { runDate: string; failureReason: string | null; error: string | null; finishedAt: string | null } | null;
+  lastImportCount: number | null;
 }
 
 function emptyDay(dow: number): PlanDay {
@@ -102,7 +122,7 @@ export function ProspectingDashboard({
   const [health, setHealth] = useState<Health | null>(null);
   // Local editable copy of the 7 days.
   const [days, setDays] = useState<PlanDay[]>(DISPLAY_ORDER.map(emptyDay));
-  const [name, setName] = useState("Weekly Instagram Prospecting");
+  const [name, setName] = useState("Weekly AI Prospecting");
   const [isActive, setIsActive] = useState(true);
   const [runAtTime, setRunAtTime] = useState("09:00");
   const [timezone, setTimezone] = useState("Asia/Kolkata");
@@ -230,9 +250,16 @@ export function ProspectingDashboard({
       if (!res.ok) throw new Error(data.message ?? data.error ?? "Run failed to start.");
       if (data.alreadyRan) {
         setNotice("Today's run already completed — see history below.");
-      } else {
-        setNotice("Run started — watch the run history below for live progress.");
+      } else if (data.queued) {
+        setNotice(
+          "Run queued — the worker picks it up now (or at the next scheduled tick). Watch the run history below for live progress.",
+        );
         // Show the run immediately; the 10s poller keeps it fresh.
+        if (data.run) {
+          setRuns((prev) => [data.run, ...prev.filter((r) => r.id !== data.run.id)]);
+        }
+      } else {
+        setNotice("Run request accepted — watch the run history below for live progress.");
         if (data.run) {
           setRuns((prev) => [data.run, ...prev.filter((r) => r.id !== data.run.id)]);
         }
@@ -391,6 +418,35 @@ export function ProspectingDashboard({
             )}
             <span className="ml-auto">next run tomorrow {runAtTime} ({timezone})</span>
           </div>
+          {latestRun.failureReason && failureReasonLabel(latestRun.failureReason) && (
+            <p className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+              {failureReasonLabel(latestRun.failureReason)}
+            </p>
+          )}
+          {latestRun.acquisitionNotes && latestRun.acquisitionNotes.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {latestRun.acquisitionNotes.map((n) => (
+                <span
+                  key={n.provider}
+                  title={`${n.queriesAttempted} queries · ${n.resultsReturned} results · ${n.usableCandidates} usable${n.error ? ` · ${n.error}` : ""}`}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                    n.status === "ok"
+                      ? "bg-emerald-400/10 text-emerald-300"
+                      : n.status === "error"
+                        ? "bg-red-400/10 text-red-300"
+                        : "bg-white/10 text-white/50"
+                  }`}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      n.status === "ok" ? "bg-emerald-400" : n.status === "error" ? "bg-red-400" : "bg-white/30"
+                    }`}
+                  />
+                  {sourceLabel(n.provider)}: {n.status === "skipped" ? "skipped" : `${n.usableCandidates} candidates`}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -622,6 +678,11 @@ export function ProspectingDashboard({
                       >
                         {runStatusLabel(r.status)}
                       </span>
+                      {r.failureReason && failureReasonLabel(r.failureReason) && (
+                        <p className="mt-1 max-w-[220px] text-[11px] leading-snug text-red-300/80">
+                          {failureReasonLabel(r.failureReason)}
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-xs text-white/40">{r.triggeredBy}</td>
                   </tr>
@@ -641,6 +702,38 @@ function runStatusLabel(status: string): string {
   if (status === "RUNNING") return "Running";
   if (status === "PARTIAL") return "Partial";
   return status;
+}
+
+/** Machine failure reason → human explanation (§8). */
+function failureReasonLabel(reason: string | null | undefined): string | null {
+  switch (reason) {
+    case "NO_SOURCE_CONFIGURED":
+      return "No discovery sources configured — set TAVILY_API_KEY and/or GOOGLE_PLACES_API_KEY.";
+    case "NO_CANDIDATES":
+      return "Providers ran but returned no candidates for this industry/location.";
+    case "ALL_CANDIDATES_REJECTED":
+      return "Candidates were found but verification rejected all of them.";
+    case "CRM_IMPORT_FAILURE":
+      return "Verified candidates could not be saved to the CRM.";
+    case "PROVIDER_ERROR":
+      return "A discovery provider failed.";
+    case "QUOTA_EXCEEDED":
+      return "Daily discovery quota reached.";
+    case "JOB_TIMEOUT":
+      return "The run exceeded its execution time budget.";
+    case "DATABASE_ERROR":
+      return "A database error interrupted the run.";
+    default:
+      return null;
+  }
+}
+
+/** Source provider id → human label (§3). */
+function sourceLabel(provider: string): string {
+  if (provider === "google-places") return "Google Places";
+  if (provider === "tavily-web") return "Public Web Search";
+  if (provider === "tavily") return "Instagram Public Search";
+  return provider;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

@@ -948,6 +948,10 @@ model InstagramProspectingRun {
   rejected         Int                  @default(0) // LOW/REJECTED or failed verification
   sourceBreakdown  Json? // imported counts per primary source type, e.g. {"GOOGLE_BUSINESS":30,"INSTAGRAM":12}
   durationMs       Int? // wall-clock run duration
+  failureReason    String? // NO_SOURCE_CONFIGURED | NO_CANDIDATES | ALL_CANDIDATES_REJECTED | CRM_IMPORT_FAILURE | PROVIDER_ERROR | QUOTA_EXCEEDED | JOB_TIMEOUT | DATABASE_ERROR
+  acquisitionNotes Json? // per-source acquisition observability: provider, status, queriesAttempted, resultsReturned, usableCandidates, errors
+  processingErrors Json? // bounded list of candidate-level failures: stage, candidateLabel, source, code, message, at
+  rejectionReasons Json? // aggregated verification rejection counts by reason
   status           ProspectingRunStatus @default(RUNNING)
   triggeredBy      String               @default("SCHEDULED") // SCHEDULED | MANUAL
   error            String?
