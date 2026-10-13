@@ -122,8 +122,11 @@ def analyse(rows, formulas):
         else:
             r["hook_score"], r["hook_verdict"] = None, None
     ranked = sorted(rows, key=lambda r: -(r["outlier"] or 0))
-    third = max(1, len(ranked) // 3)
-    top, bottom = ranked[:third], ranked[-third:]
+    # Rows with no baseline have no multiple: keep them in the report, but
+    # never let them stand in for the bottom third.
+    scored = [r for r in ranked if r["outlier"] is not None] or ranked
+    third = max(1, len(scored) // 3)
+    top, bottom = scored[:third], scored[-third:]
 
     def med(items, key):
         vals = [i[key] for i in items if i.get(key) is not None]
@@ -131,7 +134,8 @@ def analyse(rows, formulas):
 
     counts, low = {}, {}
     for r in top:
-        counts[r["formula"]] = counts.get(r["formula"], 0) + 1
+        if r["formula"] != "unclassified":
+            counts[r["formula"]] = counts.get(r["formula"], 0) + 1
     for r in bottom:
         low[r["formula"]] = low.get(r["formula"], 0) + 1
     counts = {f: n for f, n in counts.items() if n > low.get(f, 0)}

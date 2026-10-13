@@ -969,8 +969,8 @@
     },
     {
       "id": "hashtag-wall",
-      "regex": "(?:#\\w+[ \\t]*){5,}",
-      "name": "Hashtag wall (5+)",
+      "regex": "(?:#\\w+[ \\t]*){6,}",
+      "name": "Hashtag wall (6+)",
       "fix": "Three to five specific hashtags. Instagram caps posts at five."
     },
     {

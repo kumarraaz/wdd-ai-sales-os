@@ -44,7 +44,8 @@ and show the working:
 
 Rank by outlier multiple and sends per reach, not views. If the input has views
 only (no reach or shares), mark sends per reach as unavailable and rank by
-outlier multiple alone. A reel with 4,000
+outlier multiple alone. If the input is retention graphs only, analyse the
+retention and do not rank; ask for views, reach or shares first. A reel with 4,000
 views and 90 sends beat the one with 60,000 views and 11.
 
 ## Then find the pattern
