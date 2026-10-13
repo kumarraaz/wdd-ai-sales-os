@@ -105,8 +105,13 @@ def parse_count(text):
 
 def analyse(rows, formulas):
     used_median = any(r.get("median") for r in rows)
+    key = "median" if used_median else "followers"
+    unranked = sum(1 for r in rows if not r.get(key))
+    if used_median and unranked:
+        print(f"note: {unranked} row(s) have no median and are left unranked, "
+              "so one baseline type is never mixed in a ranking.", file=sys.stderr)
     for r in rows:
-        base = r.get("median") or r.get("followers") or 0
+        base = r.get(key) or 0
         r["baseline"] = base
         r["outlier"] = round(r["views"] / base, 2) if base else None
         r["formula_id"], r["formula"] = classify(r["hook"], formulas)
