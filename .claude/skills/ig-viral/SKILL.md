@@ -18,7 +18,7 @@ looks. Run it monthly, not daily. Formulas last a season.
 One tool lives in this folder and it runs:
 
 ```bash
-python3 swipe.py captured.tsv --out ~/.claude/instagram/swipe.md
+python3 .claude/skills/ig-viral/swipe.py captured.tsv --out ~/.claude/instagram/swipe.md
 ```
 
 ## The one idea that makes this worth doing
@@ -112,7 +112,7 @@ account	followers	median	views	hook
 ```
 
 ```bash
-python3 swipe.py captured.tsv --out ~/.claude/instagram/swipe.md
+python3 .claude/skills/ig-viral/swipe.py captured.tsv --out ~/.claude/instagram/swipe.md
 ```
 
 It computes the outlier multiple, names the hook formula using the same 26

@@ -43,7 +43,7 @@ EMOJI_RE = re.compile(r"[\U0001F300-\U0001FAFF☀-➿←-⇿️]")
 CONCRETE_RE = re.compile(r"\$\s?\d|\b\d[\d,.]*\b|(?<!^)\b[A-Z][a-z]{2,}\b", re.MULTILINE)
 
 ASKS = [
-    (re.compile(r"(?i)\bcomment (?:the word |\")?[A-Z0-9]{2,}\b"), "comment a keyword"),
+    (re.compile(r"\b(?i:comment) (?:(?i:the word) |\")?[A-Z0-9]{2,}\b"), "comment a keyword"),
     (re.compile(r"(?i)\b(?:dm|message) me\b"), "DM me"),
     (re.compile(r"(?i)\bsave (?:this|it)\b"), "save this"),
     (re.compile(r"(?i)\bshare (?:this|it)\b"), "share this"),

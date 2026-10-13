@@ -79,16 +79,28 @@ def read_rows(path):
         if len(cells) < len(cols):
             cells += [""] * (len(cols) - len(cells))
         r = dict(zip(cols, [c.strip() for c in cells]))
-        try:
-            r["views"] = int(re.sub(r"[^\d]", "", r.get("views", "")) or 0)
-        except ValueError:
+        views = parse_count(r.get("views", ""))
+        if views is None:
+            print(f"skipped (unreadable views): {line[:60]}", file=sys.stderr)
             continue
+        r["views"] = views
         for k in ("followers", "median"):
-            digits = re.sub(r"[^\d]", "", r.get(k, "") or "")
-            r[k] = int(digits) if digits else None
+            r[k] = parse_count(r.get(k, "")) or None
         if r["views"] and r.get("hook"):
             rows.append(r)
     return rows
+
+
+def parse_count(text):
+    """'1.2M' -> 1200000, '12K' -> 12000, '1,234' -> 1234. Blank -> 0 for views
+    callers, None if unreadable."""
+    t = (text or "").strip().lower().replace(",", "").replace(" ", "")
+    if not t:
+        return 0
+    m = re.fullmatch(r"(\d+(?:\.\d+)?)([kmb]?)", t)
+    if not m:
+        return None
+    return int(float(m.group(1)) * {"": 1, "k": 10**3, "m": 10**6, "b": 10**9}[m.group(2)])
 
 
 def analyse(rows, formulas):
@@ -112,9 +124,12 @@ def analyse(rows, formulas):
         vals = [i[key] for i in items if i.get(key) is not None]
         return round(statistics.median(vals), 1) if vals else None
 
-    counts = {}
+    counts, low = {}, {}
     for r in top:
         counts[r["formula"]] = counts.get(r["formula"], 0) + 1
+    for r in bottom:
+        low[r["formula"]] = low.get(r["formula"], 0) + 1
+    counts = {f: n for f, n in counts.items() if n > low.get(f, 0)}
     return {
         "baseline": "account median" if used_median else "follower count",
         "n": len(ranked),
@@ -197,7 +212,8 @@ def main():
         render(a)
     if args.out:
         path = os.path.expanduser(args.out)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if os.path.dirname(path):
+            os.makedirs(os.path.dirname(path), exist_ok=True)
         open(path, "w", encoding="utf-8").write(to_markdown(a))
         print(f"wrote {path}", file=sys.stderr)
 

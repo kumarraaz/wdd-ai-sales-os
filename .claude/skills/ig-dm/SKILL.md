@@ -10,8 +10,8 @@ description: >-
 
 # ig-dm
 
-Instagram DMs are the only place on the platform where money actually changes
-hands, and they are also where most accounts burn the goodwill their content
+Instagram DMs are one of the main places sales conversations happen, and they
+are also where most accounts burn the goodwill their content
 earned. The difference is entirely about who moved first.
 
 ## The three kinds of DM, and only three are worth writing
@@ -44,7 +44,8 @@ Ask in one batched question:
 3. **What the user wants** - a conversation, a sale, a collab, a referral. Be
    honest internally, even if the message does not lead with it.
 
-If there is no trigger, there is no message. Say so.
+If there is no trigger, there is no message. Say so, unless the user insists
+after you have explained the cost (see above).
 
 ## The keyword delivery
 

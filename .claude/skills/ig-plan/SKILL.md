@@ -29,8 +29,8 @@ If they do not exist, ask for four things and write them down:
 
 ## What to post
 
-Four to five posts a week, and at least three of them Reels. Reels are the only
-format on Instagram that reliably reaches people who do not follow the account.
+Four to five posts a week, and at least three of them Reels. Reels are the strongest
+format for reaching people who do not follow the account, though other formats can travel too.
 Carousels go deep with the people who already do. Stories are daily and are
 planned separately.
 

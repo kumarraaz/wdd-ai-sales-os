@@ -17,9 +17,9 @@ Two tools live in this folder and they both actually run. Use them. Do not
 eyeball the hook and do not guess at the length.
 
 ```bash
-python3 hookscore.py hooks.txt              # rank your hook options
-python3 hookscore.py --hook "one line"      # score a single one
-python3 beats.py script.txt --target 30     # timed beat sheet before you shoot
+python3 .claude/skills/ig-reel/hookscore.py hooks.txt              # rank your hook options
+python3 .claude/skills/ig-reel/hookscore.py --hook "one line"      # score a single one
+python3 .claude/skills/ig-reel/beats.py script.txt --target 30     # timed beat sheet before you shoot
 ```
 
 ## Before you write

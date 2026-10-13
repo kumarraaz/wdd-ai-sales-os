@@ -42,7 +42,9 @@ and show the working:
 | **Sends per reach** | shares / reach | the strongest single signal you can earn. A send is a person putting their name on it. |
 | **Follows per reach** | follows / reach | whether the profile converted the attention |
 
-Rank by outlier multiple and sends per reach, not views. A reel with 4,000
+Rank by outlier multiple and sends per reach, not views. If the input has views
+only (no reach or shares), mark sends per reach as unavailable and rank by
+outlier multiple alone. A reel with 4,000
 views and 90 sends beat the one with 60,000 views and 11.
 
 ## Then find the pattern

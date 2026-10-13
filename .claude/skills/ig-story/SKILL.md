@@ -15,7 +15,7 @@ how the people who already follow you decide whether you are a person worth
 buying from, and they are the only surface on Instagram where a tap turns into
 a conversation in one move.
 
-Nobody outside your followers sees these, so the job is completely different:
+Mostly your followers see these, so the job is different:
 depth, not reach.
 
 ## The daily shape

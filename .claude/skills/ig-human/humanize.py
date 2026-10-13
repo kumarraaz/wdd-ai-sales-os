@@ -208,6 +208,7 @@ def humanize(text, lex):
     text, urls = protect_urls(text)
     text, inv = pass_invisible(text, lex)
     text, typo = pass_typographic(text, lex)
+    structures = scan_structures(text, lex)
     text, lexi = pass_lexical(text, lex)
     text = restore_capitals(raw_for_case, text)
     text = restore_urls(text, urls)
@@ -215,7 +216,7 @@ def humanize(text, lex):
         "invisible": inv,
         "typographic": typo,
         "lexical": lexi,
-        "structures": scan_structures(text, lex),
+        "structures": structures,
     }
 
 

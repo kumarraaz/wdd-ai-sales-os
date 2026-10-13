@@ -27,8 +27,10 @@ Do not log into Instagram on their behalf.
 ## Score it
 
 Read `rubric.json` in this folder. Twelve items, 100 points, each with what
-full marks looks like and how it usually fails. Score every item, show the
-table, give the total. Be honest. Most profiles land in the 30s and 40s on the
+full marks looks like and how it usually fails. Score every item you have evidence for.
+If the input does not show something (e.g. whether they reply to comments or
+post Stories), ask for it or mark that item unscored and hold the total back.
+Show the table. Be honest. Most profiles land in the 30s and 40s on the
 first pass and a generous score is useless.
 
 ```

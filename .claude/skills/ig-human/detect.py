@@ -217,7 +217,7 @@ def main():
 
     if args.json:
         print(json.dumps(payload if args.compare else payload[0], indent=2))
-        return
+        sys.exit(0 if payload[-1]["verdict"] == "PASS" else 1)
 
     for (name, text), p in zip(targets, payload):
         results, overall, verdict = run(text, lex)

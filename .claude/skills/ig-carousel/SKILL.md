@@ -67,7 +67,7 @@ and print each slide:
 
 ```bash
 # one <section> per slide, 1080x1350, page-break-after: always
-# then Chrome headless --print-to-pdf, or any HTML-to-image you already use
+# then export each slide as its own JPEG or PNG (HTML-to-image). Not a PDF.
 ```
 
 Write the HTML with `width:1080px; height:1350px`, a single accent colour, and

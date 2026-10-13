@@ -50,7 +50,7 @@ Not everything is a Reel.
 
 ## Then build the week
 
-Each extract becomes one post and each post stands completely on its own. The
+Each extract becomes one content item (a Reel, a carousel, or a Story frame; schedule Story frames separately from feed posts) and each stands completely on its own. The
 viewer has not seen the source and never will. Never write "as I said in my
 latest video". The post is the thing.
 
