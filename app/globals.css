@@ -124,3 +124,241 @@ body {
   color: var(--color-charcoal-700);
   margin-bottom: 0.75rem;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Cinematic lamp login (app/(auth)/login/LampLoginScene.tsx)
+
+   State comes from React: `--lamp-intensity` is 0 | 1 (inline on .lamp-scene),
+   `data-phase` is dark | lit | card, `data-lamp` is on | off. Every light layer
+   fades with opacity and every movement is a transform, so it stays on the GPU.
+   No calc() is used on purpose; alphas are baked into the gradients.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.lamp-scene {
+  --lamp-x: 50%;
+  --lamp-y: 14%;
+}
+@media (min-width: 1024px) {
+  .lamp-scene {
+    --lamp-x: 25%;
+    --lamp-y: 35%;
+  }
+}
+
+/* Room: dark brown wall and warm floor, revealed by the light. */
+.lamp-wall {
+  background:
+    radial-gradient(
+      ellipse 75% 65% at var(--lamp-x) var(--lamp-y),
+      rgba(98, 58, 28, 0.6) 0%,
+      rgba(52, 31, 17, 0.4) 40%,
+      rgba(24, 15, 10, 0) 75%
+    ),
+    linear-gradient(135deg, #24170f 0%, #0b0a0b 78%);
+  opacity: var(--lamp-intensity);
+  transition: opacity 1400ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.lamp-floor {
+  background:
+    radial-gradient(ellipse 45% 70% at var(--lamp-x) 100%, rgba(245, 154, 53, 0.24), transparent 70%),
+    linear-gradient(to top, rgba(74, 42, 20, 0.55), transparent);
+  opacity: var(--lamp-intensity);
+  transition: opacity 1400ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Wide conic wedge of light spreading down and sideways from the shade. */
+.lamp-cone {
+  left: 50%;
+  top: 30%;
+  width: 1400px;
+  height: 820px;
+  margin-left: -700px;
+  background: conic-gradient(
+    from 138deg at 50% 0%,
+    transparent 0deg,
+    rgba(245, 154, 53, 0.15) 14deg,
+    rgba(255, 214, 150, 0.3) 42deg,
+    rgba(245, 154, 53, 0.15) 70deg,
+    transparent 84deg
+  );
+  -webkit-mask-image: radial-gradient(ellipse 60% 100% at 50% 0%, #000 0%, transparent 72%);
+  mask-image: radial-gradient(ellipse 60% 100% at 50% 0%, #000 0%, transparent 72%);
+  opacity: var(--lamp-intensity);
+  transform-origin: 50% 0;
+  transform: scale(0.7, 0.5);
+  transition:
+    opacity 1400ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 1600ms cubic-bezier(0.16, 0.84, 0.3, 1);
+}
+.lamp-scene[data-lamp="on"] .lamp-cone {
+  transform: none;
+}
+
+/* Lamp (SVG) layers. */
+.lamp-ambient {
+  opacity: var(--lamp-intensity);
+  transition: opacity 1000ms ease;
+}
+.lamp-beam {
+  opacity: var(--lamp-intensity);
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  transform: scale(0.55, 0.35);
+  transition:
+    opacity 900ms ease,
+    transform 1200ms cubic-bezier(0.16, 0.84, 0.3, 1);
+}
+.lamp-scene[data-lamp="on"] .lamp-beam {
+  transform: none;
+}
+.lamp-shade-lit {
+  opacity: var(--lamp-intensity);
+  transition: opacity 900ms ease;
+}
+.lamp-bulb {
+  opacity: var(--lamp-intensity);
+  transition: opacity 700ms ease;
+}
+
+/* Idle life: slow glow pulse, swaying cord, drifting dust. */
+.lamp-pulse {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.lamp-scene[data-phase="card"][data-lamp="on"] .lamp-pulse {
+  animation: lamp-pulse 6s ease-in-out infinite;
+}
+@keyframes lamp-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.82;
+  }
+  50% {
+    transform: scale(1.07);
+    opacity: 1;
+  }
+}
+
+.lamp-cord-sway {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+}
+.lamp-scene[data-phase="card"] .lamp-cord-sway {
+  animation: lamp-sway 5.5s ease-in-out infinite;
+}
+@keyframes lamp-sway {
+  0%,
+  100% {
+    transform: rotate(1.6deg);
+  }
+  50% {
+    transform: rotate(-1.6deg);
+  }
+}
+.lamp-cord-pull {
+  transition: transform 160ms ease-out;
+}
+.lamp-scene[data-pulled="true"] .lamp-cord-pull {
+  transform: translateY(9px);
+}
+
+.lamp-dust {
+  opacity: 0;
+}
+.lamp-scene[data-phase="card"][data-lamp="on"] .lamp-dust {
+  animation-name: lamp-dust;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes lamp-dust {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.7;
+  }
+  85% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translate(14px, -46px);
+    opacity: 0;
+  }
+}
+
+/* Login card: hidden until the lamp is lit, then rises out of the dark. */
+.lamp-reveal {
+  opacity: 0;
+  transform: translateY(18px) scale(0.985);
+  transition:
+    opacity 900ms ease-out,
+    transform 900ms ease-out;
+}
+.lamp-item {
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 450ms ease-out,
+    transform 450ms ease-out;
+}
+.lamp-scene[data-phase="card"] .lamp-reveal,
+.lamp-scene[data-phase="card"] .lamp-item {
+  opacity: 1;
+  transform: none;
+}
+.lamp-card-glow {
+  border: 1px solid rgba(245, 183, 106, 0.35);
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 55%);
+  mask-image: linear-gradient(to bottom, #000, transparent 55%);
+  opacity: var(--lamp-intensity);
+  transition: opacity 1000ms ease;
+}
+/* Lamp off: the card dims but stays fully legible and usable. */
+.lamp-card-dim {
+  transition: opacity 900ms ease;
+}
+.lamp-scene[data-phase="card"][data-lamp="off"] .lamp-card-dim {
+  opacity: 0.88;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Skip the cinematic sequence: the finished, lit scene is the first paint. */
+  .lamp-scene[data-phase="dark"] {
+    --lamp-intensity: 1 !important;
+  }
+  .lamp-reveal,
+  .lamp-item {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .lamp-scene[data-phase="dark"] .lamp-card-dim {
+    opacity: 1;
+  }
+  .lamp-beam,
+  .lamp-cone {
+    transform: none !important;
+  }
+  .lamp-wall,
+  .lamp-floor,
+  .lamp-cone,
+  .lamp-ambient,
+  .lamp-beam,
+  .lamp-shade-lit,
+  .lamp-bulb,
+  .lamp-card-glow,
+  .lamp-card-dim,
+  .lamp-cord-pull {
+    transition: none;
+  }
+  .lamp-pulse,
+  .lamp-cord-sway,
+  .lamp-dust {
+    animation: none !important;
+  }
+  .lamp-dust-field {
+    display: none !important;
+  }
+}
