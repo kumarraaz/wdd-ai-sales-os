@@ -458,7 +458,7 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
       {researchView && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
           onClick={() => setResearchView(null)}>
-          <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-line bg-[#0D1B2A] p-6"
+          <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-line-strong bg-surface p-6"
             onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-start justify-between">
               <h3 className="text-lg font-semibold text-ink">{researchView.company.name}</h3>

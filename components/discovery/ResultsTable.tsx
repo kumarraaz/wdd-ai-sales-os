@@ -279,7 +279,7 @@ export function ResultsTable({
             Columns ▾
           </button>
           {showColumns && (
-            <div className="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-line bg-[#0D1B2A] p-2 shadow-xl">
+            <div className="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-line-strong bg-surface-2 p-2 shadow-xl">
               {COLUMNS.map((c) => (
                 <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs text-ink hover:bg-tint/5">
                   <input

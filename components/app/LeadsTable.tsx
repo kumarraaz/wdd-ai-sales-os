@@ -196,7 +196,7 @@ function LeadStatusDropdown({
         <ChevronDown size={12} className="opacity-60" />
       </button>
       {open && (
-        <div className="absolute left-0 z-30 mt-1 w-36 overflow-hidden rounded-lg border border-line-strong bg-[#101c2e] shadow-xl">
+        <div className="absolute left-0 z-30 mt-1 w-36 overflow-hidden rounded-lg border border-line-strong bg-surface-2 shadow-xl">
           {STATUSES.map((s) => (
             <button
               key={s}
@@ -813,7 +813,7 @@ export function LeadsTable({
             Columns
           </Button>
           {showColumns && (
-            <div className="absolute right-0 z-30 mt-1 w-48 rounded-lg border border-line-strong bg-[#101c2e] p-2 shadow-xl">
+            <div className="absolute right-0 z-30 mt-1 w-48 rounded-lg border border-line-strong bg-surface-2 p-2 shadow-xl">
               {TOGGLEABLE_COLUMNS.map((c) => (
                 <label
                   key={c.id}
@@ -926,7 +926,7 @@ export function LeadsTable({
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="sticky top-0 z-10">
             {table.getHeaderGroups().map((hg) => (
-              <tr key={hg.id} className="border-b border-line bg-[#101c2e]">
+              <tr key={hg.id} className="border-b border-line bg-surface-2">
                 {hg.headers.map((h) => (
                   <th key={h.id} scope="col" className="whitespace-nowrap px-4 py-3 font-medium text-ink-muted">
                     {flexRender(h.column.columnDef.header, h.getContext())}

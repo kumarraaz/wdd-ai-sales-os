@@ -149,7 +149,7 @@ export function ConnectionStatusDropdown({
         {connectionLabel(current)}
       </button>
       {open && (
-        <div className="absolute z-30 mt-1 w-36 overflow-hidden rounded-lg border border-line bg-[#0D1B2A] shadow-xl">
+        <div className="absolute z-30 mt-1 w-36 overflow-hidden rounded-lg border border-line-strong bg-surface-2 shadow-xl">
           {CONNECTION_STATUSES.map((s) => (
             <button
               key={s}
@@ -235,7 +235,7 @@ export function MessageViewerModal({
       aria-label="AI outreach message"
     >
       <div
-        className="w-full max-w-lg rounded-2xl border border-line bg-[#0D1B2A] p-5"
+        className="w-full max-w-lg rounded-2xl border border-line-strong bg-surface p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -406,7 +406,7 @@ export function RemarkModal({
       aria-label="Remarks"
     >
       <div
-        className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-2xl border border-line bg-[#0D1B2A] p-5"
+        className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-2xl border border-line-strong bg-surface p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">

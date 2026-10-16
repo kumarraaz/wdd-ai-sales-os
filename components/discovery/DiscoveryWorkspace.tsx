@@ -833,7 +833,7 @@ export function DiscoveryWorkspace() {
 
       {/* Sticky mobile action bar */}
       {output && output.candidates.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-[#0D1B2A]/95 p-3 backdrop-blur lg:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-canvas/95 p-3 backdrop-blur lg:hidden">
           <div className="flex gap-2">
             <button
               type="button"

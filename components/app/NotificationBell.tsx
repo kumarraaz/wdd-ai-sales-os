@@ -103,7 +103,7 @@ export function NotificationBell({ apiBase }: { apiBase: string }) {
         )}
       </button>
       {open && (
-        <div className="absolute right-0 z-30 mt-2 w-80 overflow-hidden rounded-xl border border-line bg-[#0D1B2A] shadow-2xl">
+        <div className="absolute right-0 z-30 mt-2 w-80 overflow-hidden rounded-xl border border-line-strong bg-surface-2 shadow-2xl">
           <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
             <p className="text-sm font-semibold text-ink">Notifications</p>
             {unreadCount > 0 && (

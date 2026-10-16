@@ -632,7 +632,7 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
       {/* Import preview dialog */}
       {preview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-line bg-[#0D1B2A] p-6">
+          <div className="max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-line-strong bg-surface p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold">Confirm CRM import</h2>
