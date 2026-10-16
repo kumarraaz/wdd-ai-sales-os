@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 /**
  * "View Demo" entry button for the login page. Rendered only when the server
  * determines demo mode is enabled — the client never reads DEMO_MODE itself.
+ * The "or" divider is owned by LoginForm so it is shown once, not per button.
  */
 export function DemoButton() {
   const router = useRouter();
@@ -28,14 +29,11 @@ export function DemoButton() {
 
   return (
     <div>
-      <div className="my-4 flex items-center gap-3 text-xs text-white/40">
-        <span className="h-px flex-1 bg-white/10" /> or{" "}
-        <span className="h-px flex-1 bg-white/10" />
-      </div>
       <button
+        type="button"
         onClick={enterDemo}
         disabled={busy}
-        className="w-full rounded-lg border border-[#D4AF37]/50 bg-[#D4AF37]/10 py-2.5 text-sm font-semibold text-[#D4AF37] transition hover:bg-[#D4AF37]/20 disabled:opacity-50"
+        className="min-h-12 w-full rounded-xl border border-wdd-gold/40 bg-wdd-gold/10 px-4 py-3 text-sm font-semibold text-wdd-gold outline-none transition-colors hover:bg-wdd-gold/20 focus-visible:ring-2 focus-visible:ring-wdd-gold/60 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {busy ? "Starting demo…" : "View Demo"}
       </button>
