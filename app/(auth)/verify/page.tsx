@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { AuthCard, AuthPage } from "@/components/auth/AuthCard";
 import { authClient } from "@/lib/auth-client";
 
 /** Landing target for email verification links. */
@@ -26,7 +27,8 @@ function VerifyForm() {
       {
         onSuccess: () => {
           setState("done");
-          setTimeout(() => router.push("/app/dashboard"), 1500);
+          // (app) routes live at /dashboard — route groups add no "/app" URL segment.
+          setTimeout(() => router.push("/dashboard"), 1500);
         },
         onError: (ctx) => {
           setState("error");
@@ -37,37 +39,30 @@ function VerifyForm() {
   }, [token, router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0D1B2A] px-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur">
-        {state === "verifying" && (
-          <>
-            <h1 className="text-xl font-bold text-white">Verifying your email…</h1>
-            <p className="mt-2 text-sm text-white/60">This takes a few seconds.</p>
-          </>
-        )}
-        {state === "done" && (
-          <>
-            <h1 className="text-xl font-bold text-white">Verified ✓</h1>
-            <p className="mt-2 text-sm text-white/60">Taking you to your dashboard…</p>
-          </>
-        )}
-        {state === "error" && (
-          <>
-            <h1 className="text-xl font-bold text-white">Verification failed</h1>
-            <p className="mt-2 text-sm text-red-400">{message}</p>
-            <Link href="/login" className="mt-6 inline-block text-sm text-[#D4AF37] hover:underline">
-              Back to sign in
-            </Link>
-          </>
-        )}
-      </div>
-    </div>
+    <AuthPage>
+      {state === "verifying" && (
+        <AuthCard align="center" title="Verifying your email…" description="This takes a few seconds." />
+      )}
+      {state === "done" && (
+        <AuthCard align="center" title="Verified ✓" description="Taking you to your dashboard…" />
+      )}
+      {state === "error" && (
+        <AuthCard align="center" title="Verification failed">
+          <p role="alert" className="mt-2 text-sm text-red-300">
+            {message}
+          </p>
+          <Link href="/login" className="mt-6 inline-block text-sm font-semibold text-neon-cyan hover:underline">
+            Back to sign in
+          </Link>
+        </AuthCard>
+      )}
+    </AuthPage>
   );
 }
 
 export default function VerifyPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-white/50">Loading…</div>}>
+    <Suspense fallback={<div className="app-canvas flex min-h-dvh items-center justify-center text-ink-muted">Loading…</div>}>
       <VerifyForm />
     </Suspense>
   );

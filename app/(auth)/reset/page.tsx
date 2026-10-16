@@ -3,6 +3,8 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { AuthCard, AuthField, AuthPage } from "@/components/auth/AuthCard";
+import { Button } from "@/components/ui/Button";
 import { authClient } from "@/lib/auth-client";
 
 function ResetForm() {
@@ -30,39 +32,40 @@ function ResetForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0D1B2A] px-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-8 backdrop-blur">
-        <h1 className="text-2xl font-bold text-white">Set a new password</h1>
+    <AuthPage>
+      <AuthCard title="Set a new password">
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <div>
-            <label htmlFor="password" className="text-sm text-white/70">
-              New password <span className="text-white/40">(min 8 characters)</span>
-            </label>
-            <input
-              id="password" type="password" required minLength={8} autoComplete="new-password"
-              value={password} onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white outline-none focus:border-[#D4AF37]"
-            />
-          </div>
-          {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
-          <button
-            type="submit" disabled={loading}
-            className="w-full rounded-lg bg-[#D4AF37] py-2.5 font-semibold text-black transition hover:brightness-110 disabled:opacity-50"
-          >
+          <AuthField
+            id="password"
+            label="New password"
+            hint="(min 8 characters)"
+            type="password"
+            required
+            minLength={8}
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          {error && (
+            <p role="alert" className="text-sm text-red-300">
+              {error}
+            </p>
+          )}
+          <Button type="submit" size="lg" block loading={loading}>
             {loading ? "Resetting…" : "Reset password"}
-          </button>
+          </Button>
         </form>
-        <Link href="/login" className="mt-6 inline-block text-sm text-[#D4AF37] hover:underline">
+        <Link href="/login" className="mt-6 inline-block text-sm font-semibold text-neon-cyan hover:underline">
           Back to sign in
         </Link>
-      </div>
-    </div>
+      </AuthCard>
+    </AuthPage>
   );
 }
 
 export default function ResetPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-white/50">Loading…</div>}>
+    <Suspense fallback={<div className="app-canvas flex min-h-dvh items-center justify-center text-ink-muted">Loading…</div>}>
       <ResetForm />
     </Suspense>
   );

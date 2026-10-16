@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { AuthCard, AuthField, AuthPage } from "@/components/auth/AuthCard";
+import { Button } from "@/components/ui/Button";
 import { authClient } from "@/lib/auth-client";
 
 export default function SignupPage() {
@@ -26,57 +28,39 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0D1B2A] px-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-8 backdrop-blur">
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#D4AF37]">
-          WDD AI Sales OS
-        </p>
-        <h1 className="mt-2 text-2xl font-bold text-white">Create your account</h1>
-        <p className="mt-1 text-sm text-white/60">
-          A personal workspace is created for you automatically.
-        </p>
-
+    <AuthPage>
+      <AuthCard title="Create your account" description="A personal workspace is created for you automatically.">
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <div>
-            <label htmlFor="name" className="text-sm text-white/70">Name</label>
-            <input
-              id="name" type="text" required autoComplete="name"
-              value={name} onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white outline-none focus:border-[#D4AF37]"
-            />
-          </div>
-          <div>
-            <label htmlFor="email" className="text-sm text-white/70">Work email</label>
-            <input
-              id="email" type="email" required autoComplete="email"
-              value={email} onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white outline-none focus:border-[#D4AF37]"
-            />
-          </div>
-          <div>
-            <label htmlFor="password" className="text-sm text-white/70">
-              Password <span className="text-white/40">(min 8 characters)</span>
-            </label>
-            <input
-              id="password" type="password" required minLength={8} autoComplete="new-password"
-              value={password} onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white outline-none focus:border-[#D4AF37]"
-            />
-          </div>
-          {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
-          <button
-            type="submit" disabled={loading}
-            className="w-full rounded-lg bg-[#D4AF37] py-2.5 font-semibold text-black transition hover:brightness-110 disabled:opacity-50"
-          >
+          <AuthField id="name" label="Name" type="text" required autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
+          <AuthField id="email" label="Work email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <AuthField
+            id="password"
+            label="Password"
+            hint="(min 8 characters)"
+            type="password"
+            required
+            minLength={8}
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          {error && (
+            <p role="alert" className="text-sm text-red-300">
+              {error}
+            </p>
+          )}
+          <Button type="submit" size="lg" block loading={loading}>
             {loading ? "Creating account…" : "Create account"}
-          </button>
+          </Button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-white/60">
+        <p className="mt-6 text-center text-sm text-ink-muted">
           Already have an account?{" "}
-          <Link href="/login" className="text-[#D4AF37] hover:underline">Sign in</Link>
+          <Link href="/login" className="font-semibold text-neon-cyan hover:underline">
+            Sign in
+          </Link>
         </p>
-      </div>
-    </div>
+      </AuthCard>
+    </AuthPage>
   );
 }
