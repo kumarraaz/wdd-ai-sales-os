@@ -4,6 +4,9 @@ import { cn } from "@/lib/cn";
 /**
  * Table chrome shared by the read-only pages. The scroll region is keyboard-focusable
  * and named, so a wide table never traps a keyboard or screen-reader user.
+ *
+ * It is `relative` on purpose: visually hidden (`sr-only`) text is absolutely positioned,
+ * and without a positioned ancestor it escapes the scroller and widens the whole page.
  */
 export function DataTable({
   label,
@@ -23,7 +26,7 @@ export function DataTable({
       role="region"
       aria-label={`${label} (scrolls sideways on small screens)`}
       tabIndex={0}
-      className={cn("-mx-5 overflow-x-auto px-5", className)}
+      className={cn("relative -mx-5 overflow-x-auto px-5", className)}
     >
       <table className="w-full border-collapse" style={{ minWidth }}>
         <caption className="sr-only">{label}</caption>

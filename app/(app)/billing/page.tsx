@@ -130,7 +130,7 @@ export default async function BillingPage() {
 
       <Card aria-labelledby="plans-title" className="rise-in" style={stagger(3)}>
         <CardHeader id="plans-title" title="Plans and their limits" description="Read-only comparison of the plans defined for this product" />
-        <div className="-mx-5 mt-4 overflow-x-auto px-5" role="region" aria-label="Plans (scrolls sideways on small screens)" tabIndex={0}>
+        <div className="relative -mx-5 mt-4 overflow-x-auto px-5" role="region" aria-label="Plans (scrolls sideways on small screens)" tabIndex={0}>
           <table className="w-full min-w-[640px] border-collapse text-xs">
             <caption className="sr-only">Plan limits</caption>
             <thead>

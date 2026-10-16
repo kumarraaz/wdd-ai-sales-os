@@ -163,7 +163,7 @@ function Column({
     <section
       ref={setNodeRef}
       aria-label={`${stageLabel(stage)}, ${cards.length} leads`}
-      className={`flex max-h-[calc(100dvh-17rem)] min-h-[14rem] w-64 shrink-0 flex-col rounded-card border p-3 transition ${
+      className={`flex max-h-[calc(100dvh-18.5rem)] min-h-[14rem] w-64 shrink-0 flex-col rounded-card border p-3 transition ${
         isOver ? "border-neon-cyan/60 bg-neon-cyan/5" : "border-line bg-tint/[0.04]"
       }`}
     >
@@ -356,8 +356,9 @@ export function Kanban({
       </div>
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
         {/* Board scrolls horizontally inside its own viewport; columns keep
-            a usable minimum width and the page itself never overflows. */}
-        <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-4">
+            a usable minimum width and the page itself never overflows.
+            `relative` keeps the cards' visually hidden labels inside this scroller. */}
+        <div className="relative -mx-1 flex gap-3 overflow-x-auto px-1 pb-4">
           {STAGES.map((s) => (
             <Column key={s} stage={s} cards={cards[s] ?? []} canWrite={canWrite} onMove={moveCard} />
           ))}
