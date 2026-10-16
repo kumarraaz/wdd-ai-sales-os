@@ -1,8 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useId } from "react";
+import { useId, useState } from "react";
 
 export interface Org {
   id: string;
@@ -15,10 +14,21 @@ function setOrgCookie(orgId: string) {
   document.cookie = `wdd.org_id=${orgId}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
 }
 
+/** A lead belongs to one workspace, so after a switch land on the list rather than a "not found". */
+function destinationAfterSwitch(): string {
+  const { pathname, search } = window.location;
+  return /^\/leads\/[^/]+\/?$/.test(pathname) ? "/leads" : pathname + search;
+}
+
 /**
  * Workspace selector. With one workspace it is a static label (a one-option
- * <select> is noise); with several it switches the cookie and refreshes the
- * server components. Switching never grants access: the server re-checks membership.
+ * <select> is noise); with several it sets the cookie and reloads the page.
+ *
+ * A full reload (not `router.refresh()`) is deliberate: everything on screen is
+ * workspace-scoped (server data, the notification bell, the usage card, command
+ * palette results), and a reload resets all of it in one step instead of
+ * depending on each client component noticing the change. Switching never grants
+ * access: the server re-checks membership against the cookie on every request.
  */
 export function WorkspaceSwitcher({
   orgs,
@@ -29,8 +39,9 @@ export function WorkspaceSwitcher({
   activeOrgId: string;
   collapsed?: boolean;
 }) {
-  const router = useRouter();
   const selectId = useId();
+  // Shown immediately so the control doesn't snap back while the page reloads.
+  const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const active = orgs.find((o) => o.id === activeOrgId) ?? orgs[0];
 
   if (collapsed) {
@@ -65,12 +76,16 @@ export function WorkspaceSwitcher({
       <div className="relative mt-1.5">
         <select
           id={selectId}
-          value={activeOrgId}
+          value={switchingTo ?? activeOrgId}
+          disabled={switchingTo !== null}
           onChange={(e) => {
-            setOrgCookie(e.target.value);
-            router.refresh();
+            const next = e.target.value;
+            if (next === activeOrgId) return;
+            setSwitchingTo(next);
+            setOrgCookie(next);
+            window.location.assign(destinationAfterSwitch());
           }}
-          className="min-h-11 w-full appearance-none rounded-control border border-line bg-surface px-3 py-2.5 pr-8 text-[13px] text-ink outline-none focus:border-neon-cyan lg:min-h-10"
+          className="min-h-11 w-full appearance-none rounded-control border border-line bg-surface px-3 py-2.5 pr-8 text-[13px] text-ink outline-none focus:border-neon-cyan disabled:opacity-70 lg:min-h-10"
         >
           {orgs.map((o) => (
             <option key={o.id} value={o.id} className="bg-surface">
