@@ -124,6 +124,8 @@ export const listLeadsQuerySchema = z.object({
   tag: z.string().trim().max(60).optional(),
   websiteStatus: z.enum(["NO_WEBSITE", "HAS_WEBSITE", "UNKNOWN"]).optional(),
   contactable: z.coerce.boolean().optional(),
+  /** "due" = follow-up is due now or the lead has gone quiet (see followUpDueWhere). */
+  followUp: z.enum(["due"]).optional(),
   opportunityType: z
     .enum(["HIGH", "MEDIUM", "LOW", "UNKNOWN"])
     .optional(),

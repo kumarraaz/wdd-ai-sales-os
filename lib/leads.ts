@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { db } from "./db";
+import { CLOSED_STATUSES, STALE_CONTACT_DAYS } from "./dashboard";
 import { normalizeDomain, normalizePhone } from "./ssrf";
 import type { CreateLeadInput, UpdateLeadInput } from "./validators";
 import type { listLeadsQuerySchema } from "./validators";
@@ -176,6 +177,24 @@ export async function createLead(
 
 type ListQuery = z.infer<typeof listLeadsQuerySchema>;
 
+/**
+ * Leads that need a follow-up: flagged FOLLOW_UP, past their nextFollowUpAt, or
+ * CONTACTED with no contact for STALE_CONTACT_DAYS. Closed leads never qualify.
+ * Used by both the `followUp=due` list filter and the dashboard count, so the
+ * number on the dashboard always equals the list it links to.
+ */
+export function followUpDueWhere(now: Date = new Date()): Prisma.LeadWhereInput {
+  const staleBefore = new Date(now.getTime() - STALE_CONTACT_DAYS * 86_400_000);
+  return {
+    status: { notIn: [...CLOSED_STATUSES] },
+    OR: [
+      { status: "FOLLOW_UP" },
+      { nextFollowUpAt: { lte: now } },
+      { status: "CONTACTED", lastContactedAt: { lte: staleBefore } },
+    ],
+  };
+}
+
 export async function listLeads(organizationId: string, query: ListQuery) {
   const where: Prisma.LeadWhereInput = { organizationId };
   if (query.q) {
@@ -198,6 +217,8 @@ export async function listLeads(organizationId: string, query: ListQuery) {
   if (query.websiteStatus) where.websiteStatus = query.websiteStatus;
   if (query.contactable !== undefined) where.contactable = query.contactable;
   if (query.opportunityType) where.opportunityType = query.opportunityType;
+  // AND (not OR): `where.OR` above is already used by the free-text search.
+  if (query.followUp === "due") where.AND = [followUpDueWhere()];
 
   const sort = query.sort ?? "createdAt";
   const order = query.order ?? "desc";
