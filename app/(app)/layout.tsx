@@ -1,12 +1,20 @@
 import { cookies, headers } from "next/headers";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isKillSwitchOn } from "@/lib/automation/types";
 import { DEMO_ORG, DEMO_USER } from "@/lib/demo";
 import { getDemoSession } from "@/lib/demo-session";
 import { DemoBanner } from "@/components/demo/DemoBanner";
 import { AppShell } from "@/components/app/AppShell";
+
+// The workspace is private: keep every authenticated page out of search indexes.
+export const metadata: Metadata = {
+  title: { default: "WDD AI SALES OS", template: "%s · WDD AI SALES OS" },
+  robots: { index: false, follow: false },
+};
 
 // Exact shape of the membership query below (include: organization).
 type MembershipWithOrg = Prisma.MembershipGetPayload<{
@@ -66,6 +74,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         role: m.role,
       }))}
       activeOrgId={active.organization.id}
+      automationPaused={isKillSwitchOn()}
     >
       {children}
     </AppShell>

@@ -1,0 +1,40 @@
+import {
+  BarChart3,
+  CalendarDays,
+  CheckSquare,
+  CreditCard,
+  KanbanSquare,
+  LayoutDashboard,
+  LockKeyhole,
+  Megaphone,
+  Plug,
+  Radar,
+  Send,
+  Settings,
+  ShieldCheck,
+  BrainCircuit,
+  Users,
+  Workflow,
+  type LucideIcon,
+} from "lucide-react";
+import type { NavIconName } from "./nav";
+
+/** Maps the string icon names in nav.ts to lucide components (kept out of nav.ts so that stays JSX/dep free). */
+export const NAV_ICONS: Record<NavIconName, LucideIcon> = {
+  LayoutDashboard,
+  Users,
+  KanbanSquare,
+  Radar,
+  BrainCircuit,
+  Send,
+  ShieldCheck,
+  CalendarDays,
+  Megaphone,
+  Workflow,
+  CheckSquare,
+  BarChart3,
+  Plug,
+  CreditCard,
+  LockKeyhole,
+  Settings,
+};

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 
 /**
  * Persistent demo-mode banner. Rendered by the (app) layout only for valid
- * demo sessions — never in the real authenticated app.
+ * demo sessions — never in the real authenticated app. It is part of the page flow
+ * (not sticky) so it never covers the sticky top bar.
  */
 export function DemoBanner() {
   const router = useRouter();
@@ -23,18 +24,20 @@ export function DemoBanner() {
   return (
     <div
       role="status"
-      className="sticky top-0 z-50 border-b border-[#D4AF37]/50 bg-[#D4AF37] px-4 py-2"
+      className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-amber-300/30 bg-amber-300/10 px-4 py-2 text-xs text-amber-200"
     >
-      <p className="text-center text-xs font-semibold tracking-wide text-black">
-        DEMO MODE — Data and actions shown here are for demonstration only.
-        <button
-          onClick={exitDemo}
-          disabled={busy}
-          className="ml-3 rounded bg-black/80 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-[#D4AF37] transition hover:bg-black disabled:opacity-50"
-        >
-          {busy ? "Exiting…" : "Exit Demo"}
-        </button>
+      <p>
+        <span className="font-semibold uppercase tracking-wider">Demo mode</span> — data and actions shown here are for
+        demonstration only.
       </p>
+      <button
+        type="button"
+        onClick={exitDemo}
+        disabled={busy}
+        className="min-h-9 rounded-control border border-amber-300/40 px-3 text-[11px] font-semibold uppercase tracking-wider text-amber-200 transition hover:bg-amber-300/15 disabled:opacity-50"
+      >
+        {busy ? "Exiting…" : "Exit demo"}
+      </button>
     </div>
   );
 }

@@ -25,6 +25,26 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   // NOTE: route groups like (app) do not create URL segments, so the
-  // protected pages live at /dashboard, /leads, /crm, /discover, /intelligence — not /app/*.
-  matcher: ["/dashboard/:path*", "/leads/:path*", "/crm/:path*", "/discover/:path*", "/intelligence/:path*"],
+  // protected pages live at /dashboard, /leads, … — not /app/*.
+  // Keep this list in step with the folders under app/(app) (tests/nav.test.ts
+  // checks that every sidebar destination exists; the layout re-verifies the
+  // session for anything this gate misses).
+  matcher: [
+    "/dashboard/:path*",
+    "/leads/:path*",
+    "/crm/:path*",
+    "/discover/:path*",
+    "/intelligence/:path*",
+    "/approvals/:path*",
+    "/outreach/:path*",
+    "/prospecting/:path*",
+    "/campaigns/:path*",
+    "/automation/:path*",
+    "/tasks/:path*",
+    "/analytics/:path*",
+    "/integrations/:path*",
+    "/billing/:path*",
+    "/security/:path*",
+    "/settings/:path*",
+  ],
 };
