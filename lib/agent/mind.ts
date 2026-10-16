@@ -21,6 +21,7 @@ import type { WorkspaceContext } from "../tenant";
 import { getAIProvider } from "../ai/registry";
 import type { AIProvider } from "../ai/provider";
 import { executeTool, getTool } from "./tools/registry";
+import "./tools/boot"; // registers the tools the planner and executor use
 import { isKillSwitchOn } from "../automation/types";
 import { enqueueJob } from "../automation/runner";
 import { JobError } from "../automation/types";

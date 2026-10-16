@@ -11,6 +11,7 @@
 
 import type { WorkspaceContext } from "../../tenant";
 import { executeTool, getTool } from "../tools/registry";
+import "../tools/boot"; // registers the tools this dispatcher looks up
 import {
   APPROVAL_ACTION_TOOL,
   type ApprovalActionType,

@@ -162,6 +162,9 @@ const {
   };
 });
 
+// The registry is mocked here, so skip the side-effect import that registers the real tools.
+vi.mock("../lib/agent/tools/boot", () => ({}));
+
 vi.mock("../lib/agent/tools/registry", () => ({
   executeTool: mockExecuteTool,
 }));

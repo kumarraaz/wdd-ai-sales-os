@@ -2,17 +2,13 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { DEMO_COOKIE_NAME, isDemoModeEnabled, validateDemoSession } from "@/lib/demo";
 import { DEMO_LEADS } from "@/lib/demo-data";
+import { csvCell } from "@/lib/csv";
 
 /**
  * GET /api/demo/leads/export — CSV export of the DEMO_DATA fixtures.
  * Local read-only action: no external service is touched. Same 404-when-off
  * contract as the other demo routes.
  */
-
-function csvCell(value: string | number | null): string {
-  const s = String(value ?? "");
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 export async function GET() {
   const jar = await cookies();

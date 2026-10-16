@@ -23,6 +23,7 @@ import { z } from "zod";
 import type { AgentApproval } from "@prisma/client";
 import type { WorkspaceContext } from "../../tenant";
 import { executeTool } from "../tools/registry";
+import "../tools/boot"; // registers the tools stages call
 import { getWorkflowDefinition } from "./registry";
 import { recall, remember } from "../memory";
 import { createApproval } from "../approvals/service";

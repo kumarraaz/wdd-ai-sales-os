@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withWorkspace } from "@/lib/tenant";
 import { db } from "@/lib/db";
-
-function toCsv(rows: Record<string, unknown>[]): string {
-  if (rows.length === 0) return "";
-  const headers = Object.keys(rows[0]);
-  const esc = (v: unknown) => {
-    const s = v === null || v === undefined ? "" : String(v);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  return [headers.join(","), ...rows.map((r) => headers.map((h) => esc(r[h])).join(","))].join("\n");
-}
+import { toCsv } from "@/lib/csv";
 
 /** GET /api/leads/export?format=csv|json — scoped to workspace, respects quotas of honesty: exports what you own. */
 export const GET = withWorkspace(async (req: NextRequest, ctx) => {

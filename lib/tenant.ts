@@ -59,6 +59,12 @@ export async function requireUser() {
 export async function requireWorkspace(
   organizationId?: string | null,
   minimumRole: Role = "VIEWER",
+  /**
+   * The workspace the user last picked in the switcher (the `wdd.org_id` cookie). It only chooses
+   * among the user's OWN memberships and is ignored when it is not one of them (a stale cookie must
+   * not lock someone out), unlike an explicit `organizationId`, which is rejected with 403.
+   */
+  preferredOrganizationId?: string | null,
 ): Promise<WorkspaceContext> {
   const user = await requireUser();
 
@@ -71,7 +77,9 @@ export async function requireWorkspace(
 
   const membership = organizationId
     ? memberships.find((m) => m.organizationId === organizationId)
-    : memberships[0];
+    : (preferredOrganizationId
+        ? memberships.find((m) => m.organizationId === preferredOrganizationId)
+        : undefined) ?? memberships[0];
 
   if (!membership) throw new AuthError("WORKSPACE_ACCESS_DENIED", 403);
   if (!roleAtLeast(membership.role, minimumRole))
@@ -123,7 +131,8 @@ export function withWorkspace(handler: Handler, opts: GuardOptions = {}) {
         (opts.orgParam && params[opts.orgParam]) ||
         req.nextUrl.searchParams.get("orgId") ||
         req.headers.get("x-org-id");
-      const ctx = await requireWorkspace(orgId, opts.minRole ?? "VIEWER");
+      // No explicit org → the workspace picked in the switcher (cookie), then the oldest membership.
+      const ctx = await requireWorkspace(orgId, opts.minRole ?? "VIEWER", req.cookies.get(ORG_COOKIE)?.value);
       return await handler(req, ctx, routeParams);
     } catch (err) {
       if (err instanceof AuthError) {
@@ -138,3 +147,5 @@ export function withWorkspace(handler: Handler, opts: GuardOptions = {}) {
 
 /** Read the active org id on the client (set by the workspace switcher). */
 export const ORG_HEADER = "x-org-id";
+/** Cookie the workspace switcher sets; server pages and API routes resolve the active workspace from it. */
+export const ORG_COOKIE = "wdd.org_id";
