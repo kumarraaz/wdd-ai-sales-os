@@ -285,7 +285,7 @@ export function ProspectingDashboard({
 
   if (loading) {
     return (
-      <p className="flex items-center gap-2 text-white/50">
+      <p className="flex items-center gap-2 text-ink-muted">
         <Loader2 size={16} className="animate-spin" /> Loading prospecting plan…
       </p>
     );
@@ -299,48 +299,48 @@ export function ProspectingDashboard({
         </p>
       )}
       {notice && (
-        <p className="rounded-lg border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-3 py-2 text-sm text-[#D4AF37]">
+        <p className="rounded-lg border border-neon-cyan/40 bg-neon-cyan/10 px-3 py-2 text-sm text-neon-cyan">
           {notice}
         </p>
       )}
 
       {/* Plan settings + actions */}
       <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <label className="text-xs text-white/50">Plan name</label>
+        <label className="block">
+          <span className="text-xs text-ink-muted">Plan name</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={!canManage}
-            className="mt-1 block w-64 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37] disabled:opacity-50"
+            className="mt-1 block w-64 rounded-lg border border-line bg-black/30 px-3 py-2 text-sm text-ink outline-none focus:border-neon-cyan disabled:opacity-50"
           />
-        </div>
-        <div>
-          <label className="text-xs text-white/50">Daily run time</label>
+        </label>
+        <label className="block">
+          <span className="text-xs text-ink-muted">Daily run time</span>
           <input
             type="time"
             value={runAtTime}
             onChange={(e) => setRunAtTime(e.target.value)}
             disabled={!canManage}
-            className="mt-1 block rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37] disabled:opacity-50"
+            className="mt-1 block rounded-lg border border-line bg-black/30 px-3 py-2 text-sm text-ink outline-none focus:border-neon-cyan disabled:opacity-50"
           />
-        </div>
-        <div>
-          <label className="text-xs text-white/50">Timezone</label>
+        </label>
+        <label className="block">
+          <span className="text-xs text-ink-muted">Timezone</span>
           <input
             value={timezone}
             onChange={(e) => setTimezone(e.target.value)}
             disabled={!canManage}
-            className="mt-1 block w-40 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37] disabled:opacity-50"
+            className="mt-1 block w-40 rounded-lg border border-line bg-black/30 px-3 py-2 text-sm text-ink outline-none focus:border-neon-cyan disabled:opacity-50"
           />
-        </div>
-        <label className="flex items-center gap-2 text-sm text-white/70">
+        </label>
+        <label className="flex items-center gap-2 text-sm text-ink-muted">
           <input
             type="checkbox"
             checked={isActive}
             onChange={(e) => setIsActive(e.target.checked)}
             disabled={!canManage}
-            className="h-4 w-4 accent-[#D4AF37]"
+            className="h-4 w-4 accent-neon-cyan"
           />
           Active
         </label>
@@ -349,7 +349,7 @@ export function ProspectingDashboard({
             <button
               onClick={runNow}
               disabled={running}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#D4AF37]/40 px-4 py-2 text-sm text-[#D4AF37] hover:bg-[#D4AF37]/10 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neon-cyan/40 px-4 py-2 text-sm text-neon-cyan hover:bg-neon-cyan/10 disabled:opacity-50"
             >
               {running ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
               Run Now
@@ -359,7 +359,7 @@ export function ProspectingDashboard({
             <button
               onClick={save}
               disabled={saving}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-semibold text-black hover:brightness-110 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-neon-cyan px-4 py-2 text-sm font-semibold text-[#021614] hover:brightness-110 disabled:opacity-50"
             >
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               Save plan
@@ -370,15 +370,15 @@ export function ProspectingDashboard({
 
       {/* Today: latest run at a glance */}
       {latestRun && (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="rounded-2xl border border-line bg-tint/[0.04] p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold text-white">
-              Today <span className="text-sm font-normal text-white/40">· {latestRun.runDate}</span>
+            <h2 className="text-lg font-semibold text-ink">
+              Today <span className="text-sm font-normal text-ink-dim">· {latestRun.runDate}</span>
             </h2>
             <span
               className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                 latestRun.status === "COMPLETED"
-                  ? "bg-emerald-400/15 text-emerald-300"
+                  ? "bg-neon-lime/15 text-neon-lime"
                   : latestRun.status === "FAILED"
                     ? "bg-red-400/15 text-red-300"
                     : "bg-amber-400/15 text-amber-300"
@@ -397,19 +397,19 @@ export function ProspectingDashboard({
               ["Rejected", latestRun.rejected ?? 0],
             ].map(([label, value]) => (
               <div key={label as string} className="rounded-xl bg-black/30 px-3 py-2.5 text-center">
-                <p className="text-xl font-bold text-white">{value}</p>
-                <p className="text-[11px] uppercase tracking-wide text-white/40">{label}</p>
+                <p className="text-xl font-semibold text-ink">{value}</p>
+                <p className="text-[11px] uppercase tracking-wide text-ink-dim">{label}</p>
               </div>
             ))}
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/50">
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
             {latestRun.sourceBreakdown &&
               Object.entries(latestRun.sourceBreakdown)
                 .filter(([, n]) => n > 0)
                 .map(([k, n]) => (
                   <span key={k}>
                     {k.replace(/_/g, " ").toLowerCase()}:{" "}
-                    <span className="font-semibold text-white/80">{n}</span>
+                    <span className="font-semibold text-ink">{n}</span>
                   </span>
                 ))}
             {latestRun.triggeredBy && <span>triggered by {latestRun.triggeredBy.toLowerCase()}</span>}
@@ -431,15 +431,15 @@ export function ProspectingDashboard({
                   title={`${n.queriesAttempted} queries · ${n.resultsReturned} results · ${n.usableCandidates} usable${n.error ? ` · ${n.error}` : ""}`}
                   className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
                     n.status === "ok"
-                      ? "bg-emerald-400/10 text-emerald-300"
+                      ? "bg-neon-lime/10 text-neon-lime"
                       : n.status === "error"
                         ? "bg-red-400/10 text-red-300"
-                        : "bg-white/10 text-white/50"
+                        : "bg-tint/10 text-ink-muted"
                   }`}
                 >
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${
-                      n.status === "ok" ? "bg-emerald-400" : n.status === "error" ? "bg-red-400" : "bg-white/30"
+                      n.status === "ok" ? "bg-neon-lime" : n.status === "error" ? "bg-red-400" : "bg-tint/30"
                     }`}
                   />
                   {sourceLabel(n.provider)}: {n.status === "skipped" ? "skipped" : `${n.usableCandidates} candidates`}
@@ -452,8 +452,8 @@ export function ProspectingDashboard({
 
       {/* System health: which providers the agent can actually use */}
       {health && (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-white/50">
+        <div className="rounded-2xl border border-line bg-tint/[0.04] p-4">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-muted">
             System status
           </h2>
           <div className="flex flex-wrap gap-2">
@@ -471,10 +471,10 @@ export function ProspectingDashboard({
                   key={label as string}
                   title={label === "Public web search" ? health.tavilyDetail : undefined}
                   className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-                    ok ? "bg-emerald-400/10 text-emerald-300" : "bg-amber-400/10 text-amber-300"
+                    ok ? "bg-neon-lime/10 text-neon-lime" : "bg-amber-400/10 text-amber-300"
                   }`}
                 >
-                  <span className={`h-1.5 w-1.5 rounded-full ${ok ? "bg-emerald-400" : "bg-amber-400"}`} />
+                  <span className={`h-1.5 w-1.5 rounded-full ${ok ? "bg-neon-lime" : "bg-amber-400"}`} />
                   {label}: {status.replace(/_/g, " ").toLowerCase()}
                 </span>
               );
@@ -491,8 +491,8 @@ export function ProspectingDashboard({
 
       {/* Weekly plan */}
       <div>
-        <h2 className="mb-3 inline-flex items-center gap-2 text-lg font-semibold text-white">
-          <CalendarDays size={18} className="text-[#D4AF37]" /> Weekly plan
+        <h2 className="mb-3 inline-flex items-center gap-2 text-lg font-semibold text-ink">
+          <CalendarDays size={18} className="text-neon-cyan" /> Weekly plan
         </h2>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {days.map((d) => {
@@ -500,15 +500,15 @@ export function ProspectingDashboard({
             return (
               <div
                 key={d.dayOfWeek}
-                className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+                className="rounded-2xl border border-line bg-tint/[0.04] p-4"
               >
                 <div className="mb-2 flex items-center justify-between">
-                  <h3 className="font-semibold text-white">{DAY_LABELS[d.dayOfWeek]}</h3>
+                  <h3 className="font-semibold text-ink">{DAY_LABELS[d.dayOfWeek]}</h3>
                   {run ? (
                     <span
                       className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                         run.status === "COMPLETED"
-                          ? "bg-emerald-400/15 text-emerald-300"
+                          ? "bg-neon-lime/15 text-neon-lime"
                           : run.status === "FAILED"
                             ? "bg-red-400/15 text-red-300"
                             : "bg-amber-400/15 text-amber-300"
@@ -519,7 +519,7 @@ export function ProspectingDashboard({
                         : runStatusLabel(run.status)}
                     </span>
                   ) : (
-                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/50">
+                    <span className="rounded-full bg-tint/10 px-2 py-0.5 text-[11px] text-ink-muted">
                       Pending
                     </span>
                   )}
@@ -608,13 +608,13 @@ export function ProspectingDashboard({
                       />
                     </Field>
                   </div>
-                  <label className="flex items-center gap-2 text-xs text-white/60">
+                  <label className="flex items-center gap-2 text-xs text-ink-muted">
                     <input
                       type="checkbox"
                       checked={d.isActive ?? true}
                       onChange={(e) => updateDay(d.dayOfWeek, { isActive: e.target.checked })}
                       disabled={!canManage}
-                      className="h-3.5 w-3.5 accent-[#D4AF37]"
+                      className="h-3.5 w-3.5 accent-neon-cyan"
                     />
                     Active this week
                   </label>
@@ -623,7 +623,7 @@ export function ProspectingDashboard({
             );
           })}
         </div>
-        <p className="mt-2 text-xs text-white/40">
+        <p className="mt-2 text-xs text-ink-dim">
           Leave a day&apos;s industry blank to skip it. Follower threshold is stored but cannot be
           enforced — follower counts aren&apos;t available from compliant sources.
         </p>
@@ -631,19 +631,19 @@ export function ProspectingDashboard({
 
       {/* Run history */}
       <div>
-        <h2 className="mb-3 inline-flex items-center gap-2 text-lg font-semibold text-white">
-          <History size={18} className="text-[#D4AF37]" /> Run history
+        <h2 className="mb-3 inline-flex items-center gap-2 text-lg font-semibold text-ink">
+          <History size={18} className="text-neon-cyan" /> Run history
         </h2>
         {runs.length === 0 ? (
-          <p className="text-sm text-white/40">No runs yet.</p>
+          <p className="text-sm text-ink-dim">No runs yet.</p>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-white/10">
+          <div className="overflow-x-auto rounded-2xl border border-line">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead>
-                <tr className="border-b border-white/10 bg-white/5">
+                <tr className="border-b border-line bg-tint/5">
                   {["Date", "Day", "Target", "Found", "Verified", "Rejected", "Duplicates", "Messages", "Imported", "Failed", "Time", "Status", "By"].map(
                     (h) => (
-                      <th key={h} className="px-4 py-3 font-medium text-white/60">
+                      <th key={h} className="px-4 py-3 font-medium text-ink-muted">
                         {h}
                       </th>
                     ),
@@ -652,25 +652,25 @@ export function ProspectingDashboard({
               </thead>
               <tbody>
                 {runs.map((r) => (
-                  <tr key={r.id} className="border-b border-white/5">
-                    <td className="px-4 py-2.5 text-white/80">{r.runDate}</td>
-                    <td className="px-4 py-2.5 text-white/60">{DAY_LABELS[r.dayOfWeek]}</td>
-                    <td className="px-4 py-2.5 text-white/80">{r.targetCount}</td>
-                    <td className="px-4 py-2.5 text-white/80">{r.found}</td>
-                    <td className="px-4 py-2.5 text-emerald-300/90">{r.verified ?? 0}</td>
-                    <td className="px-4 py-2.5 text-white/60">{r.rejected ?? 0}</td>
-                    <td className="px-4 py-2.5 text-white/60">{r.duplicatesSkipped}</td>
-                    <td className="px-4 py-2.5 text-white/80">{r.messagesGenerated}</td>
-                    <td className="px-4 py-2.5 font-semibold text-emerald-300">{r.crmImported}</td>
-                    <td className="px-4 py-2.5 text-white/60">{r.failed}</td>
-                    <td className="px-4 py-2.5 text-white/60">
+                  <tr key={r.id} className="border-b border-line/60">
+                    <td className="px-4 py-2.5 text-ink">{r.runDate}</td>
+                    <td className="px-4 py-2.5 text-ink-muted">{DAY_LABELS[r.dayOfWeek]}</td>
+                    <td className="px-4 py-2.5 text-ink">{r.targetCount}</td>
+                    <td className="px-4 py-2.5 text-ink">{r.found}</td>
+                    <td className="px-4 py-2.5 text-neon-lime/90">{r.verified ?? 0}</td>
+                    <td className="px-4 py-2.5 text-ink-muted">{r.rejected ?? 0}</td>
+                    <td className="px-4 py-2.5 text-ink-muted">{r.duplicatesSkipped}</td>
+                    <td className="px-4 py-2.5 text-ink">{r.messagesGenerated}</td>
+                    <td className="px-4 py-2.5 font-semibold text-neon-lime">{r.crmImported}</td>
+                    <td className="px-4 py-2.5 text-ink-muted">{r.failed}</td>
+                    <td className="px-4 py-2.5 text-ink-muted">
                       {r.durationMs != null ? `${(r.durationMs / 1000).toFixed(0)}s` : "—"}
                     </td>
                     <td className="px-4 py-2.5">
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                           r.status === "COMPLETED"
-                            ? "bg-emerald-400/15 text-emerald-300"
+                            ? "bg-neon-lime/15 text-neon-lime"
                             : r.status === "FAILED"
                               ? "bg-red-400/15 text-red-300"
                               : "bg-amber-400/15 text-amber-300"
@@ -684,7 +684,7 @@ export function ProspectingDashboard({
                         </p>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-white/40">{r.triggeredBy}</td>
+                    <td className="px-4 py-2.5 text-xs text-ink-dim">{r.triggeredBy}</td>
                   </tr>
                 ))}
               </tbody>
@@ -737,13 +737,14 @@ function sourceLabel(provider: string): string {
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  // The control sits inside the <label>, so the association is implicit (click target + screen readers).
   return (
-    <div>
-      <label className="text-xs text-white/50">{label}</label>
-      <div className="mt-1">{children}</div>
-    </div>
+    <label className="block">
+      <span className="text-xs text-ink-muted">{label}</span>
+      <span className="mt-1 block">{children}</span>
+    </label>
   );
 }
 
 const inputCls =
-  "w-full rounded-lg border border-white/10 bg-black/30 px-2.5 py-1.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-[#D4AF37] disabled:opacity-50";
+  "w-full rounded-lg border border-line bg-black/30 px-2.5 py-1.5 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-neon-cyan disabled:opacity-50";

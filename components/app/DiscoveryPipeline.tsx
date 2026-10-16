@@ -26,27 +26,27 @@ const STAGE_LABELS: Record<PipelineStage, string> = {
 
 function ScoreBadge({ score }: { score: number | null }) {
   if (score === null)
-    return <span className="text-white/30">—</span>;
+    return <span className="text-ink-dim">—</span>;
   const color =
     score >= 70
-      ? "bg-emerald-400/15 text-emerald-300"
+      ? "bg-neon-lime/15 text-neon-lime"
       : score >= 40
-        ? "bg-[#D4AF37]/15 text-[#D4AF37]"
-        : "bg-white/5 text-white/40";
+        ? "bg-neon-cyan/15 text-neon-cyan"
+        : "bg-tint/5 text-ink-dim";
   return (
-    <span className={`rounded px-2 py-0.5 text-xs font-bold ${color}`}>{score}</span>
+    <span className={`rounded px-2 py-0.5 text-xs font-semibold ${color}`}>{score}</span>
   );
 }
 
 function StatusDot({ status }: { status: string }) {
   const color =
     status === "completed"
-      ? "bg-emerald-400"
+      ? "bg-neon-lime"
       : status === "failed"
         ? "bg-red-400"
         : status === "pending"
-          ? "bg-[#D4AF37]"
-          : "bg-white/20";
+          ? "bg-neon-cyan"
+          : "bg-tint/20";
   return <span className={`inline-block h-2 w-2 rounded-full ${color}`} />;
 }
 
@@ -244,19 +244,19 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
   }
 
   const inputCls =
-    "mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white outline-none focus:border-[#D4AF37]";
-  const labelCls = "text-sm text-white/70";
+    "mt-1 w-full rounded-lg border border-line bg-black/30 px-3 py-2 text-ink outline-none focus:border-neon-cyan";
+  const labelCls = "text-sm text-ink-muted";
 
   return (
     <div className="space-y-6">
       {/* ── Criteria form ─────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-        <h2 className="text-lg font-bold text-white">AI Lead Discovery</h2>
-        <p className="mt-1 text-sm text-white/50">
+      <div className="rounded-2xl border border-line bg-tint/5 p-6">
+        <h2 className="text-lg font-semibold text-ink">AI Lead Discovery</h2>
+        <p className="mt-1 text-sm text-ink-muted">
           Discover real businesses, research their public websites, and qualify
           them for your CRM.
           {demo && (
-            <span className="ml-2 rounded bg-[#D4AF37]/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-[#D4AF37]">
+            <span className="ml-2 rounded bg-neon-cyan/15 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-neon-cyan">
               DEMO_DATA
             </span>
           )}
@@ -298,40 +298,40 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
           </div>
           <div className="flex items-end">
             <button type="submit" disabled={running || providersLoading}
-              className="w-full rounded-lg bg-[#D4AF37] py-2.5 font-semibold text-black transition hover:brightness-110 disabled:opacity-50">
+              className="w-full rounded-lg bg-neon-cyan py-2.5 font-semibold text-[#021614] transition hover:brightness-110 disabled:opacity-50">
               {running ? "Discovering…" : "Start Lead Discovery"}
             </button>
           </div>
         </form>
         {error && <p role="alert" className="mt-3 text-sm text-red-400">{error}</p>}
-        {importDone && <p className="mt-3 text-sm text-emerald-300">{importDone}</p>}
+        {importDone && <p className="mt-3 text-sm text-neon-lime">{importDone}</p>}
       </div>
 
       {/* ── Discovery source info ─────────────────────────────────── */}
       {!demo && !providersLoading && providerReady && !running && (
-        <div className="rounded-2xl border border-[#D4AF37]/30 bg-[#D4AF37]/5 p-6">
-          <h3 className="font-bold text-white">Free Lead Discovery is ready</h3>
-          <p className="mt-1 text-sm text-white/60">
+        <div className="rounded-2xl border border-neon-cyan/30 bg-neon-cyan/5 p-6">
+          <h3 className="font-semibold text-ink">Free Lead Discovery is ready</h3>
+          <p className="mt-1 text-sm text-ink-muted">
             Powered by OpenStreetMap public business data. No API key required.
           </p>
-          <p className="mt-2 text-xs text-white/40">
+          <p className="mt-2 text-xs text-ink-dim">
             OpenStreetMap is community-maintained and does not list every
             business. Phone and website details appear only when the public
             listing includes them — missing data is common.
           </p>
-          <p className="mt-2 text-xs text-white/30">© OpenStreetMap contributors</p>
+          <p className="mt-2 text-xs text-ink-dim">© OpenStreetMap contributors</p>
         </div>
       )}
 
       {/* ── Provider unavailable (edge case) ────────────────────────── */}
       {!demo && !providersLoading && !providerReady && !running && (
         <div className="rounded-2xl border border-red-400/30 bg-red-400/5 p-6">
-          <h3 className="font-bold text-white">Lead discovery is unavailable</h3>
-          <p className="mt-1 text-sm text-white/60">
+          <h3 className="font-semibold text-ink">Lead discovery is unavailable</h3>
+          <p className="mt-1 text-sm text-ink-muted">
             The discovery provider could not be reached. Please try again later.
           </p>
           {notConfigured && notConfigured.length > 0 && (
-            <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-white/70">
+            <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-ink-muted">
               {notConfigured.map((s, i) => <li key={i}>{s}</li>)}
             </ol>
           )}
@@ -340,27 +340,27 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
 
       {/* ── Progress ──────────────────────────────────────────────── */}
       {(running || stage) && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="rounded-2xl border border-line bg-tint/5 p-6">
           <div className="flex items-center gap-3">
-            <span className="h-3 w-3 animate-pulse rounded-full bg-[#D4AF37]" />
-            <p className="font-semibold text-white">
+            <span className="h-3 w-3 animate-pulse rounded-full bg-neon-cyan" />
+            <p className="font-semibold text-ink">
               {stage ? STAGE_LABELS[stage] : "Starting"}…
             </p>
           </div>
-          {stageMessage && <p className="mt-1 text-sm text-white/50">{stageMessage}</p>}
+          {stageMessage && <p className="mt-1 text-sm text-ink-muted">{stageMessage}</p>}
           {progress && progress.total > 0 && (
             <div className="mt-3">
-              <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full rounded-full bg-[#D4AF37] transition-all"
+              <div className="h-2 overflow-hidden rounded-full bg-tint/10">
+                <div className="h-full rounded-full bg-neon-cyan transition-all"
                   style={{ width: `${Math.round((progress.completed / progress.total) * 100)}%` }} />
               </div>
-              <p className="mt-1 text-xs text-white/40">
+              <p className="mt-1 text-xs text-ink-dim">
                 {progress.completed}/{progress.total} completed
               </p>
             </div>
           )}
           {results.length > 0 && (
-            <p className="mt-2 text-xs text-white/40">{results.length} companies processed so far</p>
+            <p className="mt-2 text-xs text-ink-dim">{results.length} companies processed so far</p>
           )}
         </div>
       )}
@@ -376,9 +376,9 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
             ["Duplicates", summary.duplicates],
             ["Failed", summary.failed],
           ].map(([label, n]) => (
-            <div key={String(label)} className="rounded-xl border border-white/10 bg-white/5 p-3 text-center">
-              <p className="text-xl font-bold text-white">{n}</p>
-              <p className="text-xs text-white/50">{label}</p>
+            <div key={String(label)} className="rounded-xl border border-line bg-tint/5 p-3 text-center">
+              <p className="text-xl font-semibold text-ink">{n}</p>
+              <p className="text-xs text-ink-muted">{label}</p>
             </div>
           ))}
         </div>
@@ -386,12 +386,12 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
 
       {/* ── Results ───────────────────────────────────────────────── */}
       {results.length > 0 && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="rounded-2xl border border-line bg-tint/5 p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-bold text-white">Results</h3>
+            <h3 className="font-semibold text-ink">Results</h3>
             {!demo && (
               <button onClick={addToCrm} disabled={importing || results.filter((r) => r.qualified && !r.duplicate).length === 0}
-                className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-semibold text-black transition hover:brightness-110 disabled:opacity-50">
+                className="rounded-lg bg-neon-cyan px-4 py-2 text-sm font-semibold text-[#021614] transition hover:brightness-110 disabled:opacity-50">
                 {importing ? "Adding…" : `Add qualified to CRM (${results.filter((r) => r.qualified && !r.duplicate).length})`}
               </button>
             )}
@@ -399,7 +399,7 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-white/40">
+                <tr className="border-b border-line text-xs uppercase tracking-wider text-ink-dim">
                   <th className="pb-2 pr-4">Company</th>
                   <th className="pb-2 pr-4">Location</th>
                   <th className="pb-2 pr-4">Website</th>
@@ -412,22 +412,22 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
               </thead>
               <tbody>
                 {results.map((r) => (
-                  <tr key={r.company.providerId} className="border-b border-white/5">
+                  <tr key={r.company.providerId} className="border-b border-line/60">
                     <td className="py-2 pr-4">
-                      <p className="font-semibold text-white">{r.company.name}</p>
+                      <p className="font-semibold text-ink">{r.company.name}</p>
                       {r.duplicate && (
-                        <p className="text-xs text-[#D4AF37]">Duplicate — {r.duplicate.reason}</p>
+                        <p className="text-xs text-neon-cyan">Duplicate — {r.duplicate.reason}</p>
                       )}
                       {!r.duplicate && !r.qualified && (
-                        <p className="text-xs text-white/40">{r.qualificationReasons.join("; ")}</p>
+                        <p className="text-xs text-ink-dim">{r.qualificationReasons.join("; ")}</p>
                       )}
                     </td>
-                    <td className="py-2 pr-4 text-white/60">
+                    <td className="py-2 pr-4 text-ink-muted">
                       {[r.company.city, r.company.state, r.company.country].filter(Boolean).join(", ") || "—"}
                     </td>
-                    <td className="py-2 pr-4 text-white/60">
+                    <td className="py-2 pr-4 text-ink-muted">
                       {r.company.website ? (
-                        <a href={r.company.website} target="_blank" rel="noreferrer" className="text-[#D4AF37] hover:underline">
+                        <a href={r.company.website} target="_blank" rel="noreferrer" className="text-neon-cyan hover:underline">
                           {new URL(r.company.website).hostname}
                         </a>
                       ) : "—"}
@@ -436,13 +436,13 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
                     <td className="py-2 pr-4"><StatusDot status={r.ai.status} /></td>
                     <td className="py-2 pr-4"><ScoreBadge score={r.score?.score ?? null} /></td>
                     <td className="py-2 pr-4">
-                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${r.company.provenance === "DEMO_DATA" ? "bg-[#D4AF37]/15 text-[#D4AF37]" : "bg-emerald-400/15 text-emerald-300"}`}>
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${r.company.provenance === "DEMO_DATA" ? "bg-neon-cyan/15 text-neon-cyan" : "bg-neon-lime/15 text-neon-lime"}`}>
                         {r.company.provenance === "DEMO_DATA" ? "demo" : "verified"}
                       </span>
                     </td>
                     <td className="py-2">
                       <button onClick={() => setResearchView(r)}
-                        className="text-xs text-[#D4AF37] hover:underline">
+                        className="text-xs text-neon-cyan hover:underline">
                         View research
                       </button>
                     </td>
@@ -458,21 +458,21 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
       {researchView && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
           onClick={() => setResearchView(null)}>
-          <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-[#0D1B2A] p-6"
+          <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-line bg-[#0D1B2A] p-6"
             onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-start justify-between">
-              <h3 className="text-lg font-bold text-white">{researchView.company.name}</h3>
-              <button onClick={() => setResearchView(null)} className="text-white/40 hover:text-white">✕</button>
+              <h3 className="text-lg font-semibold text-ink">{researchView.company.name}</h3>
+              <button onClick={() => setResearchView(null)} className="text-ink-dim hover:text-ink">✕</button>
             </div>
 
-            <h4 className="text-sm font-bold uppercase tracking-wider text-[#D4AF37]">Qualification</h4>
-            <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-white/70">
+            <h4 className="text-sm font-semibold uppercase tracking-wider text-neon-cyan">Qualification</h4>
+            <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-ink-muted">
               {researchView.qualificationReasons.map((q, i) => <li key={i}>{q}</li>)}
             </ul>
             {researchView.score && (
               <div className="mt-3">
-                <h4 className="text-sm font-bold uppercase tracking-wider text-[#D4AF37]">Score factors</h4>
-                <ul className="mt-1 space-y-1 text-sm text-white/70">
+                <h4 className="text-sm font-semibold uppercase tracking-wider text-neon-cyan">Score factors</h4>
+                <ul className="mt-1 space-y-1 text-sm text-ink-muted">
                   {researchView.score.factors.map((f, i) => (
                     <li key={i}>• {f.factor}: {f.points}/{f.maximumPoints} — {f.explanation}</li>
                   ))}
@@ -480,31 +480,31 @@ export function DiscoveryPipeline({ apiBase, demo = false }: DiscoveryPipelinePr
               </div>
             )}
 
-            <h4 className="mt-4 text-sm font-bold uppercase tracking-wider text-[#D4AF37]">Website research</h4>
+            <h4 className="mt-4 text-sm font-semibold uppercase tracking-wider text-neon-cyan">Website research</h4>
             {researchView.website.status === "completed" && researchView.website.findings ? (
               <dl className="mt-1 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-                <div><dt className="text-white/40">Title</dt><dd className="text-white/80">{researchView.website.findings.title ?? "Not found"}</dd></div>
-                <div><dt className="text-white/40">HTTPS</dt><dd className="text-white/80">{researchView.website.findings.https ? "Yes" : "No"}</dd></div>
-                <div><dt className="text-white/40">Meta description</dt><dd className="text-white/80">{researchView.website.findings.metaDescription ? "Present" : "Missing"}</dd></div>
-                <div><dt className="text-white/40">H1</dt><dd className="text-white/80">{researchView.website.findings.h1.count} found</dd></div>
-                <div><dt className="text-white/40">Viewport</dt><dd className="text-white/80">{researchView.website.findings.viewportMeta ? "Present" : "Missing"}</dd></div>
-                <div><dt className="text-white/40">Load time</dt><dd className="text-white/80">{researchView.website.findings.responseTimeMs}ms</dd></div>
+                <div><dt className="text-ink-dim">Title</dt><dd className="text-ink">{researchView.website.findings.title ?? "Not found"}</dd></div>
+                <div><dt className="text-ink-dim">HTTPS</dt><dd className="text-ink">{researchView.website.findings.https ? "Yes" : "No"}</dd></div>
+                <div><dt className="text-ink-dim">Meta description</dt><dd className="text-ink">{researchView.website.findings.metaDescription ? "Present" : "Missing"}</dd></div>
+                <div><dt className="text-ink-dim">H1</dt><dd className="text-ink">{researchView.website.findings.h1.count} found</dd></div>
+                <div><dt className="text-ink-dim">Viewport</dt><dd className="text-ink">{researchView.website.findings.viewportMeta ? "Present" : "Missing"}</dd></div>
+                <div><dt className="text-ink-dim">Load time</dt><dd className="text-ink">{researchView.website.findings.responseTimeMs}ms</dd></div>
               </dl>
             ) : (
-              <p className="mt-1 text-sm text-white/50">
+              <p className="mt-1 text-sm text-ink-muted">
                 {researchView.website.status === "failed"
                   ? `Research failed: ${researchView.website.error ?? "unknown error"}`
                   : "No website research (no public website or skipped)."}
               </p>
             )}
 
-            <h4 className="mt-4 text-sm font-bold uppercase tracking-wider text-[#D4AF37]">AI research</h4>
+            <h4 className="mt-4 text-sm font-semibold uppercase tracking-wider text-neon-cyan">AI research</h4>
             {researchView.ai.status === "completed" && researchView.ai.output ? (
-              <div className="mt-1 text-sm text-white/70">
+              <div className="mt-1 text-sm text-ink-muted">
                 <p>{String((researchView.ai.output as Record<string, unknown>).summary ?? JSON.stringify(researchView.ai.output).slice(0, 500))}</p>
               </div>
             ) : (
-              <p className="mt-1 text-sm text-white/50">
+              <p className="mt-1 text-sm text-ink-muted">
                 {researchView.ai.status === "pending"
                   ? "AI research pending — AI is not configured."
                   : researchView.ai.status === "failed"

@@ -48,13 +48,13 @@ interface IntelStatus {
   aiIntelligence: "completed" | "failed" | "none";
 }
 
-const inputLabel = "text-xs font-medium uppercase tracking-wide text-white/40";
+const inputLabel = "text-xs font-medium uppercase tracking-wide text-ink-dim";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
       <div className={inputLabel}>{label}</div>
-      <div className="mt-0.5 text-sm text-white/85">{children}</div>
+      <div className="mt-0.5 text-sm text-ink">{children}</div>
     </div>
   );
 }
@@ -66,10 +66,10 @@ function StatusPill({ status }: { status: string }) {
     <span
       className={`rounded px-2 py-0.5 text-xs font-semibold ${
         done
-          ? "bg-emerald-400/15 text-emerald-300"
+          ? "bg-neon-lime/15 text-neon-lime"
           : failed
             ? "bg-red-400/15 text-red-300"
-            : "bg-white/10 text-white/50"
+            : "bg-tint/10 text-ink-muted"
       }`}
     >
       {done ? "Available" : failed ? "Failed" : "Not run"}
@@ -132,12 +132,12 @@ export function LeadDetail({
     return () => clearTimeout(t);
   }, [leadId, apiBase]);
 
-  if (loading) return <p className="text-sm text-white/50">Loading…</p>;
+  if (loading) return <p className="text-sm text-ink-muted">Loading…</p>;
   if (error || !lead) {
     return (
       <div className="space-y-4">
         <p className="text-sm text-red-300">{error ?? "Lead not found."}</p>
-        <Link href="/leads" className="text-sm text-[#D4AF37] hover:underline">
+        <Link href="/leads" className="text-sm text-neon-cyan hover:underline">
           ← Back to leads
         </Link>
       </div>
@@ -149,21 +149,21 @@ export function LeadDetail({
 
   return (
     <div className="space-y-6">
-      <Link href="/leads" className="text-sm text-white/50 hover:text-white">
+      <Link href="/leads" className="text-sm text-ink-muted hover:text-ink">
         ← Back to leads
       </Link>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className="rounded-2xl border border-line bg-tint/5 p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-bold">
+            <h2 className="text-xl font-semibold">
               {lead.company?.name ?? lead.fullName ?? "Untitled lead"}
             </h2>
             {lead.company?.name && lead.fullName && (
-              <p className="text-sm text-white/50">{lead.fullName}</p>
+              <p className="text-sm text-ink-muted">{lead.fullName}</p>
             )}
           </div>
-          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80">
+          <span className="rounded-full bg-tint/10 px-3 py-1 text-xs font-semibold text-ink">
             {lead.status}
           </span>
         </div>
@@ -186,14 +186,14 @@ export function LeadDetail({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className="rounded-2xl border border-line bg-tint/5 p-6">
         <h3 className="mb-4 text-lg font-semibold">Discovery score & opportunity</h3>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <div className={inputLabel}>Score (0–100)</div>
-            <div className="mt-0.5 text-2xl font-bold text-[#D4AF37]">{lead.leadScore}</div>
+            <div className="mt-0.5 text-2xl font-semibold text-neon-cyan">{lead.leadScore}</div>
             {lead.scoreReason && (
-              <div className="mt-1 text-xs text-white/55">{lead.scoreReason}</div>
+              <div className="mt-1 text-xs text-ink-muted">{lead.scoreReason}</div>
             )}
           </div>
           <Field label="Opportunity">
@@ -202,16 +202,16 @@ export function LeadDetail({
                 <span
                   className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                     lead.opportunityType === "HIGH"
-                      ? "bg-[#D4AF37]/15 text-[#D4AF37]"
+                      ? "bg-neon-cyan/15 text-neon-cyan"
                       : lead.opportunityType === "MEDIUM"
                         ? "bg-amber-400/15 text-amber-300"
-                        : "bg-white/10 text-white/60"
+                        : "bg-tint/10 text-ink-muted"
                   }`}
                 >
                   {lead.opportunityType}
                 </span>
                 {lead.opportunityReason && (
-                  <div className="mt-1 text-xs text-white/55">{lead.opportunityReason}</div>
+                  <div className="mt-1 text-xs text-ink-muted">{lead.opportunityReason}</div>
                 )}
               </>
             ) : (
@@ -220,7 +220,7 @@ export function LeadDetail({
           </Field>
           <Field label="Website status">
             {lead.websiteStatus === "NO_WEBSITE" ? (
-              <span className="rounded-full bg-[#D4AF37]/15 px-2.5 py-0.5 text-xs font-semibold text-[#D4AF37]">
+              <span className="rounded-full bg-neon-cyan/15 px-2.5 py-0.5 text-xs font-semibold text-neon-cyan">
                 NO WEBSITE
               </span>
             ) : (
@@ -229,7 +229,7 @@ export function LeadDetail({
           </Field>
           <Field label="Contactable">
             {lead.contactable ? (
-              <span className="rounded-full bg-emerald-400/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-300">
+              <span className="rounded-full bg-neon-lime/15 px-2.5 py-0.5 text-xs font-semibold text-neon-lime">
                 CONTACTABLE
               </span>
             ) : (
@@ -238,17 +238,17 @@ export function LeadDetail({
           </Field>
         </div>
         {lead.verificationConfidence && (
-          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+          <div className="mt-4 rounded-xl border border-line bg-black/20 p-4">
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium uppercase tracking-wide text-white/40">
+              <span className="text-xs font-medium uppercase tracking-wide text-ink-dim">
                 Verification
               </span>
               <span
                 className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                   lead.verificationConfidence === "HIGH"
-                    ? "bg-emerald-400/15 text-emerald-300"
+                    ? "bg-neon-lime/15 text-neon-lime"
                     : lead.verificationConfidence === "MEDIUM"
-                      ? "bg-sky-400/15 text-sky-300"
+                      ? "bg-neon-blue/15 text-neon-blue"
                       : lead.verificationConfidence === "LOW"
                         ? "bg-amber-400/15 text-amber-300"
                         : "bg-red-400/15 text-red-300"
@@ -257,30 +257,30 @@ export function LeadDetail({
                 {lead.verificationConfidence}
               </span>
               {lead.industryRelevance != null && (
-                <span className="text-xs text-white/50">
+                <span className="text-xs text-ink-muted">
                   industry relevance {lead.industryRelevance}/100
                 </span>
               )}
               {lead.verifiedAt && (
-                <span className="text-xs text-white/40">
+                <span className="text-xs text-ink-dim">
                   verified {new Date(lead.verifiedAt).toLocaleDateString()}
                 </span>
               )}
             </div>
             {lead.verificationReason && (
-              <p className="text-xs text-white/60">{lead.verificationReason}</p>
+              <p className="text-xs text-ink-muted">{lead.verificationReason}</p>
             )}
             {lead.industryReasoning && (
-              <p className="mt-1 text-xs text-white/50">
-                <span className="text-white/40">Industry: </span>
+              <p className="mt-1 text-xs text-ink-muted">
+                <span className="text-ink-dim">Industry: </span>
                 {lead.industryReasoning}
               </p>
             )}
             {lead.verificationSources && lead.verificationSources.length > 0 && (
               <ul className="mt-2 space-y-1">
                 {lead.verificationSources.map((src, i) => (
-                  <li key={i} className="text-xs text-white/50">
-                    <span className="text-[#D4AF37]">{src.provider}</span>
+                  <li key={i} className="text-xs text-ink-muted">
+                    <span className="text-neon-cyan">{src.provider}</span>
                     {" — "}
                     {src.label ?? src.sourceType}
                     {src.url && (
@@ -290,7 +290,7 @@ export function LeadDetail({
                           href={src.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="underline hover:text-white"
+                          className="underline hover:text-ink"
                         >
                           source
                         </a>
@@ -313,7 +313,7 @@ export function LeadDetail({
               href={lead.googleMapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-[#D4AF37] hover:underline"
+              className="text-xs text-neon-cyan hover:underline"
             >
               Open Google Maps listing →
             </a>
@@ -321,19 +321,19 @@ export function LeadDetail({
         )}
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className="rounded-2xl border border-line bg-tint/5 p-6">
         <h3 className="mb-4 text-lg font-semibold">Source & provenance</h3>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Source">{lead.sourceType}</Field>
           <Field label="Source detail">{lead.sourceDetail ?? "—"}</Field>
           <Field label="Data label">
             <span
-              className={`rounded px-2 py-0.5 text-[11px] font-bold ${
+              className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
                 lead.dataLabel === "DEMO_DATA"
-                  ? "bg-[#D4AF37]/15 text-[#D4AF37]"
+                  ? "bg-neon-cyan/15 text-neon-cyan"
                   : lead.dataLabel === "AI_INFERENCE"
-                    ? "bg-purple-400/15 text-purple-300"
-                    : "bg-emerald-400/15 text-emerald-300"
+                    ? "bg-neon-violet/15 text-neon-violet"
+                    : "bg-neon-lime/15 text-neon-lime"
               }`}
             >
               {lead.dataLabel === "VERIFIED" ? "Verified data" : lead.dataLabel.replace(/_/g, " ")}
@@ -362,9 +362,9 @@ export function LeadDetail({
             <div className={inputLabel}>Field provenance</div>
             <ul className="mt-1 space-y-1">
               {lead.provenance.slice(0, 10).map((p, i) => (
-                <li key={i} className="text-xs text-white/55">
-                  <span className="font-mono text-white/75">{p.field}</span> ← {p.source}{" "}
-                  <span className="text-white/35">({p.label})</span>
+                <li key={i} className="text-xs text-ink-muted">
+                  <span className="font-mono text-ink-muted">{p.field}</span> ← {p.source}{" "}
+                  <span className="text-ink-dim">({p.label})</span>
                 </li>
               ))}
             </ul>
@@ -372,55 +372,55 @@ export function LeadDetail({
         )}
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className="rounded-2xl border border-line bg-tint/5 p-6">
         <h3 className="mb-4 text-lg font-semibold">Intelligence</h3>
         <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+          <div className="rounded-xl border border-line bg-black/20 p-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-white/80">Website report</span>
+              <span className="text-sm font-medium text-ink">Website report</span>
               <StatusPill status={intel.websiteInspection} />
             </div>
             <Link
               href={intelUrl}
-              className="mt-3 inline-block text-xs text-[#D4AF37] hover:underline"
+              className="mt-3 inline-block text-xs text-neon-cyan hover:underline"
             >
               View Website Report →
             </Link>
           </div>
-          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+          <div className="rounded-xl border border-line bg-black/20 p-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-white/80">AI intelligence</span>
+              <span className="text-sm font-medium text-ink">AI intelligence</span>
               <StatusPill status={intel.aiIntelligence} />
             </div>
             <Link
               href={intelUrl}
-              className="mt-3 inline-block text-xs text-[#D4AF37] hover:underline"
+              className="mt-3 inline-block text-xs text-neon-cyan hover:underline"
             >
               View Intelligence →
             </Link>
           </div>
-          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+          <div className="rounded-xl border border-line bg-black/20 p-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-white/80">Opportunity score</span>
+              <span className="text-sm font-medium text-ink">Opportunity score</span>
               {latestScore ? (
-                <span className="text-lg font-bold text-[#D4AF37]">{latestScore.score}</span>
+                <span className="text-lg font-semibold text-neon-cyan">{latestScore.score}</span>
               ) : (
-                <span className="text-xs text-white/40">Not scored</span>
+                <span className="text-xs text-ink-dim">Not scored</span>
               )}
             </div>
             {latestScore && (
-              <div className="mt-1 text-xs text-white/50">{latestScore.scoreBand}</div>
+              <div className="mt-1 text-xs text-ink-muted">{latestScore.scoreBand}</div>
             )}
             <Link
               href={intelUrl}
-              className="mt-3 inline-block text-xs text-[#D4AF37] hover:underline"
+              className="mt-3 inline-block text-xs text-neon-cyan hover:underline"
             >
               View Score →
             </Link>
           </div>
         </div>
         {!demo && intel.websiteInspection === "none" && (
-          <p className="mt-3 text-xs text-white/40">
+          <p className="mt-3 text-xs text-ink-dim">
             Tip: run Website Inspection from the Intelligence page to unlock the
             richest signals for this lead.
           </p>

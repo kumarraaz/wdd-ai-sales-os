@@ -56,36 +56,36 @@ interface IntelligenceProps {
 }
 
 const inputCls =
-  "w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]";
+  "w-full rounded-lg border border-line bg-black/30 px-3 py-2 text-sm text-ink outline-none focus:border-neon-cyan";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1 py-2 sm:flex-row sm:items-start">
-      <dt className="w-44 shrink-0 text-xs font-medium uppercase tracking-wide text-white/40">
+      <dt className="w-44 shrink-0 text-xs font-medium uppercase tracking-wide text-ink-dim">
         {label}
       </dt>
-      <dd className="min-w-0 flex-1 text-sm text-white/85">{children}</dd>
+      <dd className="min-w-0 flex-1 text-sm text-ink">{children}</dd>
     </div>
   );
 }
 
 function YesNo({ value, yes = "Yes", no = "No" }: { value: boolean; yes?: string; no?: string }) {
   return (
-    <span className={value ? "text-emerald-300" : "text-white/40"}>
+    <span className={value ? "text-neon-lime" : "text-ink-dim"}>
       {value ? yes : no}
     </span>
   );
 }
 
 function Missing({ text = "Not found in inspected page" }: { text?: string }) {
-  return <span className="text-white/35">— <span className="text-xs">{text}</span></span>;
+  return <span className="text-ink-dim">— <span className="text-xs">{text}</span></span>;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-      <h3 className="mb-1 text-sm font-semibold text-[#D4AF37]">{title}</h3>
-      <dl className="divide-y divide-white/5">{children}</dl>
+    <div className="rounded-xl border border-line bg-black/20 p-4">
+      <h3 className="mb-1 text-sm font-semibold text-neon-cyan">{title}</h3>
+      <dl className="divide-y divide-line/60">{children}</dl>
     </div>
   );
 }
@@ -95,7 +95,7 @@ function provenanceBadge(provenance: string) {
   return (
     <span
       className={`inline-block rounded px-2 py-0.5 text-[11px] font-semibold ${
-        isDemo ? "bg-[#D4AF37]/15 text-[#D4AF37]" : "bg-emerald-400/15 text-emerald-300"
+        isDemo ? "bg-neon-cyan/15 text-neon-cyan" : "bg-neon-lime/15 text-neon-lime"
       }`}
       title={`Data provenance: ${provenance}`}
     >
@@ -110,15 +110,15 @@ function FindingsView({ findings }: { findings: Findings }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         {provenanceBadge(f.provenance)}
-        <span className="text-xs text-white/40">
+        <span className="text-xs text-ink-dim">
           Inspected {new Date(f.inspectedAt).toLocaleString()}
         </span>
-        <span className="break-all text-xs text-white/40">{f.finalUrl}</span>
+        <span className="break-all text-xs text-ink-dim">{f.finalUrl}</span>
       </div>
 
       <Section title="Website status">
         <Row label="HTTP status">
-          <span className={f.httpStatus >= 200 && f.httpStatus < 300 ? "text-emerald-300" : "text-amber-300"}>
+          <span className={f.httpStatus >= 200 && f.httpStatus < 300 ? "text-neon-lime" : "text-amber-300"}>
             {f.httpStatus}
           </span>
         </Row>
@@ -134,7 +134,7 @@ function FindingsView({ findings }: { findings: Findings }) {
             <ol className="list-decimal space-y-1 pl-4">
               {f.redirectChain.map((h, i) => (
                 <li key={i} className="break-all">
-                  <span className="text-white/50">{h.status} → </span>
+                  <span className="text-ink-muted">{h.status} → </span>
                   {h.url}
                 </li>
               ))}
@@ -179,16 +179,16 @@ function FindingsView({ findings }: { findings: Findings }) {
       <Section title="Discoverability">
         <Row label="robots.txt">
           <YesNo value={f.robotsTxt.available} yes="Found" no="Not found" />{" "}
-          <span className="text-xs text-white/35">{f.robotsTxt.url}</span>
+          <span className="text-xs text-ink-dim">{f.robotsTxt.url}</span>
         </Row>
         <Row label="sitemap.xml">
           <YesNo value={f.sitemap.available} yes="Found" no="Not found" />{" "}
-          <span className="text-xs text-white/35">{f.sitemap.url}</span>
+          <span className="text-xs text-ink-dim">{f.sitemap.url}</span>
         </Row>
         <Row label="Favicon">
           <YesNo value={f.favicon.available} yes="Found" no="Not found" />
           {f.favicon.href && (
-            <span className="ml-2 text-xs text-white/35">{f.favicon.href}</span>
+            <span className="ml-2 text-xs text-ink-dim">{f.favicon.href}</span>
           )}
         </Row>
         <Row label="Structured data">
@@ -230,7 +230,7 @@ function FindingsView({ findings }: { findings: Findings }) {
             <span>
               Viewport present
               {f.mobile.responsiveSignal && (
-                <span className="text-emerald-300"> · width=device-width detected</span>
+                <span className="text-neon-lime"> · width=device-width detected</span>
               )}
             </span>
           ) : (
@@ -241,18 +241,18 @@ function FindingsView({ findings }: { findings: Findings }) {
 
       <Section title="Technology signals">
         {f.techSignals.length === 0 ? (
-          <p className="py-2 text-sm text-white/35">
+          <p className="py-2 text-sm text-ink-dim">
             No reliable CMS/framework patterns detected in the inspected HTML.
           </p>
         ) : (
           <ul className="space-y-2 py-1">
             {f.techSignals.map((t, i) => (
               <li key={i} className="text-sm">
-                <span className="font-medium text-white/85">{t.signal}</span>{" "}
-                <span className="rounded bg-purple-400/15 px-1.5 py-0.5 text-[10px] font-semibold text-purple-300">
+                <span className="font-medium text-ink">{t.signal}</span>{" "}
+                <span className="rounded bg-neon-violet/15 px-1.5 py-0.5 text-[10px] font-semibold text-neon-violet">
                   AI inference
                 </span>
-                <div className="text-xs text-white/40">{t.evidence}</div>
+                <div className="text-xs text-ink-dim">{t.evidence}</div>
               </li>
             ))}
           </ul>
@@ -279,8 +279,8 @@ function FindingsView({ findings }: { findings: Findings }) {
             <ul className="space-y-1">
               {f.socialLinks.map((s, i) => (
                 <li key={i}>
-                  <span className="text-white/50">{s.platform}: </span>
-                  <span className="break-all text-sky-300">{s.url}</span>
+                  <span className="text-ink-muted">{s.platform}: </span>
+                  <span className="break-all text-neon-blue">{s.url}</span>
                 </li>
               ))}
             </ul>
@@ -337,7 +337,7 @@ function EvidenceChips({ refs }: { refs: EvidenceRefView[] }) {
       {refs.map((r, i) => (
         <span
           key={i}
-          className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-white/45"
+          className="rounded bg-tint/5 px-1.5 py-0.5 font-mono text-[10px] text-ink-dim"
           title={`Evidence: ${r.sourceType} · ${r.field}`}
         >
           {r.sourceType}.{r.field}
@@ -351,8 +351,8 @@ function typeBadge(type: string) {
   const verified = type === "VERIFIED_DATA";
   return (
     <span
-      className={`mr-2 inline-block rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-        verified ? "bg-emerald-400/15 text-emerald-300" : "bg-purple-400/15 text-purple-300"
+      className={`mr-2 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+        verified ? "bg-neon-lime/15 text-neon-lime" : "bg-neon-violet/15 text-neon-violet"
       }`}
     >
       {verified ? "Verified data" : "AI inference"}
@@ -362,12 +362,12 @@ function typeBadge(type: string) {
 
 function InferenceList({ items }: { items: InferenceItem[] }) {
   if (items.length === 0) {
-    return <p className="py-2 text-sm text-white/35">None identified from the available evidence.</p>;
+    return <p className="py-2 text-sm text-ink-dim">None identified from the available evidence.</p>;
   }
   return (
     <ul className="space-y-3 py-1">
       {items.map((item, i) => (
-        <li key={i} className="text-sm text-white/85">
+        <li key={i} className="text-sm text-ink">
           <div>
             {typeBadge(item.type)}
             {item.statement}
@@ -380,9 +380,9 @@ function InferenceList({ items }: { items: InferenceItem[] }) {
 }
 
 function confidenceColor(c: string) {
-  if (c === "HIGH") return "bg-emerald-400/15 text-emerald-300";
+  if (c === "HIGH") return "bg-neon-lime/15 text-neon-lime";
   if (c === "MEDIUM") return "bg-amber-400/15 text-amber-300";
-  return "bg-white/10 text-white/60";
+  return "bg-tint/10 text-ink-muted";
 }
 
 interface ScoreFactorView {
@@ -417,18 +417,18 @@ interface LeadScoreView {
 }
 
 function bandColor(band: string) {
-  if (band === "Very Strong Fit") return "bg-emerald-400/15 text-emerald-300";
-  if (band === "Strong Fit") return "bg-teal-400/15 text-teal-300";
+  if (band === "Very Strong Fit") return "bg-neon-lime/15 text-neon-lime";
+  if (band === "Strong Fit") return "bg-neon-cyan/15 text-neon-cyan";
   if (band === "Moderate Fit") return "bg-amber-400/15 text-amber-300";
-  return "bg-white/10 text-white/60";
+  return "bg-tint/10 text-ink-muted";
 }
 
 function provenanceBadgeFor(p: string) {
   const map: Record<string, string> = {
-    VERIFIED_DATA: "bg-emerald-400/15 text-emerald-300",
-    AI_INFERENCE: "bg-purple-400/15 text-purple-300",
-    USER_PROVIDED: "bg-sky-400/15 text-sky-300",
-    DEMO_DATA: "bg-[#D4AF37]/15 text-[#D4AF37]",
+    VERIFIED_DATA: "bg-neon-lime/15 text-neon-lime",
+    AI_INFERENCE: "bg-neon-violet/15 text-neon-violet",
+    USER_PROVIDED: "bg-neon-blue/15 text-neon-blue",
+    DEMO_DATA: "bg-neon-cyan/15 text-neon-cyan",
   };
   const label: Record<string, string> = {
     VERIFIED_DATA: "Verified data",
@@ -438,7 +438,7 @@ function provenanceBadgeFor(p: string) {
   };
   return (
     <span
-      className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${map[p] ?? "bg-white/10 text-white/60"}`}
+      className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${map[p] ?? "bg-tint/10 text-ink-muted"}`}
     >
       {label[p] ?? p}
     </span>
@@ -451,31 +451,31 @@ function LeadScoreSection({ record }: { record: LeadScoreView }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-baseline gap-2">
-          <span className="text-5xl font-bold text-white">{record.score}</span>
-          <span className="text-sm text-white/40">/ 100</span>
+          <span className="text-5xl font-semibold text-ink">{record.score}</span>
+          <span className="text-sm text-ink-dim">/ 100</span>
         </div>
-        <span className={`rounded-full px-3 py-1 text-sm font-bold ${bandColor(record.scoreBand)}`}>
+        <span className={`rounded-full px-3 py-1 text-sm font-semibold ${bandColor(record.scoreBand)}`}>
           {record.scoreBand}
         </span>
         {isDemo ? (
-          <span className="rounded bg-[#D4AF37]/15 px-2 py-0.5 text-[11px] font-bold text-[#D4AF37]">
+          <span className="rounded bg-neon-cyan/15 px-2 py-0.5 text-[11px] font-semibold text-neon-cyan">
             Demo data
           </span>
         ) : (
-          <span className="rounded bg-white/10 px-2 py-0.5 text-[11px] text-white/50">
+          <span className="rounded bg-tint/10 px-2 py-0.5 text-[11px] text-ink-muted">
             WDD Sales Opportunity Score · v{record.scoringVersion}
           </span>
         )}
         {record.aiEnriched && (
-          <span className="rounded bg-purple-400/15 px-2 py-0.5 text-[11px] font-bold text-purple-300">
+          <span className="rounded bg-neon-violet/15 px-2 py-0.5 text-[11px] font-semibold text-neon-violet">
             AI enriched
           </span>
         )}
-        <span className="text-xs text-white/40">
+        <span className="text-xs text-ink-dim">
           {new Date(record.createdAt).toLocaleString()}
         </span>
       </div>
-      <p className="text-xs text-white/40">
+      <p className="text-xs text-ink-dim">
         How strong is the available evidence of a relevant WDD sales opportunity —
         not a judgment of the business itself.
       </p>
@@ -490,22 +490,22 @@ function LeadScoreSection({ record }: { record: LeadScoreView }) {
 
       <div className="grid gap-3 md:grid-cols-2">
         {record.factors.map((f, i) => (
-          <div key={i} className="rounded-xl border border-white/10 bg-black/20 p-4">
+          <div key={i} className="rounded-xl border border-line bg-black/20 p-4">
             <div className="flex items-start justify-between gap-2">
-              <h4 className="text-sm font-semibold text-white/90">{f.factor}</h4>
-              <span className="shrink-0 text-sm font-bold text-[#D4AF37]">
+              <h4 className="text-sm font-semibold text-ink">{f.factor}</h4>
+              <span className="shrink-0 text-sm font-semibold text-neon-cyan">
                 {f.points}
-                <span className="font-normal text-white/40">/{f.maximumPoints}</span>
+                <span className="font-normal text-ink-dim">/{f.maximumPoints}</span>
               </span>
             </div>
             <div className="mt-1.5">{provenanceBadgeFor(f.provenance)}</div>
-            <p className="mt-2 text-xs leading-relaxed text-white/60">{f.explanation}</p>
+            <p className="mt-2 text-xs leading-relaxed text-ink-muted">{f.explanation}</p>
             {f.evidence.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {f.evidence.map((e, j) => (
                   <span
                     key={j}
-                    className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-white/45"
+                    className="rounded bg-tint/5 px-1.5 py-0.5 font-mono text-[10px] text-ink-dim"
                     title={`Evidence: ${e.reference}`}
                   >
                     {e.source}.{e.field}
@@ -518,25 +518,25 @@ function LeadScoreSection({ record }: { record: LeadScoreView }) {
       </div>
 
       {record.aiAssessment && (
-        <div className="rounded-xl border border-purple-400/20 bg-purple-400/5 p-4">
-          <h4 className="mb-2 text-sm font-semibold text-purple-200">
+        <div className="rounded-xl border border-neon-violet/20 bg-neon-violet/5 p-4">
+          <h4 className="mb-2 text-sm font-semibold text-neon-violet">
             AI interpretation {provenanceBadgeFor("AI_INFERENCE")}
           </h4>
-          <p className="text-sm text-white/80">{record.aiAssessment.interpretation}</p>
+          <p className="text-sm text-ink">{record.aiAssessment.interpretation}</p>
           {record.aiAssessment.keyStrengths.length > 0 && (
-            <div className="mt-2 text-xs text-white/60">
-              <span className="font-semibold text-white/80">Strengths: </span>
+            <div className="mt-2 text-xs text-ink-muted">
+              <span className="font-semibold text-ink">Strengths: </span>
               {record.aiAssessment.keyStrengths.join(" · ")}
             </div>
           )}
           {record.aiAssessment.keyGaps.length > 0 && (
-            <div className="mt-1 text-xs text-white/60">
-              <span className="font-semibold text-white/80">Gaps: </span>
+            <div className="mt-1 text-xs text-ink-muted">
+              <span className="font-semibold text-ink">Gaps: </span>
               {record.aiAssessment.keyGaps.join(" · ")}
             </div>
           )}
-          <div className="mt-2 text-xs text-white/70">
-            <span className="font-semibold text-white/90">Suggested next step: </span>
+          <div className="mt-2 text-xs text-ink-muted">
+            <span className="font-semibold text-ink">Suggested next step: </span>
             {record.aiAssessment.suggestedNextStep}
           </div>
         </div>
@@ -552,23 +552,23 @@ function AIIntelligenceView({ record }: { record: AIIntelligenceRecord }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         {isDemo ? (
-          <span className="rounded bg-[#D4AF37]/15 px-2 py-0.5 text-[11px] font-bold text-[#D4AF37]">
+          <span className="rounded bg-neon-cyan/15 px-2 py-0.5 text-[11px] font-semibold text-neon-cyan">
             Demo data
           </span>
         ) : (
-          <span className="rounded bg-purple-400/15 px-2 py-0.5 text-[11px] font-bold text-purple-300">
+          <span className="rounded bg-neon-violet/15 px-2 py-0.5 text-[11px] font-semibold text-neon-violet">
             AI inference over verified data
           </span>
         )}
-        <span className="text-xs text-white/40">
+        <span className="text-xs text-ink-dim">
           Generated {new Date(record.generatedAt).toLocaleString()}
         </span>
-        <span className="text-xs text-white/40">
+        <span className="text-xs text-ink-dim">
           {record.provider}
           {record.model ? ` · ${record.model}` : ""}
         </span>
         {record.confidence && (
-          <span className={`rounded px-2 py-0.5 text-[11px] font-bold ${confidenceColor(record.confidence)}`}>
+          <span className={`rounded px-2 py-0.5 text-[11px] font-semibold ${confidenceColor(record.confidence)}`}>
             {record.confidence} confidence
           </span>
         )}
@@ -583,7 +583,7 @@ function AIIntelligenceView({ record }: { record: AIIntelligenceRecord }) {
       )}
 
       <Section title="Company summary">
-        <p className="py-2 text-sm text-white/85">{intel.summary.text}</p>
+        <p className="py-2 text-sm text-ink">{intel.summary.text}</p>
         <EvidenceChips refs={intel.summary.evidence} />
         <Row label="Business type">
           <span>{intel.businessType}</span>
@@ -603,7 +603,7 @@ function AIIntelligenceView({ record }: { record: AIIntelligenceRecord }) {
       </Section>
 
       <Section title="Suggested sales angle">
-        <p className="py-2 text-sm text-white/85">
+        <p className="py-2 text-sm text-ink">
           {typeBadge("AI_INFERENCE")}
           {intel.salesAngle.text}
         </p>
@@ -612,9 +612,9 @@ function AIIntelligenceView({ record }: { record: AIIntelligenceRecord }) {
 
       <Section title="Discovery questions">
         {intel.discoveryQuestions.length === 0 ? (
-          <p className="py-2 text-sm text-white/35">No questions generated.</p>
+          <p className="py-2 text-sm text-ink-dim">No questions generated.</p>
         ) : (
-          <ol className="list-decimal space-y-1 py-2 pl-5 text-sm text-white/85">
+          <ol className="list-decimal space-y-1 py-2 pl-5 text-sm text-ink">
             {intel.discoveryQuestions.map((q, i) => (
               <li key={i}>{q}</li>
             ))}
@@ -624,7 +624,7 @@ function AIIntelligenceView({ record }: { record: AIIntelligenceRecord }) {
 
       <Section title="Confidence & evidence">
         <Row label="Confidence">
-          <span className={`rounded px-2 py-0.5 text-xs font-bold ${confidenceColor(intel.confidence)}`}>
+          <span className={`rounded px-2 py-0.5 text-xs font-semibold ${confidenceColor(intel.confidence)}`}>
             {intel.confidence}
           </span>
         </Row>
@@ -859,19 +859,19 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
         </div>
       )}
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className="rounded-2xl border border-line bg-tint/5 p-6">
         <h2 className="text-lg font-semibold">Inspect a website</h2>
-        <p className="mt-1 text-sm text-white/50">
+        <p className="mt-1 text-sm text-ink-muted">
           {demo
             ? "Demo mode — returns a fictional sample report. No real requests are made."
             : "Technical inspection of a publicly accessible page. Private/internal addresses are never fetched."}
         </p>
 
         {leadId && (
-          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-black/20 px-4 py-3">
-            <span className="text-sm text-white/70">
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-black/20 px-4 py-3">
+            <span className="text-sm text-ink-muted">
               Inspecting website for lead{leadName ? ` “${leadName}”` : ""}{" "}
-              {leadWebsite && <span className="text-white/40">({leadWebsite})</span>}
+              {leadWebsite && <span className="text-ink-dim">({leadWebsite})</span>}
             </span>
             <button
               onClick={() => {
@@ -879,7 +879,7 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
                 setLeadWebsite(null);
                 setLeadName(null);
               }}
-              className="text-xs text-white/50 underline hover:text-white"
+              className="text-xs text-ink-muted underline hover:text-ink"
             >
               Inspect a different URL instead
             </button>
@@ -898,7 +898,7 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
             <button
               type="submit"
               disabled={inspecting}
-              className="shrink-0 rounded-lg bg-[#D4AF37] px-6 py-2.5 text-sm font-semibold text-black transition hover:brightness-110 disabled:opacity-50"
+              className="shrink-0 rounded-lg bg-neon-cyan px-6 py-2.5 text-sm font-semibold text-[#021614] transition hover:brightness-110 disabled:opacity-50"
             >
               {inspecting ? "Inspecting…" : "Inspect Website"}
             </button>
@@ -908,7 +908,7 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
           <button
             onClick={() => runInspection()}
             disabled={inspecting}
-            className="mt-4 rounded-lg bg-[#D4AF37] px-6 py-2.5 text-sm font-semibold text-black transition hover:brightness-110 disabled:opacity-50"
+            className="mt-4 rounded-lg bg-neon-cyan px-6 py-2.5 text-sm font-semibold text-[#021614] transition hover:brightness-110 disabled:opacity-50"
           >
             {inspecting ? "Inspecting…" : "Inspect Website"}
           </button>
@@ -916,15 +916,15 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
       </div>
 
       {inspection && inspection.status === "FAILED" && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="rounded-2xl border border-line bg-tint/5 p-6">
           <h2 className="text-lg font-semibold">Inspection failed</h2>
-          <p className="mt-2 text-sm text-white/60">
-            Requested URL: <span className="break-all text-white/85">{inspection.requestedUrl}</span>
+          <p className="mt-2 text-sm text-ink-muted">
+            Requested URL: <span className="break-all text-ink">{inspection.requestedUrl}</span>
           </p>
           <p className="mt-1 text-sm text-amber-200">
             Reason: {inspection.error ?? "unknown"}
           </p>
-          <p className="mt-2 text-xs text-white/40">
+          <p className="mt-2 text-xs text-ink-dim">
             Provenance: {provenanceBadge(inspection.dataLabel)} ·{" "}
             {new Date(inspection.inspectedAt).toLocaleString()}
           </p>
@@ -932,32 +932,32 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
       )}
 
       {findings && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="rounded-2xl border border-line bg-tint/5 p-6">
           <h2 className="mb-4 text-lg font-semibold">Inspection report</h2>
           <FindingsView findings={findings} />
         </div>
       )}
 
       {leadIdParam && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="rounded-2xl border border-line bg-tint/5 p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">AI Lead Score</h2>
             <button
               onClick={calculateLeadScore}
               disabled={scoreCalculating}
-              className="rounded-lg bg-[#D4AF37] px-5 py-2 text-sm font-semibold text-black transition hover:brightness-110 disabled:opacity-50"
+              className="rounded-lg bg-neon-cyan px-5 py-2 text-sm font-semibold text-[#021614] transition hover:brightness-110 disabled:opacity-50"
             >
               {scoreCalculating ? "Calculating…" : "Calculate Score"}
             </button>
           </div>
           {demo && (
-            <p className="mb-3 text-xs text-white/40">
+            <p className="mb-3 text-xs text-ink-dim">
               Demo mode — deterministic fictional sample. No AI service is called.
             </p>
           )}
-          {scoreLoading && <p className="text-sm text-white/40">Loading…</p>}
+          {scoreLoading && <p className="text-sm text-ink-dim">Loading…</p>}
           {!scoreLoading && !leadScore && (
-            <p className="text-sm text-white/50">
+            <p className="text-sm text-ink-muted">
               No score calculated yet for this lead. Scores are evidence-based
               and explainable — run Website Inspection first for the richest signal.
             </p>
@@ -967,25 +967,25 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
       )}
 
       {leadIdParam && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="rounded-2xl border border-line bg-tint/5 p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">AI lead intelligence</h2>
             <button
               onClick={generateAI}
               disabled={aiGenerating}
-              className="rounded-lg bg-[#D4AF37] px-5 py-2 text-sm font-semibold text-black transition hover:brightness-110 disabled:opacity-50"
+              className="rounded-lg bg-neon-cyan px-5 py-2 text-sm font-semibold text-[#021614] transition hover:brightness-110 disabled:opacity-50"
             >
               {aiGenerating ? "Generating…" : "Generate AI Intelligence"}
             </button>
           </div>
           {demo && (
-            <p className="mb-3 text-xs text-white/40">
+            <p className="mb-3 text-xs text-ink-dim">
               Demo mode — fictional sample report. No AI service is called.
             </p>
           )}
-          {aiLoading && <p className="text-sm text-white/40">Loading…</p>}
+          {aiLoading && <p className="text-sm text-ink-dim">Loading…</p>}
           {!aiLoading && !aiIntel && (
-            <p className="text-sm text-white/50">
+            <p className="text-sm text-ink-muted">
               No AI intelligence generated yet for this lead.{" "}
               {demo
                 ? "Press the button to see a fictional sample."
@@ -1004,21 +1004,21 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
       )}
 
       {!demo && history.length > 0 && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="rounded-2xl border border-line bg-tint/5 p-6">
           <h2 className="mb-3 text-lg font-semibold">Recent inspections</h2>
-          <ul className="divide-y divide-white/5">
+          <ul className="divide-y divide-line/60">
             {history.map((h) => (
               <li key={h.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                <span className="min-w-0 flex-1 break-all text-white/75">
+                <span className="min-w-0 flex-1 break-all text-ink-muted">
                   {h.requestedUrl}
                   {h.lead?.fullName && (
-                    <span className="ml-2 text-xs text-white/40">· {h.lead.fullName}</span>
+                    <span className="ml-2 text-xs text-ink-dim">· {h.lead.fullName}</span>
                   )}
                 </span>
                 <span
                   className={`rounded px-2 py-0.5 text-xs font-semibold ${
                     h.status === "COMPLETED"
-                      ? "bg-emerald-400/15 text-emerald-300"
+                      ? "bg-neon-lime/15 text-neon-lime"
                       : "bg-red-400/15 text-red-300"
                   }`}
                 >
@@ -1026,7 +1026,7 @@ export function WebsiteIntelligence({ apiBase, demo = false }: IntelligenceProps
                 </span>
                 <button
                   onClick={() => setInspection(h)}
-                  className="text-xs text-[#D4AF37] hover:underline"
+                  className="text-xs text-neon-cyan hover:underline"
                 >
                   View
                 </button>

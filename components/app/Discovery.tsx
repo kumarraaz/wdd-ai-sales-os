@@ -82,15 +82,15 @@ interface DiscoveryProps {
 }
 
 const inputCls =
-  "w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]";
-const labelCls = "mb-1 block text-xs font-medium text-white/60";
+  "w-full rounded-lg border border-line bg-black/30 px-3 py-2 text-sm text-ink outline-none focus:border-neon-cyan";
+const labelCls = "mb-1 block text-xs font-medium text-ink-muted";
 
 function provenanceBadge(p: DiscoveredCompany["provenance"]) {
   const styles: Record<DiscoveredCompany["provenance"], string> = {
-    VERIFIED_DATA: "bg-emerald-400/15 text-emerald-300",
-    AI_INFERENCE: "bg-purple-400/15 text-purple-300",
-    USER_PROVIDED: "bg-sky-400/15 text-sky-300",
-    DEMO_DATA: "bg-[#D4AF37]/15 text-[#D4AF37]",
+    VERIFIED_DATA: "bg-neon-lime/15 text-neon-lime",
+    AI_INFERENCE: "bg-neon-violet/15 text-neon-violet",
+    USER_PROVIDED: "bg-neon-blue/15 text-neon-blue",
+    DEMO_DATA: "bg-neon-cyan/15 text-neon-cyan",
   };
   const labels: Record<DiscoveredCompany["provenance"], string> = {
     VERIFIED_DATA: "Verified data",
@@ -355,11 +355,11 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
   return (
     <div className="space-y-6">
       {notice && (
-        <div className="flex items-start justify-between gap-4 rounded-lg border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-4 py-3 text-sm text-[#D4AF37]">
+        <div className="flex items-start justify-between gap-4 rounded-lg border border-neon-cyan/40 bg-neon-cyan/10 px-4 py-3 text-sm text-neon-cyan">
           <span>{notice}</span>
           <button
             onClick={() => setNotice(null)}
-            className="text-[#D4AF37]/70 hover:text-[#D4AF37]"
+            className="text-neon-cyan/70 hover:text-neon-cyan"
             aria-label="Dismiss"
           >
             ✕
@@ -380,24 +380,24 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
       )}
 
       {/* Search panel */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className="rounded-2xl border border-line bg-tint/5 p-6">
         <h2 className="text-lg font-semibold">Find companies</h2>
-        <p className="mt-1 text-sm text-white/50">
+        <p className="mt-1 text-sm text-ink-muted">
           {demo
             ? "Demo mode — searching fictional sample companies. No external APIs are called."
             : "Search Google Places for real businesses. Only publicly listed data is returned."}
         </p>
 
         {providersLoading ? (
-          <p className="mt-4 text-sm text-white/40">Loading providers…</p>
+          <p className="mt-4 text-sm text-ink-dim">Loading providers…</p>
         ) : !googleReady && googleProvider ? (
           <div className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/5 p-4">
             <p className="font-semibold text-amber-300">Google Places not connected</p>
-            <p className="mt-1 text-sm text-white/60">
+            <p className="mt-1 text-sm text-ink-muted">
               Discovery search needs a Google Places API key. It stays on your
               server — never in the browser.
             </p>
-            <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-white/70">
+            <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-ink-muted">
               {googleProvider.setupInstructions.map((step, i) => (
                 <li key={i}>{step}</li>
               ))}
@@ -498,7 +498,7 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
               <button
                 type="submit"
                 disabled={searching}
-                className="w-full rounded-lg bg-[#D4AF37] py-2.5 text-sm font-semibold text-black transition hover:brightness-110 disabled:opacity-50"
+                className="w-full rounded-lg bg-neon-cyan py-2.5 text-sm font-semibold text-[#021614] transition hover:brightness-110 disabled:opacity-50"
               >
                 {searching ? "Searching…" : "Search"}
               </button>
@@ -507,7 +507,7 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
         )}
 
         {quota && !demo && (
-          <p className="mt-3 text-xs text-white/40">
+          <p className="mt-3 text-xs text-ink-dim">
             Quota today: {quota.searches.used}/{quota.searches.limit} searches ·{" "}
             {quota.records.used}/{quota.records.limit} records
           </p>
@@ -516,17 +516,17 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
 
       {/* Results */}
       {results.length > 0 && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="rounded-2xl border border-line bg-tint/5 p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">
                 Results{" "}
-                <span className="text-sm font-normal text-white/40">
+                <span className="text-sm font-normal text-ink-dim">
                   ({results.length}
                   {searchedAt ? ` · ${fmtDate(searchedAt)}` : ""})
                 </span>
               </h2>
-              <p className="mt-1 text-xs text-white/40">
+              <p className="mt-1 text-xs text-ink-dim">
                 Fields shown as — were not provided by the source and are never
                 invented.
               </p>
@@ -534,7 +534,7 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
             <button
               onClick={openPreview}
               disabled={previewLoading || importing || selected.size === 0}
-              className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-semibold text-black transition hover:brightness-110 disabled:opacity-50"
+              className="rounded-lg bg-neon-cyan px-4 py-2 text-sm font-semibold text-[#021614] transition hover:brightness-110 disabled:opacity-50"
             >
               {previewLoading
                 ? "Checking…"
@@ -545,7 +545,7 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[900px] text-left text-sm">
               <thead>
-                <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-white/40">
+                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-dim">
                   <th className="py-2 pr-3">
                     <input
                       type="checkbox"
@@ -568,7 +568,7 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
                 {results.map((c) => (
                   <tr
                     key={c.providerId}
-                    className="border-b border-white/5 hover:bg-white/[0.02]"
+                    className="border-b border-line/60 hover:bg-tint/[0.03]"
                   >
                     <td className="py-2 pr-3">
                       <input
@@ -579,26 +579,26 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
                       />
                     </td>
                     <td className="py-2 pr-3 font-medium">{c.name}</td>
-                    <td className="py-2 pr-3 text-white/70">{c.category ?? "—"}</td>
-                    <td className="py-2 pr-3 text-white/70">
+                    <td className="py-2 pr-3 text-ink-muted">{c.category ?? "—"}</td>
+                    <td className="py-2 pr-3 text-ink-muted">
                       {[c.city, c.country].filter(Boolean).join(", ") || "—"}
                     </td>
-                    <td className="py-2 pr-3 text-white/70">{c.phone ?? "—"}</td>
+                    <td className="py-2 pr-3 text-ink-muted">{c.phone ?? "—"}</td>
                     <td className="py-2 pr-3">
                       {c.website ? (
                         <a
                           href={c.website}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="break-all text-sky-300 hover:underline"
+                          className="break-all text-neon-blue hover:underline"
                         >
                           {c.website.replace(/^https?:\/\/(www\.)?/, "").split("/")[0]}
                         </a>
                       ) : (
-                        <span className="text-white/40">—</span>
+                        <span className="text-ink-dim">—</span>
                       )}
                     </td>
-                    <td className="py-2 pr-3 text-white/70">
+                    <td className="py-2 pr-3 text-ink-muted">
                       {typeof c.rating === "number"
                         ? `${c.rating.toFixed(1)}${typeof c.reviewCount === "number" ? ` (${c.reviewCount})` : ""}`
                         : "—"}
@@ -609,13 +609,13 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
                           href={c.sourceUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sky-300 hover:underline"
+                          className="text-neon-blue hover:underline"
                           title={`${c.sourceUrl} · Place ID: ${c.providerId}`}
                         >
                           Maps link
                         </a>
                       ) : (
-                        <span className="text-white/40" title={`Place ID: ${c.providerId}`}>
+                        <span className="text-ink-dim" title={`Place ID: ${c.providerId}`}>
                           {c.providerId}
                         </span>
                       )}
@@ -632,16 +632,16 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
       {/* Import preview dialog */}
       {preview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-white/10 bg-[#0D1B2A] p-6">
+          <div className="max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-line bg-[#0D1B2A] p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold">Confirm CRM import</h2>
-                <p className="mt-1 text-sm text-white/60">
+                <p className="mt-1 text-sm text-ink-muted">
                   Review each lead before it enters your CRM. New leads start at
-                  the <span className="font-semibold text-white/80">NEW</span>{" "}
+                  the <span className="font-semibold text-ink">NEW</span>{" "}
                   stage — AI scores never auto-qualify them.
                   {demo && (
-                    <span className="text-[#D4AF37]">
+                    <span className="text-neon-cyan">
                       {" "}
                       Demo simulation — nothing is written to the database.
                     </span>
@@ -650,7 +650,7 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
               </div>
               <button
                 onClick={() => setPreview(null)}
-                className="text-white/50 hover:text-white"
+                className="text-ink-muted hover:text-ink"
                 aria-label="Close preview"
               >
                 ✕
@@ -660,7 +660,7 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[800px] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-white/40">
+                  <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-dim">
                     <th className="py-2 pr-3">Company</th>
                     <th className="py-2 pr-3">Location</th>
                     <th className="py-2 pr-3">Contact</th>
@@ -670,48 +670,48 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
                 </thead>
                 <tbody>
                   {preview.map((p) => (
-                    <tr key={p.providerId} className="border-b border-white/5">
+                    <tr key={p.providerId} className="border-b border-line/60">
                       <td className="py-2 pr-3">
                         <div className="font-medium">{p.name}</div>
-                        <div className="text-xs text-white/40">
+                        <div className="text-xs text-ink-dim">
                           {p.category ?? "—"} · {p.source} ·{" "}
                           <span className="font-mono">{p.provenance}</span>
                         </div>
                       </td>
-                      <td className="py-2 pr-3 text-white/70">
+                      <td className="py-2 pr-3 text-ink-muted">
                         {[p.city, p.country].filter(Boolean).join(", ") || "—"}
                       </td>
-                      <td className="py-2 pr-3 text-xs text-white/70">
+                      <td className="py-2 pr-3 text-xs text-ink-muted">
                         {p.website && <div className="break-all">{p.website}</div>}
                         {p.phone && <div>{p.phone}</div>}
                         {!p.website && !p.phone && "—"}
                       </td>
                       <td className="py-2 pr-3">
                         {p.duplicateStatus === "new" && (
-                          <span className="rounded bg-emerald-400/15 px-2 py-0.5 text-xs font-semibold text-emerald-300">
+                          <span className="rounded bg-neon-lime/15 px-2 py-0.5 text-xs font-semibold text-neon-lime">
                             New
                           </span>
                         )}
                         {p.duplicateStatus === "already_exists" && (
-                          <span className="rounded bg-white/10 px-2 py-0.5 text-xs font-semibold text-white/70">
+                          <span className="rounded bg-tint/10 px-2 py-0.5 text-xs font-semibold text-ink-muted">
                             Already exists
                           </span>
                         )}
                         {p.duplicateStatus === "possible_duplicate" && (
-                          <span className="rounded bg-[#D4AF37]/15 px-2 py-0.5 text-xs font-semibold text-[#D4AF37]">
+                          <span className="rounded bg-neon-cyan/15 px-2 py-0.5 text-xs font-semibold text-neon-cyan">
                             Possible duplicate — review required
                           </span>
                         )}
                         {p.reason && (
-                          <div className="mt-1 text-xs text-white/50">{p.reason}</div>
+                          <div className="mt-1 text-xs text-ink-muted">{p.reason}</div>
                         )}
                       </td>
-                      <td className="py-2 pr-3 text-xs text-white/60">
+                      <td className="py-2 pr-3 text-xs text-ink-muted">
                         {p.matchedLead ? (
                           <>
                             <div>
                               Stage:{" "}
-                              <span className="font-semibold text-white/85">
+                              <span className="font-semibold text-ink">
                                 {p.matchedLead.status}
                               </span>
                             </div>
@@ -727,7 +727,7 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
                             </div>
                           </>
                         ) : (
-                          <span className="text-white/40">Will enter as NEW</span>
+                          <span className="text-ink-dim">Will enter as NEW</span>
                         )}
                       </td>
                     </tr>
@@ -739,14 +739,14 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
             <div className="mt-5 flex justify-end gap-3">
               <button
                 onClick={() => setPreview(null)}
-                className="rounded-lg border border-white/15 px-4 py-2 text-sm text-white/70 hover:bg-white/5"
+                className="rounded-lg border border-line-strong px-4 py-2 text-sm text-ink-muted hover:bg-tint/5"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmImport}
                 disabled={importing}
-                className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-semibold text-black transition hover:brightness-110 disabled:opacity-50"
+                className="rounded-lg bg-neon-cyan px-4 py-2 text-sm font-semibold text-[#021614] transition hover:brightness-110 disabled:opacity-50"
               >
                 {importing
                   ? "Importing…"
@@ -761,35 +761,35 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
 
       {/* Import summary */}
       {importSummary && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="rounded-2xl border border-line bg-tint/5 p-6">
           <h2 className="text-lg font-semibold">Import summary</h2>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
             {[
-              { label: "Imported", count: importSummary.counts.imported, cls: "text-emerald-300" },
-              { label: "Already exists", count: importSummary.counts.alreadyExists, cls: "text-white/70" },
-              { label: "Possible duplicate", count: importSummary.counts.possibleDuplicates, cls: "text-[#D4AF37]" },
-              { label: "Skipped", count: importSummary.counts.skipped, cls: "text-white/50" },
+              { label: "Imported", count: importSummary.counts.imported, cls: "text-neon-lime" },
+              { label: "Already exists", count: importSummary.counts.alreadyExists, cls: "text-ink-muted" },
+              { label: "Possible duplicate", count: importSummary.counts.possibleDuplicates, cls: "text-neon-cyan" },
+              { label: "Skipped", count: importSummary.counts.skipped, cls: "text-ink-muted" },
               { label: "Failed", count: importSummary.counts.failed, cls: "text-red-300" },
             ].map((c) => (
-              <div key={c.label} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
-                <div className={`text-xl font-bold ${c.cls}`}>{c.count}</div>
-                <div className="text-xs text-white/50">{c.label}</div>
+              <div key={c.label} className="rounded-lg border border-line bg-black/20 px-3 py-2">
+                <div className={`text-xl font-semibold ${c.cls}`}>{c.count}</div>
+                <div className="text-xs text-ink-muted">{c.label}</div>
               </div>
             ))}
           </div>
           {importSummary.alreadyExists.length > 0 && (
             <div className="mt-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-white/40">
+              <div className="text-xs font-semibold uppercase tracking-wide text-ink-dim">
                 Already exists
               </div>
               <ul className="mt-2 space-y-2">
                 {importSummary.alreadyExists.map((s) => (
                   <li
                     key={s.providerId}
-                    className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm"
+                    className="rounded-lg border border-line bg-black/20 px-3 py-2 text-sm"
                   >
                     <span className="font-medium">{s.name}</span>
-                    <span className="text-white/50"> — {s.reason ?? "duplicate"}</span>
+                    <span className="text-ink-muted"> — {s.reason ?? "duplicate"}</span>
                   </li>
                 ))}
               </ul>
@@ -797,17 +797,17 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
           )}
           {importSummary.possibleDuplicates.length > 0 && (
             <div className="mt-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-[#D4AF37]">
+              <div className="text-xs font-semibold uppercase tracking-wide text-neon-cyan">
                 Possible duplicates — review required
               </div>
               <ul className="mt-2 space-y-2">
                 {importSummary.possibleDuplicates.map((s) => (
                   <li
                     key={s.providerId}
-                    className="rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/5 px-3 py-2 text-sm"
+                    className="rounded-lg border border-neon-cyan/30 bg-neon-cyan/5 px-3 py-2 text-sm"
                   >
                     <span className="font-medium">{s.name}</span>
-                    <span className="text-white/50"> — {s.reason}</span>
+                    <span className="text-ink-muted"> — {s.reason}</span>
                   </li>
                 ))}
               </ul>
@@ -815,24 +815,24 @@ export function Discovery({ apiBase, demo = false }: DiscoveryProps) {
           )}
           {[...importSummary.skipped, ...importSummary.failed].length > 0 && (
             <div className="mt-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-white/40">
+              <div className="text-xs font-semibold uppercase tracking-wide text-ink-dim">
                 Skipped / failed
               </div>
               <ul className="mt-2 space-y-2">
                 {[...importSummary.skipped, ...importSummary.failed].map((s) => (
                   <li
                     key={s.providerId}
-                    className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm"
+                    className="rounded-lg border border-line bg-black/20 px-3 py-2 text-sm"
                   >
                     <span className="font-medium">{s.name}</span>
-                    <span className="text-white/50"> — {s.reason ?? s.status}</span>
+                    <span className="text-ink-muted"> — {s.reason ?? s.status}</span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
           {importSummary.counts.imported > 0 && (
-            <p className="mt-4 text-sm text-emerald-300">
+            <p className="mt-4 text-sm text-neon-lime">
               {importSummary.counts.imported} new lead
               {importSummary.counts.imported === 1 ? "" : "s"} added to CRM at the
               NEW stage with source URL and provenance preserved.

@@ -6,10 +6,10 @@ import { EMPTY_FILTERS, filterCandidates, type ResultsFilters } from "@/lib/disc
 
 function Pill({ tone, children }: { tone: "gold" | "green" | "amber" | "muted" | "red"; children: React.ReactNode }) {
   const cls = {
-    gold: "bg-[#D4AF37]/15 text-[#D4AF37]",
-    green: "bg-emerald-400/15 text-emerald-300",
+    gold: "bg-neon-cyan/15 text-neon-cyan",
+    green: "bg-neon-lime/15 text-neon-lime",
     amber: "bg-amber-400/15 text-amber-300",
-    muted: "bg-white/10 text-white/50",
+    muted: "bg-tint/10 text-ink-muted",
     red: "bg-red-400/15 text-red-300",
   }[tone];
   return (
@@ -20,13 +20,13 @@ function Pill({ tone, children }: { tone: "gold" | "green" | "amber" | "muted" |
 }
 
 function ExtLink({ href, label }: { href?: string; label: string }) {
-  if (!href) return <span className="text-white/25">—</span>;
+  if (!href) return <span className="text-ink-dim">—</span>;
   return (
     <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-semibold text-[#D4AF37] hover:underline"
+      className="font-semibold text-neon-cyan hover:underline"
       onClick={(e) => e.stopPropagation()}
     >
       {label} ↗
@@ -51,7 +51,7 @@ const COLUMNS: ColumnDef[] = [
     defaultVisible: true,
     render: (c) => (
       <span>
-        <span className="font-semibold text-white">{c.name}</span>
+        <span className="font-semibold text-ink">{c.name}</span>
         {c.inCrm && (
           <span className="ml-2">
             <Pill tone="muted">In CRM</Pill>
@@ -73,7 +73,7 @@ const COLUMNS: ColumnDef[] = [
     defaultVisible: true,
     render: (c) =>
       c.phone ? (
-        <a href={`tel:${c.phone.replace(/\s/g, "")}`} className="text-white/85 hover:text-[#D4AF37]" onClick={(e) => e.stopPropagation()}>
+        <a href={`tel:${c.phone.replace(/\s/g, "")}`} className="text-ink hover:text-neon-cyan" onClick={(e) => e.stopPropagation()}>
           {c.phone}
         </a>
       ) : (
@@ -86,7 +86,7 @@ const COLUMNS: ColumnDef[] = [
     defaultVisible: false,
     render: (c) =>
       c.email ? (
-        <a href={`mailto:${c.email}`} className="text-white/85 hover:text-[#D4AF37]" onClick={(e) => e.stopPropagation()}>
+        <a href={`mailto:${c.email}`} className="text-ink hover:text-neon-cyan" onClick={(e) => e.stopPropagation()}>
           {c.email}
         </a>
       ) : (
@@ -99,11 +99,11 @@ const COLUMNS: ColumnDef[] = [
     defaultVisible: true,
     render: (c) =>
       c.website ? (
-        <a href={c.website} target="_blank" rel="noopener noreferrer" className="text-[#D4AF37] hover:underline" onClick={(e) => e.stopPropagation()}>
+        <a href={c.website} target="_blank" rel="noopener noreferrer" className="text-neon-cyan hover:underline" onClick={(e) => e.stopPropagation()}>
           {c.website.replace(/^https?:\/\/(www\.)?/, "").split("/")[0]}
         </a>
       ) : (
-        <span className="text-white/25">—</span>
+        <span className="text-ink-dim">—</span>
       ),
   },
   {
@@ -131,7 +131,7 @@ const COLUMNS: ColumnDef[] = [
     label: "Score",
     defaultVisible: true,
     render: (c) => (
-      <span className="font-semibold text-white" title={c.scoreReason ?? ""}>
+      <span className="font-semibold text-ink" title={c.scoreReason ?? ""}>
         {c.score ?? "—"}
       </span>
     ),
@@ -148,7 +148,7 @@ const COLUMNS: ColumnDef[] = [
       ) : c.qualification === "not_qualified" ? (
         <Pill tone="muted">Not qualified</Pill>
       ) : (
-        <span className="text-white/30">Unreviewed</span>
+        <span className="text-ink-dim">Unreviewed</span>
       ),
   },
   {
@@ -161,9 +161,9 @@ const COLUMNS: ColumnDef[] = [
       ) : c.opportunityType === "MEDIUM" ? (
         <Pill tone="amber">MEDIUM</Pill>
       ) : c.opportunityType === "LOW" ? (
-        <span className="text-white/40">LOW</span>
+        <span className="text-ink-dim">LOW</span>
       ) : (
-        <span className="text-white/40">—</span>
+        <span className="text-ink-dim">—</span>
       ),
   },
   { key: "rating", label: "Rating", defaultVisible: false, render: (c) => (c.rating != null ? `★ ${c.rating.toFixed(1)}` : "—") },
@@ -216,8 +216,8 @@ export function ResultsTable({
   const allVisibleSelected = filteredIds.length > 0 && selectedVisible.length === filteredIds.length;
 
   const set = (patch: Partial<ResultsFilters>) => onFiltersChange({ ...filters, ...patch });
-  const selectCls = "rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white/80";
-  const inputCls = "rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white/80 placeholder:text-white/30";
+  const selectCls = "rounded-md border border-line bg-tint/5 px-2 py-1.5 text-xs text-ink";
+  const inputCls = "rounded-md border border-line bg-tint/5 px-2 py-1.5 text-xs text-ink placeholder:text-ink-dim";
 
   return (
     <div className="space-y-3">
@@ -274,19 +274,19 @@ export function ResultsTable({
           <button
             type="button"
             onClick={() => setShowColumns((v) => !v)}
-            className="rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/10"
+            className="rounded-md border border-line bg-tint/5 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-tint/10"
           >
             Columns ▾
           </button>
           {showColumns && (
-            <div className="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-white/10 bg-[#0D1B2A] p-2 shadow-xl">
+            <div className="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-line bg-[#0D1B2A] p-2 shadow-xl">
               {COLUMNS.map((c) => (
-                <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs text-white/80 hover:bg-white/5">
+                <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs text-ink hover:bg-tint/5">
                   <input
                     type="checkbox"
                     checked={visibleColumns.has(c.key)}
                     onChange={() => onToggleColumn(c.key)}
-                    className="accent-[#D4AF37]"
+                    className="accent-neon-cyan"
                   />
                   {c.label}
                 </label>
@@ -297,33 +297,33 @@ export function ResultsTable({
       </div>
 
       {/* Selection bar */}
-      <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
         <span>
-          <strong className="text-white">{selection.size}</strong> selected ·{" "}
-          <strong className="text-white">{filtered.length}</strong> matching filters ·{" "}
-          <strong className="text-white">{candidates.length}</strong> total
+          <strong className="text-ink">{selection.size}</strong> selected ·{" "}
+          <strong className="text-ink">{filtered.length}</strong> matching filters ·{" "}
+          <strong className="text-ink">{candidates.length}</strong> total
         </span>
         <button
           type="button"
           onClick={() => onSelectIds(filteredIds)}
-          className="rounded-md bg-white/10 px-2.5 py-1 font-semibold text-white/80 hover:bg-white/20"
+          className="rounded-md bg-tint/10 px-2.5 py-1 font-semibold text-ink hover:bg-tint/20"
         >
           Select all {filtered.length} matching
         </button>
         <button
           type="button"
           onClick={onClearSelection}
-          className="rounded-md bg-white/10 px-2.5 py-1 font-semibold text-white/80 hover:bg-white/20"
+          className="rounded-md bg-tint/10 px-2.5 py-1 font-semibold text-ink hover:bg-tint/20"
         >
           Clear selection
         </button>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-white/10">
+      <div className="overflow-x-auto rounded-xl border border-line">
         <table className="w-full min-w-[1200px] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-white/10 bg-white/5 text-left">
+            <tr className="border-b border-line bg-tint/5 text-left">
               <th className="w-10 px-3 py-2.5">
                 <input
                   type="checkbox"
@@ -332,17 +332,17 @@ export function ResultsTable({
                     if (el) el.indeterminate = selectedVisible.length > 0 && !allVisibleSelected;
                   }}
                   onChange={() => (allVisibleSelected ? onClearSelection() : onSelectIds(filteredIds))}
-                  className="h-4 w-4 accent-[#D4AF37]"
+                  className="h-4 w-4 accent-neon-cyan"
                   aria-label="Select all visible"
                 />
               </th>
               {visibleCols.map((c) => (
-                <th key={c.key} className="whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-white/50">
+                <th key={c.key} className="whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
                   {c.label}
                 </th>
               ))}
               {drafts && drafts.size > 0 && (
-                <th className="whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-white/50">
+                <th className="whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
                   Draft
                 </th>
               )}
@@ -350,18 +350,18 @@ export function ResultsTable({
           </thead>
           <tbody>
             {filtered.map((c) => (
-              <tr key={c.providerId} className="border-b border-white/5 hover:bg-white/[0.03]">
+              <tr key={c.providerId} className="border-b border-line/60 hover:bg-tint/[0.04]">
                 <td className="px-3 py-2.5">
                   <input
                     type="checkbox"
                     checked={selection.has(c.providerId)}
                     onChange={() => onToggle(c.providerId)}
-                    className="h-4 w-4 accent-[#D4AF37]"
+                    className="h-4 w-4 accent-neon-cyan"
                     aria-label={`Select ${c.name}`}
                   />
                 </td>
                 {visibleCols.map((col) => (
-                  <td key={col.key} className="px-3 py-2.5 text-white/80">
+                  <td key={col.key} className="px-3 py-2.5 text-ink">
                     {col.render(c)}
                   </td>
                 ))}
@@ -371,12 +371,12 @@ export function ResultsTable({
                       <button
                         type="button"
                         onClick={() => onCopyDraft?.(c.providerId)}
-                        className="rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/80 hover:bg-white/20"
+                        className="rounded-md bg-tint/10 px-2.5 py-1 text-xs font-semibold text-ink hover:bg-tint/20"
                       >
                         Copy message
                       </button>
                     ) : (
-                      <span className="text-white/25">—</span>
+                      <span className="text-ink-dim">—</span>
                     )}
                   </td>
                 )}
@@ -384,7 +384,7 @@ export function ResultsTable({
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={visibleCols.length + 2} className="px-3 py-10 text-center text-white/40">
+                <td colSpan={visibleCols.length + 2} className="px-3 py-10 text-center text-ink-dim">
                   No results match the current filters.
                 </td>
               </tr>

@@ -1,47 +1,37 @@
-import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { getDemoSession } from "@/lib/demo-session";
+import type { Metadata } from "next";
+import { DemoUnavailable } from "@/components/app/DemoUnavailable";
 import { ProspectingDashboard } from "@/components/prospecting/ProspectingDashboard";
+import { DemoBadge } from "@/components/ui/Badge";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { getPageContext } from "@/lib/page-context";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Prospecting" };
 
 export default async function ProspectingPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  const demo = await getDemoSession();
-  if (!session?.user && !demo) redirect("/login");
+  const ctx = await getPageContext();
 
-  if (demo && !session?.user) redirect("/dashboard");
-
-  const jar = await cookies();
-  const cookieOrg = jar.get("wdd.org_id")?.value;
-  const userId = session?.user?.id;
-  if (!userId) redirect("/login");
-  const memberships = await db.membership.findMany({
-    where: { userId },
-    orderBy: { createdAt: "asc" },
-    select: { organizationId: true, role: true },
-  });
-  if (memberships.length === 0) redirect("/login?error=no-workspace");
-  const active =
-    memberships.find((m) => m.organizationId === cookieOrg) ?? memberships[0];
+  if (ctx.demo) {
+    return (
+      <div className="space-y-5">
+        <PageHeader title="AI prospecting" badge={<DemoBadge />} />
+        <DemoUnavailable what="Prospecting">
+          Prospecting runs against connected data sources in a real workspace. Demo mode never calls external services.
+        </DemoUnavailable>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">AI Prospecting</h1>
-        <p className="text-sm text-white/50">
-          Find real prospects from connected data sources, verify them, research
-          them, and import qualified leads into CRM. 7-day weekly plan, daily
-          automated discovery at 9:00 AM — drafts only, nothing is sent
-          automatically.
-        </p>
-      </div>
+      <PageHeader
+        title="AI prospecting"
+        description="Find real prospects from connected data sources, verify them, research them, and import qualified leads into CRM. 7-day weekly plan, daily automated discovery at 9:00 AM — drafts only, nothing is sent automatically."
+      />
       <ProspectingDashboard
-        orgId={active.organizationId}
-        canManage={active.role === "OWNER" || active.role === "SALES_MANAGER"}
-        canRun={active.role !== "VIEWER"}
+        orgId={ctx.organizationId}
+        canManage={ctx.role === "OWNER" || ctx.role === "SALES_MANAGER"}
+        canRun={ctx.role !== "VIEWER"}
       />
     </div>
   );

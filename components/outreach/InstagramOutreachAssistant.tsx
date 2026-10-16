@@ -15,6 +15,7 @@ import {
   Plus,
   X,
 } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface OutreachItem {
   id: string;
@@ -50,19 +51,19 @@ interface LeadCandidate {
 }
 
 const inputCls =
-  "w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none focus:border-[#D4AF37] placeholder:text-white/30";
+  "w-full rounded-xl border border-line bg-black/30 px-4 py-3 text-sm text-ink outline-none focus:border-neon-cyan placeholder:text-ink-dim";
 
 function ProvenanceBadge({ label }: { label: string }) {
   const cls =
     label === "AI_INFERENCE"
-      ? "bg-purple-400/15 text-purple-300"
+      ? "bg-neon-violet/15 text-neon-violet"
       : label === "VERIFIED"
-        ? "bg-emerald-400/15 text-emerald-300"
+        ? "bg-neon-lime/15 text-neon-lime"
         : label === "USER_PROVIDED"
-          ? "bg-sky-400/15 text-sky-300"
-          : "bg-[#D4AF37]/15 text-[#D4AF37]";
+          ? "bg-neon-blue/15 text-neon-blue"
+          : "bg-neon-cyan/15 text-neon-cyan";
   return (
-    <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${cls}`}>
+    <span className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cls}`}>
       {label.replace(/_/g, " ")}
     </span>
   );
@@ -72,14 +73,14 @@ function ConfidenceBadge({ confidence }: { confidence: string | null }) {
   if (!confidence) return null;
   const cls =
     confidence === "HIGH"
-      ? "bg-emerald-400/15 text-emerald-300"
+      ? "bg-neon-lime/15 text-neon-lime"
       : confidence === "MEDIUM"
         ? "bg-amber-400/15 text-amber-300"
         : confidence === "LOW"
-          ? "bg-white/10 text-white/50"
+          ? "bg-tint/10 text-ink-muted"
           : "bg-red-400/15 text-red-300";
   return (
-    <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${cls}`}>
+    <span className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cls}`}>
       {confidence === "INSUFFICIENT" ? "Insufficient info" : `${confidence} confidence`}
     </span>
   );
@@ -99,7 +100,7 @@ const PITCH_ANGLE_LABELS: Record<string, string> = {
 function PitchAngleBadge({ angle }: { angle: string | null }) {
   if (!angle) return null;
   return (
-    <span className="rounded bg-[#D4AF37]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#D4AF37]" title="Recommended pitch angle from research">
+    <span className="rounded bg-neon-cyan/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neon-cyan" title="Recommended pitch angle from research">
       Pitch: {PITCH_ANGLE_LABELS[angle] ?? angle}
     </span>
   );
@@ -108,10 +109,10 @@ function PitchAngleBadge({ angle }: { angle: string | null }) {
 function StatusBadge({ status }: { status: OutreachItem["status"] }) {
   const cls =
     status === "CONTACTED"
-      ? "bg-emerald-400/15 text-emerald-300"
+      ? "bg-neon-lime/15 text-neon-lime"
       : status === "COPIED"
-        ? "bg-sky-400/15 text-sky-300"
-        : "bg-white/10 text-white/60";
+        ? "bg-neon-blue/15 text-neon-blue"
+        : "bg-tint/10 text-ink-muted";
   return (
     <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${cls}`}>
       {status}
@@ -122,8 +123,8 @@ function StatusBadge({ status }: { status: OutreachItem["status"] }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="text-[10px] font-medium uppercase tracking-wide text-white/40">{label}</div>
-      <div className="mt-0.5 text-sm text-white/85">{children}</div>
+      <div className="text-[10px] font-medium uppercase tracking-wide text-ink-dim">{label}</div>
+      <div className="mt-0.5 text-sm text-ink">{children}</div>
     </div>
   );
 }
@@ -254,20 +255,20 @@ function OutreachCard({
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur">
+    <div className="rounded-2xl border border-line bg-tint/[0.04] p-5 backdrop-blur">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#D4AF37]/30 to-[#D4AF37]/5">
-            <Instagram size={18} className="text-[#D4AF37]" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-neon-cyan/30 to-neon-cyan/5">
+            <Instagram size={18} className="text-neon-cyan" />
           </div>
           <div>
-            <div className="font-semibold text-white">@{item.username}</div>
+            <div className="font-semibold text-ink">@{item.username}</div>
             <a
               href={item.profileUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-white/40 hover:text-[#D4AF37]"
+              className="text-xs text-ink-dim hover:text-neon-cyan"
             >
               {item.profileUrl}
             </a>
@@ -293,7 +294,7 @@ function OutreachCard({
           <Field label="Location">{item.location ?? "—"}</Field>
           <Field label="Website">
             {item.website ? (
-              <a href={item.website} target="_blank" rel="noopener noreferrer" className="text-[#D4AF37] hover:underline break-all">
+              <a href={item.website} target="_blank" rel="noopener noreferrer" className="text-neon-cyan hover:underline break-all">
                 {item.website}
               </a>
             ) : (
@@ -304,26 +305,26 @@ function OutreachCard({
       )}
 
       {item.observations && (
-        <p className="mt-3 text-sm text-white/60">{item.observations}</p>
+        <p className="mt-3 text-sm text-ink-muted">{item.observations}</p>
       )}
 
       {item.websiteAnalysis && (
-        <p className="mt-2 text-xs leading-relaxed text-white/45">
-          <span className="font-semibold text-white/60">Website check: </span>
+        <p className="mt-2 text-xs leading-relaxed text-ink-dim">
+          <span className="font-semibold text-ink-muted">Website check: </span>
           {item.websiteAnalysis}
         </p>
       )}
 
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/35">
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-ink-dim">
         <span>Sources: {item.researchSources.length > 0 ? item.researchSources.join(" · ") : "—"}</span>
         {item.researchedAt && <span>· Researched {new Date(item.researchedAt).toLocaleString()}</span>}
         {item.messageSource && <span>· Message: {item.messageSource === "ai" ? "AI-generated" : "template"}</span>}
       </div>
 
       {/* Message */}
-      <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-4">
+      <div className="mt-4 rounded-xl border border-line bg-black/30 p-4">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs font-medium uppercase tracking-wide text-white/40">
+          <span className="text-xs font-medium uppercase tracking-wide text-ink-dim">
             Outreach message — review before sending
           </span>
           {!editing && (
@@ -332,7 +333,7 @@ function OutreachCard({
                 setDraft(message);
                 setEditing(true);
               }}
-              className="inline-flex items-center gap-1 text-xs text-white/50 hover:text-[#D4AF37]"
+              className="inline-flex items-center gap-1 text-xs text-ink-muted hover:text-neon-cyan"
             >
               <Pencil size={12} /> Edit
             </button>
@@ -351,21 +352,21 @@ function OutreachCard({
               <button
                 onClick={saveEdit}
                 disabled={busy === "edit"}
-                className="rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-semibold text-black hover:brightness-110 disabled:opacity-50"
+                className="rounded-lg bg-neon-cyan px-3 py-1.5 text-xs font-semibold text-[#021614] hover:brightness-110 disabled:opacity-50"
               >
                 {busy === "edit" ? "Saving…" : "Save"}
               </button>
               <button
                 onClick={() => setEditing(false)}
-                className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5"
+                className="rounded-lg border border-line-strong px-3 py-1.5 text-xs text-ink-muted hover:bg-tint/5"
               >
                 Cancel
               </button>
             </div>
           </div>
         ) : (
-          <p className="whitespace-pre-wrap text-sm text-white/85">
-            {message || <span className="text-white/30">No message yet.</span>}
+          <p className="whitespace-pre-wrap text-sm text-ink">
+            {message || <span className="text-ink-dim">No message yet.</span>}
           </p>
         )}
       </div>
@@ -379,21 +380,21 @@ function OutreachCard({
         <button
           onClick={copyMessage}
           disabled={!message}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-[#D4AF37] px-3 py-2 text-sm font-semibold text-black hover:brightness-110 disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-neon-cyan px-3 py-2 text-sm font-semibold text-[#021614] hover:brightness-110 disabled:opacity-40"
         >
           {copied ? <Check size={15} /> : <Copy size={15} />}
           {copied ? "Copied!" : "Copy Message"}
         </button>
         <button
           onClick={openInstagram}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/5"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-line-strong px-3 py-2 text-sm text-ink hover:bg-tint/5"
         >
           <ExternalLink size={15} /> Open Instagram
         </button>
         <button
           onClick={regenerate}
           disabled={busy === "regenerate"}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/5 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-line-strong px-3 py-2 text-sm text-ink hover:bg-tint/5 disabled:opacity-50"
         >
           {busy === "regenerate" ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
           Regenerate
@@ -402,22 +403,22 @@ function OutreachCard({
           <button
             onClick={() => call("contacted")}
             disabled={busy === "contacted"}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/30 px-3 py-2 text-sm text-emerald-300 hover:bg-emerald-400/10 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neon-lime/30 px-3 py-2 text-sm text-neon-lime hover:bg-neon-lime/10 disabled:opacity-50"
           >
             {busy === "contacted" ? <Loader2 size={15} className="animate-spin" /> : <UserCheck size={15} />}
             Mark Contacted
           </button>
         )}
       </div>
-      <p className="mt-2 text-[11px] text-white/35">
+      <p className="mt-2 text-[11px] text-ink-dim">
         You send the message yourself: open the profile, tap Message, paste, send.
         Nothing here sends automatically.
       </p>
 
       {/* CRM link */}
-      <div className="mt-3 border-t border-white/5 pt-3">
+      <div className="mt-3 border-t border-line/60 pt-3">
         {item.leadId ? (
-          <span className="inline-flex items-center gap-1.5 text-xs text-emerald-300">
+          <span className="inline-flex items-center gap-1.5 text-xs text-neon-lime">
             <Link2 size={12} /> Linked to CRM lead
           </span>
         ) : (
@@ -425,26 +426,26 @@ function OutreachCard({
             <button
               onClick={loadCandidates}
               disabled={linking}
-              className="inline-flex items-center gap-1.5 text-xs text-white/50 hover:text-[#D4AF37] disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 text-xs text-ink-muted hover:text-neon-cyan disabled:opacity-50"
             >
               {linking ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
               Link to CRM lead
             </button>
             {candidates !== null && (
-              <div className="mt-2 rounded-lg border border-white/10 bg-black/30 p-3">
+              <div className="mt-2 rounded-lg border border-line bg-black/30 p-3">
                 {candidates.length === 0 ? (
-                  <p className="text-xs text-white/50">No matching lead found.</p>
+                  <p className="text-xs text-ink-muted">No matching lead found.</p>
                 ) : (
                   <ul className="space-y-1">
                     {candidates.map((c) => (
                       <li key={c.id} className="flex items-center justify-between gap-2 text-xs">
-                        <span className="text-white/75">
-                          {c.displayName} <span className="text-white/35">({c.status})</span>
+                        <span className="text-ink-muted">
+                          {c.displayName} <span className="text-ink-dim">({c.status})</span>
                         </span>
                         <button
                           onClick={() => linkLead(c.id)}
                           disabled={busy === "link"}
-                          className="rounded border border-white/15 px-2 py-0.5 text-white/70 hover:bg-white/5 disabled:opacity-50"
+                          className="rounded border border-line-strong px-2 py-0.5 text-ink-muted hover:bg-tint/5 disabled:opacity-50"
                         >
                           Link
                         </button>
@@ -456,13 +457,13 @@ function OutreachCard({
                   <button
                     onClick={() => linkLead(undefined, true)}
                     disabled={busy === "link"}
-                    className="inline-flex items-center gap-1 rounded border border-[#D4AF37]/40 px-2 py-1 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/10 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded border border-neon-cyan/40 px-2 py-1 text-xs text-neon-cyan hover:bg-neon-cyan/10 disabled:opacity-50"
                   >
                     <Plus size={12} /> Create lead from this profile
                   </button>
                   <button
                     onClick={() => setCandidates(null)}
-                    className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-white/40 hover:text-white"
+                    className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-ink-dim hover:text-ink"
                   >
                     <X size={12} /> Close
                   </button>
@@ -593,17 +594,14 @@ export function InstagramOutreachAssistant({ orgId }: { orgId: string }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Instagram Outreach Assistant</h1>
-        <p className="mt-1 text-sm text-white/50">
-          Research prospects and prepare personalized Instagram messages. You review and send every
-          message manually — nothing is automated.
-        </p>
-      </div>
+      <PageHeader
+        title="Instagram outreach"
+        description="Research prospects and prepare personalized Instagram messages. You review and send every message manually — nothing is automated."
+      />
 
       {/* Input */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur">
-        <label htmlFor="ig-usernames" className="mb-2 block text-sm font-medium text-white/70">
+      <div className="rounded-2xl border border-line bg-tint/[0.04] p-5 backdrop-blur">
+        <label htmlFor="ig-usernames" className="mb-2 block text-sm font-medium text-ink-muted">
           Paste Instagram usernames, one per line
         </label>
         <textarea
@@ -620,12 +618,12 @@ export function InstagramOutreachAssistant({ orgId }: { orgId: string }) {
             onChange={(e) => setBatchName(e.target.value)}
             placeholder="Batch name (optional)"
             aria-label="Batch name"
-            className="w-56 rounded-xl border border-white/10 bg-black/30 px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37] placeholder:text-white/30"
+            className="w-56 rounded-xl border border-line bg-black/30 px-4 py-2.5 text-sm text-ink outline-none focus:border-neon-cyan placeholder:text-ink-dim"
           />
           <button
             onClick={research}
             disabled={researching || !text.trim()}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#D4AF37] px-5 py-2.5 text-sm font-semibold text-black hover:brightness-110 disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-xl bg-neon-cyan px-5 py-2.5 text-sm font-semibold text-[#021614] hover:brightness-110 disabled:opacity-40"
           >
             {researching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
             {researching ? "Researching…" : "Research Profiles"}
@@ -633,24 +631,24 @@ export function InstagramOutreachAssistant({ orgId }: { orgId: string }) {
           {researching && (
             <button
               onClick={() => abortRef.current?.abort()}
-              className="rounded-xl border border-white/15 px-4 py-2.5 text-sm text-white/70 hover:bg-white/5"
+              className="rounded-xl border border-line-strong px-4 py-2.5 text-sm text-ink-muted hover:bg-tint/5"
             >
               Stop
             </button>
           )}
-          <span className="text-xs text-white/35">Up to 50 usernames per batch.</span>
+          <span className="text-xs text-ink-dim">Up to 50 usernames per batch.</span>
         </div>
         {researching && progress.total > 0 && (
           <div className="mt-3">
-            <div className="mb-1 flex justify-between text-xs text-white/50">
+            <div className="mb-1 flex justify-between text-xs text-ink-muted">
               <span>{progress.label}</span>
               <span>
                 Researching {progress.current} / {progress.total}
               </span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-white/10">
+            <div className="h-2 overflow-hidden rounded-full bg-tint/10">
               <div
-                className="h-full rounded-full bg-[#D4AF37] transition-all"
+                className="h-full rounded-full bg-neon-cyan transition-all"
                 style={{ width: `${(progress.current / Math.max(1, progress.total)) * 100}%` }}
               />
             </div>
@@ -665,13 +663,13 @@ export function InstagramOutreachAssistant({ orgId }: { orgId: string }) {
 
       {/* Batch report */}
       {(invalid.length > 0 || duplicatesRemoved > 0) && (
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm">
+        <div className="rounded-xl border border-line bg-tint/[0.04] p-4 text-sm">
           {duplicatesRemoved > 0 && (
-            <p className="text-white/60">Removed {duplicatesRemoved} duplicate username(s).</p>
+            <p className="text-ink-muted">Removed {duplicatesRemoved} duplicate username(s).</p>
           )}
           {invalid.length > 0 && (
             <div className="mt-1">
-              <p className="text-white/60">Skipped {invalid.length} invalid line(s):</p>
+              <p className="text-ink-muted">Skipped {invalid.length} invalid line(s):</p>
               <ul className="mt-1 space-y-0.5">
                 {invalid.map((v, i) => (
                   <li key={i} className="text-xs text-red-300/80">
@@ -688,7 +686,7 @@ export function InstagramOutreachAssistant({ orgId }: { orgId: string }) {
       {items.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">
-            Results <span className="text-sm font-normal text-white/40">({items.length})</span>
+            Results <span className="text-sm font-normal text-ink-dim">({items.length})</span>
           </h2>
           {items.map((item) => (
             <OutreachCard key={item.id} item={item} orgId={orgId} onUpdate={updateItem} />
@@ -698,8 +696,8 @@ export function InstagramOutreachAssistant({ orgId }: { orgId: string }) {
 
       {/* Past batches */}
       {batches.length > 0 && (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">
+        <div className="rounded-2xl border border-line bg-tint/[0.04] p-5">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-muted">
             Past batches
           </h2>
           <ul className="space-y-1">
@@ -707,9 +705,9 @@ export function InstagramOutreachAssistant({ orgId }: { orgId: string }) {
               <li key={b.id}>
                 <button
                   onClick={() => loadBatch(b.id)}
-                  className="text-sm text-white/70 hover:text-[#D4AF37]"
+                  className="text-sm text-ink-muted hover:text-neon-cyan"
                 >
-                  {b.name ?? "Untitled batch"} <span className="text-white/35">· {b._count.items} profiles · {new Date(b.createdAt).toLocaleDateString()}</span>
+                  {b.name ?? "Untitled batch"} <span className="text-ink-dim">· {b._count.items} profiles · {new Date(b.createdAt).toLocaleDateString()}</span>
                 </button>
               </li>
             ))}

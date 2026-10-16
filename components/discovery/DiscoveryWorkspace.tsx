@@ -7,6 +7,10 @@ import { SourceCards, type CatalogSource, SourceStatusDot } from "./SourceCards"
 import { ResultsTable } from "./ResultsTable";
 import { EMPTY_FILTERS, type ResultsFilters } from "@/lib/discovery/result-filters";
 import { ProfilesPanel, type DiscoveryProfile } from "./ProfilesPanel";
+import { Badge } from "@/components/ui/Badge";
+import { ButtonLink } from "@/components/ui/Button";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface SourceOutcome {
   providerId: string;
@@ -33,10 +37,10 @@ interface RunSummary {
   unreachable: number;
 }
 
-const STEP = "text-xs font-bold uppercase tracking-widest text-[#D4AF37]";
+const STEP = "text-xs font-semibold uppercase tracking-widest text-neon-cyan";
 const inputCls =
-  "w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-[#D4AF37]/60 focus:outline-none";
-const labelCls = "mb-1 block text-xs font-semibold uppercase tracking-wide text-white/50";
+  "w-full rounded-lg border border-line bg-tint/5 px-3 py-2.5 text-sm text-ink placeholder:text-ink-dim focus:border-neon-cyan/60 focus:outline-none";
+const labelCls = "mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted";
 
 const COLS_KEY = "wdd.discover.columns.v1";
 const DEFAULT_COLS = [
@@ -74,6 +78,7 @@ interface Analysis {
 }
 
 export function DiscoveryWorkspace() {
+  const confirm = useConfirm();
   const [catalog, setCatalog] = useState<{ zeroSpendMode: boolean; sources: CatalogSource[] } | null>(null);
   const [profiles, setProfiles] = useState<DiscoveryProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -439,7 +444,13 @@ export function DiscoveryWorkspace() {
   }
 
   async function deleteProfile(p: DiscoveryProfile) {
-    if (!window.confirm(`Delete profile "${p.name}"?`)) return;
+    const ok = await confirm({
+      title: `Delete profile “${p.name}”?`,
+      description: "The saved search is removed. Past discovery runs and imported leads are not affected.",
+      confirmLabel: "Delete profile",
+      tone: "danger",
+    });
+    if (!ok) return;
     const res = await fetch(`/api/discovery/profiles/${p.id}`, { method: "DELETE" });
     if (res.ok) refreshProfiles();
   }
@@ -449,35 +460,30 @@ export function DiscoveryWorkspace() {
   return (
     <div className="space-y-6 pb-24 lg:pb-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Discover</h1>
-          <p className="text-sm text-white/50">Find real, contactable businesses. Every field carries its provenance.</p>
-        </div>
-        {catalog && (
-          <div className="flex items-center gap-2">
-            <a
-              href="/discover/history"
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/80 hover:bg-white/10"
-            >
-              Run history
-            </a>
-          <div
-            className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold"
-            title="Paid provider usage is blocked. Only configured free-tier safety budgets are used."
-          >
-            <span className={`inline-block h-2 w-2 rounded-full ${catalog.zeroSpendMode ? "bg-emerald-400" : "bg-amber-400"}`} />
-            <span className="text-white/80">ZERO-SPEND MODE {catalog.zeroSpendMode ? "● ON" : "● OFF"}</span>
-          </div>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title="Discover"
+        description="Find real, contactable businesses. Every field carries its provenance."
+        actions={
+          catalog && (
+            <>
+              <ButtonLink href="/discover/history" variant="secondary" size="sm">
+                Run history
+              </ButtonLink>
+              <span title="Paid provider usage is blocked. Only configured free-tier safety budgets are used.">
+                <Badge tone={catalog.zeroSpendMode ? "lime" : "amber"} dot>
+                  Zero-spend mode {catalog.zeroSpendMode ? "on" : "off"}
+                </Badge>
+              </span>
+            </>
+          )
+        }
+      />
 
       {/* STEP 1 */}
-      <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+      <section className="rounded-2xl border border-line bg-tint/[0.03] p-5">
         <div className={STEP}>Step 1 — Choose source</div>
         {loading ? (
-          <p className="mt-3 text-sm text-white/40">Loading sources…</p>
+          <p className="mt-3 text-sm text-ink-dim">Loading sources…</p>
         ) : catalog ? (
           <div className="mt-3">
             <SourceCards
@@ -498,7 +504,7 @@ export function DiscoveryWorkspace() {
       </section>
 
       {/* STEP 2 */}
-      <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+      <section className="rounded-2xl border border-line bg-tint/[0.03] p-5">
         <div className={STEP}>Step 2 — Define target</div>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
           <div>
@@ -531,7 +537,7 @@ export function DiscoveryWorkspace() {
       </section>
 
       {/* STEP 3 */}
-      <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+      <section className="rounded-2xl border border-line bg-tint/[0.03] p-5">
         <div className={STEP}>Step 3 — Set filters</div>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div>
@@ -583,15 +589,15 @@ export function DiscoveryWorkspace() {
                 role="switch"
                 aria-checked={contactRequired}
                 onClick={() => setContactRequired((v) => !v)}
-                className={`relative h-6 w-11 rounded-full transition ${contactRequired ? "bg-[#D4AF37]" : "bg-white/15"}`}
+                className={`relative h-6 w-11 rounded-full transition ${contactRequired ? "bg-neon-cyan" : "bg-tint/15"}`}
               >
                 <span
                   className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${contactRequired ? "left-[22px]" : "left-0.5"}`}
                 />
               </button>
-              <span className="text-sm font-semibold text-white/80">
+              <span className="text-sm font-semibold text-ink">
                 Contact required
-                <span className="block text-xs font-normal text-white/40">Only keep leads with phone, email or social profile</span>
+                <span className="block text-xs font-normal text-ink-dim">Only keep leads with phone, email or social profile</span>
               </span>
             </label>
           </div>
@@ -599,20 +605,20 @@ export function DiscoveryWorkspace() {
       </section>
 
       {/* STEP 4 */}
-      <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+      <section className="rounded-2xl border border-line bg-tint/[0.03] p-5">
         <div className={STEP}>Step 4 — Run discovery</div>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
             disabled={running}
             onClick={() => runDiscovery()}
-            className="rounded-lg bg-[#D4AF37] px-6 py-3 text-sm font-bold text-black hover:brightness-110 disabled:opacity-40"
+            className="rounded-lg bg-neon-cyan px-6 py-3 text-sm font-semibold text-[#021614] hover:brightness-110 disabled:opacity-40"
           >
             {running ? "SEARCHING…" : "START DISCOVERY"}
           </button>
           <div className="flex items-center gap-2">
             <input
-              className="w-48 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30"
+              className="w-48 rounded-lg border border-line bg-tint/5 px-3 py-2 text-sm text-ink placeholder:text-ink-dim"
               placeholder="Save as profile…"
               value={profileName}
               onChange={(e) => setProfileName(e.target.value)}
@@ -621,7 +627,7 @@ export function DiscoveryWorkspace() {
               type="button"
               disabled={savingProfile || !profileName.trim()}
               onClick={saveProfile}
-              className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/10 disabled:opacity-40"
+              className="rounded-lg border border-line bg-tint/5 px-4 py-2 text-sm font-semibold text-ink hover:bg-tint/10 disabled:opacity-40"
             >
               Save as profile
             </button>
@@ -631,8 +637,8 @@ export function DiscoveryWorkspace() {
         {(running || progress.length > 0) && (
           <div className="mt-4 space-y-2">
             {currentSource && (
-              <p className="text-sm text-white/70">
-                <span className="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/20 border-t-[#D4AF37]" />
+              <p className="text-sm text-ink-muted">
+                <span className="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-line-strong border-t-neon-cyan" />
                 Searching {currentSource}…
               </p>
             )}
@@ -643,8 +649,8 @@ export function DiscoveryWorkspace() {
                     o.status === "ok" ? "CONNECTED" : o.status === "blocked" ? "FREE_LIMIT_REACHED" : o.status === "not_configured" ? "NOT_CONFIGURED" : "ERROR"
                   }
                 />
-                <span className="font-semibold text-white/85">{o.label}</span>
-                <span className="text-white/50">
+                <span className="font-semibold text-ink">{o.label}</span>
+                <span className="text-ink-muted">
                   {o.status === "ok"
                     ? `${o.discovered} discovered`
                     : o.status === "skipped"
@@ -660,7 +666,7 @@ export function DiscoveryWorkspace() {
 
       {/* STEP 5 — results */}
       {output && summary && (
-        <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+        <section className="rounded-2xl border border-line bg-tint/[0.03] p-5">
           <div className={STEP}>Step 5 — Review real results</div>
 
           <div className="mt-3 flex flex-wrap gap-2 text-sm">
@@ -673,21 +679,21 @@ export function DiscoveryWorkspace() {
               ["Contactable", summary.contactable],
               ["Unreachable", summary.unreachable],
             ].map(([label, v]) => (
-              <div key={label as string} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-                <span className="text-white/50">{label}: </span>
-                <strong className="text-white">{v as number}</strong>
+              <div key={label as string} className="rounded-lg border border-line bg-tint/5 px-3 py-2">
+                <span className="text-ink-muted">{label}: </span>
+                <strong className="text-ink">{v as number}</strong>
               </div>
             ))}
-            <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-              <span className="text-white/50">Status: </span>
-              <strong className={output.status === "COMPLETE" ? "text-emerald-300" : output.status === "PARTIAL" ? "text-amber-300" : "text-red-300"}>
+            <div className="rounded-lg border border-line bg-tint/5 px-3 py-2">
+              <span className="text-ink-muted">Status: </span>
+              <strong className={output.status === "COMPLETE" ? "text-neon-lime" : output.status === "PARTIAL" ? "text-amber-300" : "text-red-300"}>
                 {output.status.replace(/_/g, " ")}
               </strong>
             </div>
           </div>
           {output.error && <p className="mt-2 text-sm text-amber-200/80">{output.error}</p>}
           {output.sources.length > 0 && (
-            <p className="mt-2 text-xs text-white/40">
+            <p className="mt-2 text-xs text-ink-dim">
               Source mix: {output.sources.filter((s) => s.status === "ok").map((s) => `${s.label}: ${s.discovered}`).join(" · ") || "none"}
             </p>
           )}
@@ -723,18 +729,18 @@ export function DiscoveryWorkspace() {
               />
 
               {copied && (
-                <p className="text-xs text-emerald-300">
+                <p className="text-xs text-neon-lime">
                   {copied.startsWith("ig:") ? "Instagram profile opened. Message copied. Paste and send manually." : "Message copied to clipboard."}
                 </p>
               )}
 
               {/* STEP 6/7 — actions */}
-              <div className="flex flex-wrap gap-2 border-t border-white/10 pt-4">
+              <div className="flex flex-wrap gap-2 border-t border-line pt-4">
                 <button
                   type="button"
                   disabled={importing || selection.size === 0}
                   onClick={importSelected}
-                  className="rounded-lg bg-[#D4AF37] px-5 py-2.5 text-sm font-bold text-black hover:brightness-110 disabled:opacity-40"
+                  className="rounded-lg bg-neon-cyan px-5 py-2.5 text-sm font-semibold text-[#021614] hover:brightness-110 disabled:opacity-40"
                 >
                   {importing ? "IMPORTING…" : `IMPORT SELECTED TO CRM (${selection.size})`}
                 </button>
@@ -742,43 +748,43 @@ export function DiscoveryWorkspace() {
                   type="button"
                   disabled={analyzing || selection.size === 0}
                   onClick={analyzeSelected}
-                  className="rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/10 disabled:opacity-40"
+                  className="rounded-lg border border-line bg-tint/5 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-tint/10 disabled:opacity-40"
                 >
                   {analyzing ? "ANALYZING…" : "Analyze selected leads"}
                 </button>
                 <div className="relative">
                   <button
                     type="button"
-                    className="rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/10"
+                    className="rounded-lg border border-line bg-tint/5 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-tint/10"
                     onClick={() => downloadCsv(selectedCandidates.length > 0 ? selectedCandidates : output.candidates, "discovery-export.csv")}
                   >
                     Export CSV {selectedCandidates.length > 0 ? `(${selectedCandidates.length} selected)` : "(all)"}
                   </button>
                 </div>
               </div>
-              {importResult && <p className="text-sm text-white/70">{importResult}</p>}
+              {importResult && <p className="text-sm text-ink-muted">{importResult}</p>}
 
               {analyses.length > 0 && (
-                <div className="space-y-3 border-t border-white/10 pt-4">
-                  <div className="text-sm font-bold text-white">AI analysis <span className="ml-1 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white/50">AI inference</span></div>
+                <div className="space-y-3 border-t border-line pt-4">
+                  <div className="text-sm font-semibold text-ink">AI analysis <span className="ml-1 rounded bg-tint/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-ink-muted">AI inference</span></div>
                   {analyses.map((a) => {
                     const cand = output.candidates.find((c) => c.providerId === a.providerId);
                     return (
-                      <div key={a.providerId} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                      <div key={a.providerId} className="rounded-xl border border-line bg-tint/5 p-4">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold text-white">{cand?.name ?? a.providerId}</span>
-                          <span className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${a.priority === "high" ? "bg-emerald-400/15 text-emerald-300" : a.priority === "medium" ? "bg-amber-400/15 text-amber-300" : "bg-white/10 text-white/50"}`}>
+                          <span className="font-semibold text-ink">{cand?.name ?? a.providerId}</span>
+                          <span className={`rounded px-2 py-0.5 text-xs font-semibold uppercase ${a.priority === "high" ? "bg-neon-lime/15 text-neon-lime" : a.priority === "medium" ? "bg-amber-400/15 text-amber-300" : "bg-tint/10 text-ink-muted"}`}>
                             {a.priority} priority
                           </span>
                         </div>
-                        <p className="mt-1 text-sm text-white/70"><strong className="text-white/90">Opportunity:</strong> {a.opportunity}</p>
-                        <p className="mt-1 text-sm text-white/70"><strong className="text-white/90">Approach:</strong> {a.approach}</p>
-                        <p className="mt-1 text-sm text-white/70"><strong className="text-white/90">Next action:</strong> {a.nextAction}</p>
+                        <p className="mt-1 text-sm text-ink-muted"><strong className="text-ink">Opportunity:</strong> {a.opportunity}</p>
+                        <p className="mt-1 text-sm text-ink-muted"><strong className="text-ink">Approach:</strong> {a.approach}</p>
+                        <p className="mt-1 text-sm text-ink-muted"><strong className="text-ink">Next action:</strong> {a.nextAction}</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <button
                             type="button"
                             onClick={() => copyDraft(a.providerId)}
-                            className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/20"
+                            className="rounded-md bg-tint/10 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-tint/20"
                           >
                             {copied === a.providerId ? "Copied ✓" : "Copy message draft"}
                           </button>
@@ -787,7 +793,7 @@ export function DiscoveryWorkspace() {
                               type="button"
                               onClick={() => openInstagram(cand)}
                               disabled={!cand.instagramUrl && !drafts.get(a.providerId)}
-                              className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/20 disabled:opacity-40"
+                              className="rounded-md bg-tint/10 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-tint/20 disabled:opacity-40"
                             >
                               Instagram: open profile + copy
                             </button>
@@ -800,7 +806,7 @@ export function DiscoveryWorkspace() {
               )}
             </div>
           ) : (
-            <p className="mt-4 text-sm text-white/50">
+            <p className="mt-4 text-sm text-ink-muted">
               No candidates found. Try a different source, broaden the location, or relax the filters.
             </p>
           )}
@@ -808,7 +814,7 @@ export function DiscoveryWorkspace() {
       )}
 
       {/* Saved profiles */}
-      <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+      <section className="rounded-2xl border border-line bg-tint/[0.03] p-5">
         <div className={STEP}>Saved searches / discovery profiles</div>
         <div className="mt-3">
           <ProfilesPanel
@@ -827,20 +833,20 @@ export function DiscoveryWorkspace() {
 
       {/* Sticky mobile action bar */}
       {output && output.candidates.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#0D1B2A]/95 p-3 backdrop-blur lg:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-[#0D1B2A]/95 p-3 backdrop-blur lg:hidden">
           <div className="flex gap-2">
             <button
               type="button"
               disabled={importing || selection.size === 0}
               onClick={importSelected}
-              className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-3 text-sm font-bold text-black disabled:opacity-40"
+              className="flex-1 rounded-lg bg-neon-cyan px-4 py-3 text-sm font-semibold text-[#021614] disabled:opacity-40"
             >
               Import ({selection.size})
             </button>
             <button
               type="button"
               onClick={() => downloadCsv(selectedCandidates.length > 0 ? selectedCandidates : output.candidates, "discovery-export.csv")}
-              className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/80"
+              className="rounded-lg border border-line bg-tint/5 px-4 py-3 text-sm font-semibold text-ink"
             >
               CSV
             </button>

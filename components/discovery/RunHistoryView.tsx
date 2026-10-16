@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { ButtonLink } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface HistoryRun {
   id: string;
@@ -36,7 +38,7 @@ interface HistoryRun {
 }
 
 const STATUS_CLS: Record<string, string> = {
-  COMPLETE: "bg-emerald-400/15 text-emerald-300",
+  COMPLETE: "bg-neon-lime/15 text-neon-lime",
   PARTIAL: "bg-amber-400/15 text-amber-300",
   FAILED: "bg-red-400/15 text-red-300",
   LIMIT_REACHED: "bg-red-400/15 text-red-300",
@@ -122,35 +124,31 @@ export function RunHistoryView() {
     }
   }
 
-  if (loading) return <p className="text-sm text-white/40">Loading run history…</p>;
+  if (loading) return <p className="text-sm text-ink-dim">Loading run history…</p>;
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Discovery History</h1>
-          <p className="text-sm text-white/50">Every discovery run, with truthful counts.</p>
-        </div>
-        <Link href="/discover" className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-black hover:brightness-110">
-          New discovery
-        </Link>
-      </div>
+      <PageHeader
+        title="Discovery history"
+        description="Every discovery run, with truthful counts."
+        actions={<ButtonLink href="/discover">New discovery</ButtonLink>}
+      />
 
       {runs.length === 0 ? (
-        <p className="text-sm text-white/40">No discovery runs yet. Run your first discovery to see it here.</p>
+        <p className="text-sm text-ink-dim">No discovery runs yet. Run your first discovery to see it here.</p>
       ) : (
         <div className="space-y-3">
           {runs.map((run) => (
-            <div key={run.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+            <div key={run.id} className="rounded-2xl border border-line bg-tint/[0.03] p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <div className="font-bold text-white">{run.label}</div>
-                  <div className="mt-0.5 text-xs text-white/40">
+                  <div className="font-semibold text-ink">{run.label}</div>
+                  <div className="mt-0.5 text-xs text-ink-dim">
                     {new Date(run.createdAt).toLocaleString("en-IN")} · {run.profile?.name ?? "Ad-hoc run"} ·
                     {" "}{run.durationMs != null ? `${(run.durationMs / 1000).toFixed(1)}s` : "—"}
                   </div>
                 </div>
-                <span className={`rounded px-2 py-1 text-xs font-bold uppercase ${STATUS_CLS[run.status] ?? "bg-white/10 text-white/50"}`}>
+                <span className={`rounded px-2 py-1 text-xs font-semibold uppercase ${STATUS_CLS[run.status] ?? "bg-tint/10 text-ink-muted"}`}>
                   {run.status.replace(/_/g, " ")}
                 </span>
               </div>
@@ -162,9 +160,9 @@ export function RunHistoryView() {
                   ["Contactable", run.contactable],
                   ["Imported", run.imported],
                 ].map(([label, v]) => (
-                  <span key={label as string} className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5">
-                    <span className="text-white/50">{label}: </span>
-                    <strong className="text-white">{v as number}</strong>
+                  <span key={label as string} className="rounded-md border border-line bg-tint/5 px-2.5 py-1.5">
+                    <span className="text-ink-muted">{label}: </span>
+                    <strong className="text-ink">{v as number}</strong>
                   </span>
                 ))}
               </div>
@@ -173,7 +171,7 @@ export function RunHistoryView() {
                 <button
                   type="button"
                   onClick={() => setExpanded((e) => (e === run.id ? null : run.id))}
-                  className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/20"
+                  className="rounded-md bg-tint/10 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-tint/20"
                 >
                   {expanded === run.id ? "Hide details" : "View results"}
                 </button>
@@ -181,28 +179,28 @@ export function RunHistoryView() {
                   type="button"
                   disabled={rerunning === run.id}
                   onClick={() => runAgain(run)}
-                  className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/20 disabled:opacity-40"
+                  className="rounded-md bg-tint/10 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-tint/20 disabled:opacity-40"
                 >
                   {rerunning === run.id ? "Running…" : "Run again"}
                 </button>
                 <Link
                   href="/discover"
-                  className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/20"
+                  className="rounded-md bg-tint/10 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-tint/20"
                 >
                   Duplicate search
                 </Link>
               </div>
 
               {expanded === run.id && (
-                <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+                <div className="mt-3 space-y-2 border-t border-line pt-3">
                   {run.perSource.map((s, i) => (
-                    <div key={i} className="text-xs text-white/60">
-                      <span className="font-semibold text-white/85">{s.label}</span>
+                    <div key={i} className="text-xs text-ink-muted">
+                      <span className="font-semibold text-ink">{s.label}</span>
                       {" "}({s.role}) — <span className="uppercase">{s.status.replace(/_/g, " ")}</span>
                       {s.status === "ok" && ` · ${s.discovered} discovered · ${s.requestsMade} req / ${s.creditsUsed} credits`}
                       {s.message && s.status !== "ok" && ` · ${s.message}`}
                       {s.queriesRun.length > 0 && (
-                        <div className="mt-0.5 text-white/40">Queries: {s.queriesRun.join(" · ")}</div>
+                        <div className="mt-0.5 text-ink-dim">Queries: {s.queriesRun.join(" · ")}</div>
                       )}
                     </div>
                   ))}

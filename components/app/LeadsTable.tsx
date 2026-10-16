@@ -9,8 +9,20 @@ import {
 } from "@tanstack/react-table";
 import Papa from "papaparse";
 import Link from "next/link";
-import { Plus, Upload, Download, Trash2, X, Globe, ChevronDown, Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Plus, Upload, Download, Trash2, X, Globe, ChevronDown, Loader2, SearchX, Users } from "lucide-react";
 import { DEMO_ACTION_DISABLED_MESSAGE } from "@/lib/demo";
+import { Button } from "@/components/ui/Button";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { Dialog } from "@/components/ui/Dialog";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/Skeleton";
+import {
+  activeFilterCount,
+  leadFiltersToParams,
+  parseLeadFilters,
+  type LeadFilters,
+} from "@/lib/lead-filters";
 import {
   SOURCE_OPTIONS,
   IG_PRESET_VISIBLE,
@@ -62,15 +74,15 @@ const LEAD_FIELDS = [
 const columnHelper = createColumnHelper<Lead>();
 
 function scoreColor(s: number) {
-  if (s >= 70) return "text-emerald-400";
+  if (s >= 70) return "text-neon-lime";
   if (s >= 40) return "text-amber-400";
-  return "text-white/50";
+  return "text-ink-muted";
 }
 
 function statusPillClass(status: string): string {
   switch (status) {
     case "WON":
-      return "bg-emerald-400/15 text-emerald-300";
+      return "bg-neon-lime/15 text-neon-lime";
     case "LOST":
       return "bg-red-400/15 text-red-300";
     case "QUALIFIED":
@@ -79,9 +91,9 @@ function statusPillClass(status: string): string {
     case "MEETING":
     case "PROPOSAL":
     case "NEGOTIATION":
-      return "bg-[#D4AF37]/15 text-[#D4AF37]";
+      return "bg-neon-cyan/15 text-neon-cyan";
     default:
-      return "bg-white/10 text-white/80";
+      return "bg-tint/10 text-ink";
   }
 }
 
@@ -117,9 +129,16 @@ function LeadStatusDropdown({
     const close = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open ]);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   if (!canWrite) {
     return (
@@ -177,14 +196,14 @@ function LeadStatusDropdown({
         <ChevronDown size={12} className="opacity-60" />
       </button>
       {open && (
-        <div className="absolute left-0 z-30 mt-1 w-36 overflow-hidden rounded-lg border border-white/15 bg-[#101c2e] shadow-xl">
+        <div className="absolute left-0 z-30 mt-1 w-36 overflow-hidden rounded-lg border border-line-strong bg-[#101c2e] shadow-xl">
           {STATUSES.map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => pick(s)}
-              className={`block w-full px-3 py-1.5 text-left text-xs transition hover:bg-white/10 ${
-                s === lead.status ? "font-semibold text-[#D4AF37]" : "text-white/80"
+              className={`block w-full px-3 py-1.5 text-left text-xs transition hover:bg-tint/10 ${
+                s === lead.status ? "font-semibold text-neon-cyan" : "text-ink"
               }`}
             >
               {s}
@@ -217,12 +236,12 @@ export function LeadsTable({
   const canWrite = role !== "VIEWER";
   const [leads, setLeads] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState("");
-  const [sourceType, setSourceType] = useState("");
-  const [verification, setVerification] = useState("");
-  const [minScore, setMinScore] = useState("");
+  // Filters and page live in the URL (shareable, survive refresh, targeted by dashboard links).
+  const searchParams = useSearchParams();
+  const filters = useMemo(() => parseLeadFilters(searchParams), [searchParams]);
+  const { page, status, sourceType, verification, minScore } = filters;
+  const confirm = useConfirm();
+  const [draft, setDraft] = useState(filters.q);
   const [messageLead, setMessageLead] = useState<Lead | null>(null);
   const [remarkLead, setRemarkLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
@@ -241,21 +260,28 @@ export function LeadsTable({
   const headers = useMemo(() => ({ "x-org-id": orgId }), [orgId]);
   const pageSize = 25;
 
+  /** Merge a change into the URL. Anything but an explicit page change returns to page 1. */
+  const updateFilters = useCallback((patch: Partial<LeadFilters>) => {
+    const next: LeadFilters = { ...parseLeadFilters(new URLSearchParams(window.location.search)), ...patch };
+    if (!("page" in patch)) next.page = 1;
+    const qs = leadFiltersToParams(next).toString();
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setDraft("");
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({
-        page: String(page),
-        pageSize: String(pageSize),
-        ...(q ? { q } : {}),
-        ...(status ? { status } : {}),
-        ...(sourceType ? { sourceType } : {}),
-        ...(verification ? { verification } : {}),
-        ...(minScore ? { minScore } : {}),
-        sort: "updatedAt",
-        order: "desc",
-      });
+      const params = leadFiltersToParams(filters);
+      params.set("page", String(filters.page));
+      params.set("pageSize", String(pageSize));
+      params.set("sort", "updatedAt");
+      params.set("order", "desc");
       const res = await fetch(`${apiBase}/leads?${params}`, { headers });
       if (!res.ok) throw new Error(res.status === 403 ? "Access denied." : "Failed to load leads.");
       const data = await res.json();
@@ -267,21 +293,23 @@ export function LeadsTable({
     } finally {
       setLoading(false);
     }
-  }, [page, q, status, sourceType, verification, minScore, headers, apiBase]);
+  }, [filters, headers, apiBase]);
 
   useEffect(() => {
     fetchLeads();
   }, [fetchLeads]);
 
-  // Debounced search
-  const [draft, setDraft] = useState("");
+  // Debounced search box → URL. The box also follows the URL when it changes from outside
+  // (clear-filters, back/forward); state is set in a frame callback, not synchronously in the effect.
   useEffect(() => {
-    const t = setTimeout(() => {
-      setPage(1);
-      setQ(draft);
-    }, 400);
+    if (draft.trim() === filters.q) return;
+    const t = setTimeout(() => updateFilters({ q: draft }), 400);
     return () => clearTimeout(t);
-  }, [draft]);
+  }, [draft, filters.q, updateFilters]);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setDraft((d) => (d.trim() === filters.q ? d : filters.q)));
+    return () => cancelAnimationFrame(raf);
+  }, [filters.q]);
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -318,12 +346,23 @@ export function LeadsTable({
 
   async function deleteSelected() {
     if (selected.size === 0) return;
-    if (!confirm(`Delete ${selected.size} lead(s)? This cannot be undone.`)) return;
+    const count = selected.size;
+    const ok = await confirm({
+      title: `Delete ${count} ${count === 1 ? "lead" : "leads"}?`,
+      description: "They are removed from this workspace for everyone. This cannot be undone.",
+      confirmLabel: `Delete ${count === 1 ? "lead" : `${count} leads`}`,
+      tone: "danger",
+    });
+    if (!ok) return;
     setBulkBusy(true);
+    setError(null);
     try {
+      let failed = 0;
       for (const id of selected) {
-        await fetch(`${apiBase}/leads/${id}`, { method: "DELETE", headers });
+        const res = await fetch(`${apiBase}/leads/${id}`, { method: "DELETE", headers }).catch(() => null);
+        if (!res?.ok) failed += 1;
       }
+      if (failed > 0) setError(`${failed} of ${count} leads could not be deleted. They may already be gone or you may lack permission.`);
       await fetchLeads();
     } finally {
       setBulkBusy(false);
@@ -331,7 +370,9 @@ export function LeadsTable({
   }
 
   function exportCsv() {
-    window.open(`${apiBase}/leads/export?format=csv`, "_blank");
+    // window.open cannot send the x-org-id header, so the active workspace goes in the URL
+    // (the server checks it against the signed-in user's memberships).
+    window.open(`${apiBase}/leads/export?format=csv&orgId=${encodeURIComponent(orgId)}`, "_blank", "noopener");
   }
 
   const columns = useMemo(
@@ -344,7 +385,7 @@ export function LeadsTable({
             aria-label="Select all"
             checked={leads.length > 0 && selected.size === leads.length}
             onChange={toggleAll}
-            className="h-4 w-4 accent-[#D4AF37]"
+            className="h-4 w-4 accent-neon-cyan"
           />
         ),
         cell: (info) => (
@@ -353,7 +394,7 @@ export function LeadsTable({
             aria-label={`Select lead ${info.row.original.company?.name ?? info.row.original.fullName ?? info.row.original.id}`}
             checked={selected.has(info.row.original.id)}
             onChange={() => toggle(info.row.original.id)}
-            className="h-4 w-4 accent-[#D4AF37]"
+            className="h-4 w-4 accent-neon-cyan"
           />
         ),
       }),
@@ -363,7 +404,7 @@ export function LeadsTable({
         cell: (info) => (
           <Link
             href={`/leads/${info.row.original.id}`}
-            className="font-medium text-white hover:text-[#D4AF37] hover:underline"
+            className="font-medium text-ink hover:text-neon-cyan hover:underline"
           >
             {info.getValue() || "—"}
           </Link>
@@ -372,12 +413,12 @@ export function LeadsTable({
       columnHelper.accessor("phone", {
         id: "phone",
         header: "Phone",
-        cell: (info) => <span className="text-white/70">{info.getValue() || "—"}</span>,
+        cell: (info) => <span className="text-ink-muted">{info.getValue() || "—"}</span>,
       }),
       columnHelper.accessor("email", {
         id: "email",
         header: "Email",
-        cell: (info) => <span className="text-white/70">{info.getValue() || "—"}</span>,
+        cell: (info) => <span className="text-ink-muted">{info.getValue() || "—"}</span>,
       }),
       columnHelper.accessor("websiteStatus", {
         id: "website",
@@ -390,29 +431,29 @@ export function LeadsTable({
                 href={lead.website.startsWith("http") ? lead.website : `https://${lead.website}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-[#D4AF37] hover:underline"
+                className="text-xs text-neon-cyan hover:underline"
               >
                 Open site
               </a>
             );
           if (info.getValue() === "NO_WEBSITE")
             return (
-              <span className="rounded-full bg-[#D4AF37]/15 px-2.5 py-0.5 text-xs font-semibold text-[#D4AF37]">
+              <span className="rounded-full bg-neon-cyan/15 px-2.5 py-0.5 text-xs font-semibold text-neon-cyan">
                 NO WEBSITE
               </span>
             );
-          return <span className="text-white/30">—</span>;
+          return <span className="text-ink-dim">—</span>;
         },
       }),
       columnHelper.accessor((r) => [r.city, r.state, r.country].filter(Boolean).join(", "), {
         id: "location",
         header: "Location",
-        cell: (info) => <span className="text-white/70">{info.getValue() || "—"}</span>,
+        cell: (info) => <span className="text-ink-muted">{info.getValue() || "—"}</span>,
       }),
       columnHelper.accessor("industry", {
         id: "industry",
         header: "Industry",
-        cell: (info) => <span className="text-white/70">{info.getValue() || "—"}</span>,
+        cell: (info) => <span className="text-ink-muted">{info.getValue() || "—"}</span>,
       }),
       columnHelper.accessor("opportunityType", {
         id: "opportunity",
@@ -421,7 +462,7 @@ export function LeadsTable({
           const v = info.getValue();
           if (v === "HIGH")
             return (
-              <span className="rounded-full bg-[#D4AF37]/15 px-2.5 py-0.5 text-xs font-semibold text-[#D4AF37]">
+              <span className="rounded-full bg-neon-cyan/15 px-2.5 py-0.5 text-xs font-semibold text-neon-cyan">
                 HIGH
               </span>
             );
@@ -431,8 +472,8 @@ export function LeadsTable({
                 MEDIUM
               </span>
             );
-          if (v === "LOW") return <span className="text-xs text-white/50">LOW</span>;
-          return <span className="text-white/30">—</span>;
+          if (v === "LOW") return <span className="text-xs text-ink-muted">LOW</span>;
+          return <span className="text-ink-dim">—</span>;
         },
       }),
       columnHelper.accessor("leadScore", {
@@ -453,12 +494,12 @@ export function LeadsTable({
         cell: (info) => {
           const v = info.getValue() as string | null;
           const reason = (info.row.original as { verificationReason?: string | null }).verificationReason;
-          if (!v) return <span className="text-white/30">—</span>;
+          if (!v) return <span className="text-ink-dim">—</span>;
           const cls =
             v === "HIGH"
-              ? "bg-emerald-400/15 text-emerald-300"
+              ? "bg-neon-lime/15 text-neon-lime"
               : v === "MEDIUM"
-                ? "bg-sky-400/15 text-sky-300"
+                ? "bg-neon-blue/15 text-neon-blue"
                 : v === "LOW"
                   ? "bg-amber-400/15 text-amber-300"
                   : "bg-red-400/15 text-red-300";
@@ -474,11 +515,11 @@ export function LeadsTable({
         header: "Contactability",
         cell: (info) =>
           info.getValue() ? (
-            <span className="rounded-full bg-emerald-400/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-300">
+            <span className="rounded-full bg-neon-lime/15 px-2.5 py-0.5 text-xs font-semibold text-neon-lime">
               CONTACTABLE
             </span>
           ) : (
-            <span className="text-xs text-white/40">Not yet</span>
+            <span className="text-xs text-ink-dim">Not yet</span>
           ),
       }),
       columnHelper.accessor("status", {
@@ -500,7 +541,7 @@ export function LeadsTable({
         id: "source",
         header: "Source",
         cell: (info) => (
-          <span className="text-xs text-white/50">
+          <span className="text-xs text-ink-muted">
             {info.getValue() === "GOOGLE_BUSINESS" ? "GOOGLE MAPS" : info.getValue().replace(/_/g, " ")}
           </span>
         ),
@@ -509,8 +550,8 @@ export function LeadsTable({
         id: "ig_username",
         header: "Instagram Username",
         cell: (info) => (
-          <span className="text-xs text-white/70">
-            {info.getValue() ? `@${info.getValue()}` : <span className="text-white/30">—</span>}
+          <span className="text-xs text-ink-muted">
+            {info.getValue() ? `@${info.getValue()}` : <span className="text-ink-dim">—</span>}
           </span>
         ),
       }),
@@ -542,12 +583,12 @@ export function LeadsTable({
             <button
               type="button"
               onClick={() => setMessageLead(info.row.original)}
-              className="rounded-lg border border-[#D4AF37]/30 px-2.5 py-1 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/10"
+              className="rounded-lg border border-neon-cyan/30 px-2.5 py-1 text-xs text-neon-cyan hover:bg-neon-cyan/10"
             >
               View Message
             </button>
           ) : (
-            <span className="text-white/30">—</span>
+            <span className="text-ink-dim">—</span>
           ),
       }),
       columnHelper.display({
@@ -557,7 +598,7 @@ export function LeadsTable({
           <button
             type="button"
             onClick={() => setRemarkLead(info.row.original)}
-            className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-white/60 hover:text-white"
+            className="rounded-lg border border-line px-2.5 py-1 text-xs text-ink-muted hover:text-ink"
           >
             Remarks
           </button>
@@ -568,13 +609,13 @@ export function LeadsTable({
         header: "Site",
         cell: (info) => {
           const lead = info.row.original;
-          if (!lead.website) return <span className="text-white/30">—</span>;
+          if (!lead.website) return <span className="text-ink-dim">—</span>;
           return (
             <Link
               href={`/intelligence?leadId=${lead.id}`}
               title={`Inspect website: ${lead.website}`}
               aria-label={`Inspect website for ${lead.company?.name ?? lead.fullName ?? lead.id}`}
-              className="inline-flex items-center text-white/50 transition hover:text-[#D4AF37]"
+              className="inline-flex items-center text-ink-muted transition hover:text-neon-cyan"
             >
               <Globe size={16} />
             </Link>
@@ -675,12 +716,12 @@ export function LeadsTable({
   return (
     <div className="space-y-4">
       {demoNotice && (
-        <div className="flex items-center justify-between rounded-lg border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-3 py-2 text-sm text-[#D4AF37]">
+        <div className="flex items-center justify-between rounded-lg border border-neon-cyan/40 bg-neon-cyan/10 px-3 py-2 text-sm text-neon-cyan">
           <span>{demoNotice}</span>
           <button
             onClick={() => setDemoNotice(null)}
             aria-label="Dismiss"
-            className="ml-3 text-[#D4AF37]/70 hover:text-[#D4AF37]"
+            className="ml-3 text-neon-cyan/70 hover:text-neon-cyan"
           >
             <X size={16} />
           </button>
@@ -693,16 +734,13 @@ export function LeadsTable({
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Search name, email, company…"
           aria-label="Search leads"
-          className="w-64 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+          className="min-h-11 w-full rounded-control border border-line bg-black/30 px-3 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-neon-cyan sm:min-h-10 sm:w-64"
         />
         <select
           value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
-            setPage(1);
-          }}
+          onChange={(e) => updateFilters({ status: e.target.value })}
           aria-label="Filter by status"
-          className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+          className="min-h-11 rounded-control border border-line bg-black/30 px-3 text-sm text-ink outline-none focus:border-neon-cyan sm:min-h-10"
         >
           <option value="">All statuses</option>
           {STATUSES.map((s) => (
@@ -715,8 +753,7 @@ export function LeadsTable({
           value={sourceType}
           onChange={(e) => {
             const next = e.target.value;
-            setSourceType(next);
-            setPage(1);
+            updateFilters({ sourceType: next });
             // Instagram source → apply the Instagram-oriented column preset.
             if (next === "INSTAGRAM") {
               const hidden = TOGGLEABLE_COLUMNS.map((c) => c.id).filter(
@@ -731,7 +768,7 @@ export function LeadsTable({
             }
           }}
           aria-label="Filter by source"
-          className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+          className="min-h-11 rounded-control border border-line bg-black/30 px-3 text-sm text-ink outline-none focus:border-neon-cyan sm:min-h-10"
         >
           {SOURCE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -741,13 +778,10 @@ export function LeadsTable({
         </select>
         <select
           value={verification}
-          onChange={(e) => {
-            setVerification(e.target.value);
-            setPage(1);
-          }}
+          onChange={(e) => updateFilters({ verification: e.target.value })}
           aria-label="Filter by verification"
           title="Verification confidence from the AI sales agent"
-          className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+          className="min-h-11 rounded-control border border-line bg-black/30 px-3 text-sm text-ink outline-none focus:border-neon-cyan sm:min-h-10"
         >
           <option value="">All verification</option>
           <option value="HIGH">Verified · High</option>
@@ -758,36 +792,38 @@ export function LeadsTable({
         </select>
         <input
           value={minScore}
+          inputMode="numeric"
           onChange={(e) => {
             const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 3);
-            setMinScore(v);
-            setPage(1);
+            updateFilters({ minScore: v !== "" && Number(v) <= 100 ? String(Number(v)) : v === "" ? "" : "100" });
           }}
           placeholder="Min score"
           aria-label="Minimum lead score"
           title="Minimum lead score (0-100)"
-          className="w-24 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none placeholder:text-white/25 focus:border-[#D4AF37]"
+          className="min-h-11 w-24 rounded-control border border-line bg-black/30 px-3 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-neon-cyan sm:min-h-10"
         />
         <div ref={columnsRef} className="relative">
-          <button
+          <Button
+            variant="secondary"
             onClick={() => setShowColumns((v) => !v)}
+            aria-haspopup="true"
+            aria-expanded={showColumns}
             aria-label="Show or hide columns"
-            className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/5"
           >
             Columns
-          </button>
+          </Button>
           {showColumns && (
-            <div className="absolute right-0 z-30 mt-1 w-48 rounded-lg border border-white/15 bg-[#101c2e] p-2 shadow-xl">
+            <div className="absolute right-0 z-30 mt-1 w-48 rounded-lg border border-line-strong bg-[#101c2e] p-2 shadow-xl">
               {TOGGLEABLE_COLUMNS.map((c) => (
                 <label
                   key={c.id}
-                  className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs text-white/80 hover:bg-white/10"
+                  className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs text-ink hover:bg-tint/10"
                 >
                   <input
                     type="checkbox"
                     checked={!hiddenCols.includes(c.id)}
                     onChange={() => toggleColumn(c.id)}
-                    className="h-3.5 w-3.5 accent-[#D4AF37]"
+                    className="h-3.5 w-3.5 accent-neon-cyan"
                   />
                   {c.label}
                 </label>
@@ -795,36 +831,51 @@ export function LeadsTable({
             </div>
           )}
         </div>
-        <div className="ml-auto flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 sm:ml-auto">
           {canWrite && (
             <>
-              <button
-                onClick={() => (demo ? blockDemo() : setShowAdd(true))}
-                className="flex items-center gap-1.5 rounded-lg bg-[#D4AF37] px-3 py-2 text-sm font-semibold text-black hover:brightness-110"
-              >
-                <Plus size={16} /> Add lead
-              </button>
-              <button
-                onClick={() => (demo ? blockDemo() : setShowImport(true))}
-                className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/5"
-              >
-                <Upload size={16} /> Import
-              </button>
+              <Button onClick={() => (demo ? blockDemo() : setShowAdd(true))}>
+                <Plus size={16} aria-hidden="true" /> Add lead
+              </Button>
+              <Button variant="secondary" onClick={() => (demo ? blockDemo() : setShowImport(true))}>
+                <Upload size={16} aria-hidden="true" /> Import
+              </Button>
             </>
           )}
-          <button
-            onClick={exportCsv}
-            className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/5"
-          >
-            <Download size={16} /> Export
-          </button>
+          <Button variant="secondary" onClick={exportCsv}>
+            <Download size={16} aria-hidden="true" /> Export
+          </Button>
         </div>
       </div>
 
+      {/* Filters that arrive by link (dashboard drill-downs) have no dropdown, so they show as removable chips. */}
+      {(filters.followUp || filters.contactable || filters.websiteStatus) && (
+        <div role="group" aria-label="Active filters" className="flex flex-wrap items-center gap-2">
+          {filters.followUp === "due" && (
+            <FilterChip label="Follow-up due" onRemove={() => updateFilters({ followUp: "" })} />
+          )}
+          {filters.contactable === "true" && (
+            <FilterChip label="Contactable" onRemove={() => updateFilters({ contactable: "" })} />
+          )}
+          {filters.websiteStatus && (
+            <FilterChip
+              label={
+                filters.websiteStatus === "NO_WEBSITE"
+                  ? "No website"
+                  : filters.websiteStatus === "HAS_WEBSITE"
+                    ? "Has a website"
+                    : "Website unknown"
+              }
+              onRemove={() => updateFilters({ websiteStatus: "" })}
+            />
+          )}
+        </div>
+      )}
+
       {/* Bulk bar */}
       {selected.size > 0 && canWrite && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-3 py-2 text-sm">
-          <span className="text-[#D4AF37]">{selected.size} selected</span>
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-neon-cyan/30 bg-neon-cyan/10 px-3 py-2 text-sm">
+          <span className="text-neon-cyan">{selected.size} selected</span>
           <select
             aria-label="Bulk status update"
             defaultValue=""
@@ -837,7 +888,7 @@ export function LeadsTable({
                 bulkStatus(e.target.value);
               }
             }}
-            className="rounded border border-white/15 bg-black/40 px-2 py-1 text-sm text-white"
+            className="rounded border border-line-strong bg-black/40 px-2 py-1 text-sm text-ink"
           >
             <option value="">Set status…</option>
             {STATUSES.map((s) => (
@@ -853,7 +904,7 @@ export function LeadsTable({
               <Trash2 size={14} /> Delete
             </button>
           )}
-          <button onClick={() => setSelected(new Set())} className="ml-auto text-white/50 hover:text-white">
+          <button onClick={() => setSelected(new Set())} className="ml-auto text-ink-muted hover:text-ink">
             <X size={16} />
           </button>
         </div>
@@ -866,13 +917,18 @@ export function LeadsTable({
       )}
 
       {/* Table */}
-      <div className="max-h-[70vh] overflow-auto rounded-2xl border border-white/10">
+      <div
+        role="region"
+        aria-label="Leads table (scrolls sideways and down)"
+        tabIndex={0}
+        className="max-h-[70vh] overflow-auto rounded-card border border-line"
+      >
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="sticky top-0 z-10">
             {table.getHeaderGroups().map((hg) => (
-              <tr key={hg.id} className="border-b border-white/10 bg-[#101c2e]">
+              <tr key={hg.id} className="border-b border-line bg-[#101c2e]">
                 {hg.headers.map((h) => (
-                  <th key={h.id} className="px-4 py-3 font-medium text-white/60">
+                  <th key={h.id} scope="col" className="whitespace-nowrap px-4 py-3 font-medium text-ink-muted">
                     {flexRender(h.column.columnDef.header, h.getContext())}
                   </th>
                 ))}
@@ -881,22 +937,57 @@ export function LeadsTable({
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={visibleColCount} className="px-4 py-10 text-center text-white/40">
-                  Loading leads…
-                </td>
-              </tr>
+              Array.from({ length: 6 }).map((_, i) => (
+                <tr key={i} aria-hidden="true" className="border-b border-line/60">
+                  <td colSpan={visibleColCount} className="px-4 py-3.5">
+                    <Skeleton className="h-5 w-full" />
+                  </td>
+                </tr>
+              ))
             ) : leads.length === 0 ? (
               <tr>
-                <td colSpan={visibleColCount} className="px-4 py-10 text-center text-white/40">
-                  No leads found. Add your first lead to get started.
+                <td colSpan={visibleColCount} className="p-4 sm:p-8">
+                  {activeFilterCount(filters) > 0 ? (
+                    <EmptyState
+                      icon={SearchX}
+                      tone="muted"
+                      title="No leads match these filters"
+                      description="Remove a filter or search for something else."
+                      action={
+                        <Button variant="secondary" size="sm" onClick={clearFilters}>
+                          Clear all filters
+                        </Button>
+                      }
+                    />
+                  ) : (
+                    <EmptyState
+                      icon={Users}
+                      title="No leads yet"
+                      description="Add a lead by hand, import a CSV, or run a discovery to find real businesses."
+                      action={
+                        <>
+                          {canWrite && (
+                            <Button size="sm" onClick={() => (demo ? blockDemo() : setShowAdd(true))}>
+                              <Plus size={16} aria-hidden="true" /> Add lead
+                            </Button>
+                          )}
+                          <Link href="/discover" className="text-sm font-semibold text-neon-cyan hover:underline">
+                            Run a discovery →
+                          </Link>
+                        </>
+                      }
+                    />
+                  )}
                 </td>
               </tr>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="border-b border-white/5 transition hover:bg-white/5">
+                <tr key={row.id} className="border-b border-line/60 transition hover:bg-tint/5">
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3">
+                    <td
+                      key={cell.id}
+                      className={`px-4 py-3 ${cell.column.id === "company" ? "min-w-[12rem] max-w-[18rem]" : "whitespace-nowrap"}`}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
@@ -908,25 +999,29 @@ export function LeadsTable({
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between text-sm text-white/60">
+      <div className="flex items-center justify-between text-sm text-ink-muted">
         <span>
           {total} lead{total === 1 ? "" : "s"} · Page {page} of {totalPages}
         </span>
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-            className="rounded-lg border border-white/15 px-3 py-1.5 disabled:opacity-40 hover:bg-white/5"
+            aria-label="Previous page"
+            onClick={() => updateFilters({ page: page - 1 })}
           >
             Previous
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            className="rounded-lg border border-white/15 px-3 py-1.5 disabled:opacity-40 hover:bg-white/5"
+            aria-label="Next page"
+            onClick={() => updateFilters({ page: page + 1 })}
           >
             Next
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -964,17 +1059,34 @@ export function LeadsTable({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <div>
-      <label className="text-xs text-white/60">{label}</label>
-      <div className="mt-1">{children}</div>
-    </div>
+    <span className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-neon-cyan/40 bg-neon-cyan/10 pl-3 pr-1 text-xs font-medium text-neon-cyan">
+      {label}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove filter: ${label}`}
+        className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-neon-cyan/20"
+      >
+        <X size={14} aria-hidden="true" />
+      </button>
+    </span>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  // The control sits inside the <label>, so the association is implicit (click + screen readers).
+  return (
+    <label className="block">
+      <span className="text-xs text-ink-muted">{label}</span>
+      <span className="mt-1 block">{children}</span>
+    </label>
   );
 }
 
 const inputCls =
-  "w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]";
+  "w-full rounded-control border border-line bg-black/30 px-3 py-2.5 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-neon-cyan sm:py-2";
 
 function AddLeadDialog({
   orgId,
@@ -1017,11 +1129,26 @@ function AddLeadDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label="Add lead">
-      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="w-full max-w-lg space-y-3 rounded-2xl border border-white/15 bg-[#101f33] p-6">
-        <h2 className="text-lg font-bold">Add lead</h2>
+    <Dialog
+      open
+      onClose={onClose}
+      title="Add lead"
+      description="Add one prospect by hand. Only fields you know — nothing is guessed."
+      dismissible={!busy}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button type="submit" form="add-lead-form" loading={busy}>
+            {busy ? "Saving…" : "Save lead"}
+          </Button>
+        </>
+      }
+    >
+      <form id="add-lead-form" onSubmit={submit} className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Full name"><input className={inputCls} value={form.fullName} onChange={set("fullName")} /></Field>
+          <Field label="Full name"><input data-autofocus className={inputCls} value={form.fullName} onChange={set("fullName")} /></Field>
           <Field label="Company"><input className={inputCls} value={form.companyName} onChange={set("companyName")} /></Field>
           <Field label="Email"><input type="email" className={inputCls} value={form.email} onChange={set("email")} /></Field>
           <Field label="Phone"><input className={inputCls} value={form.phone} onChange={set("phone")} /></Field>
@@ -1030,15 +1157,9 @@ function AddLeadDialog({
           <Field label="Location"><input className={inputCls} value={form.location} onChange={set("location")} /></Field>
           <Field label="Website"><input className={inputCls} value={form.website} onChange={set("website")} placeholder="https://…" /></Field>
         </div>
-        {error && <p role="alert" className="text-sm text-amber-400">{error}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="rounded-lg border border-white/15 px-4 py-2 text-sm hover:bg-white/5">Cancel</button>
-          <button type="submit" disabled={busy} className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-semibold text-black hover:brightness-110 disabled:opacity-50">
-            {busy ? "Saving…" : "Save lead"}
-          </button>
-        </div>
+        {error && <p role="alert" className="text-sm text-amber-300">{error}</p>}
       </form>
-    </div>
+    </Dialog>
   );
 }
 
@@ -1073,6 +1194,7 @@ function ImportDialog({ orgId, onClose, onDone }: { orgId: string; onClose: () =
           if (hit) auto[f] = hit;
         }
         setMapping(auto);
+        setError(null);
         setStep("map");
       },
       error: () => setError("Could not parse CSV."),
@@ -1100,58 +1222,63 @@ function ImportDialog({ orgId, onClose, onDone }: { orgId: string; onClose: () =
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label="Import leads">
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl space-y-4 rounded-2xl border border-white/15 bg-[#101f33] p-6">
-        <h2 className="text-lg font-bold">Import leads from CSV</h2>
-
+    <Dialog
+      open
+      onClose={step === "done" ? () => { onDone(); onClose(); } : onClose}
+      title="Import leads from CSV"
+      size="lg"
+      dismissible={!busy}
+      footer={
+        step === "map" ? (
+          <>
+            <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
+            <Button onClick={runImport} loading={busy}>
+              {busy ? "Importing…" : `Import ${rows.length} rows`}
+            </Button>
+          </>
+        ) : step === "done" ? (
+          <Button onClick={() => { onDone(); onClose(); }} data-autofocus>Done</Button>
+        ) : (
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        )
+      }
+    >
+      <div className="space-y-4">
         {step === "file" && (
           <>
-            <input ref={fileRef} type="file" accept=".csv" onChange={onFile} aria-label="Choose CSV file"
-              className="block w-full text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:bg-[#D4AF37] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-black" />
-            <p className="text-xs text-white/50">Max 5 MB. Columns like name, email, phone, company, website are auto-mapped; you can adjust next.</p>
+            <input ref={fileRef} data-autofocus type="file" accept=".csv" onChange={onFile} aria-label="Choose CSV file"
+              className="block w-full text-sm text-ink-muted file:mr-3 file:min-h-10 file:cursor-pointer file:rounded-control file:border-0 file:bg-neon-cyan file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[#021614]" />
+            <p className="text-xs text-ink-muted">Max 5 MB. Columns like name, email, phone, company, website are auto-mapped; you can adjust next.</p>
           </>
         )}
 
         {step === "map" && (
           <>
-            <p className="text-sm text-white/60">{rows.length} rows detected. Map your columns:</p>
+            <p className="text-sm text-ink-muted">{rows.length} rows detected. Map your columns:</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {LEAD_FIELDS.map((f) => (
                 <Field key={f} label={f}>
                   <select value={mapping[f] ?? ""} onChange={(e) => setMapping((m) => ({ ...m, [f]: e.target.value }))}
-                    className={inputCls} aria-label={`Map ${f}`}>
+                    className={inputCls}>
                     <option value="">— skip —</option>
                     {columns.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </Field>
               ))}
             </div>
-            <div className="flex justify-end gap-2">
-              <button onClick={onClose} className="rounded-lg border border-white/15 px-4 py-2 text-sm hover:bg-white/5">Cancel</button>
-              <button onClick={runImport} disabled={busy} className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-semibold text-black hover:brightness-110 disabled:opacity-50">
-                {busy ? "Importing…" : `Import ${rows.length} rows`}
-              </button>
-            </div>
           </>
         )}
 
         {step === "done" && result && (
-          <>
-            <div className="rounded-lg bg-white/5 p-4 text-sm">
-              <p><span className="font-semibold text-emerald-400">{result.created}</span> created</p>
-              <p><span className="font-semibold text-amber-400">{result.duplicates}</span> possible duplicates flagged</p>
-              <p><span className="text-white/60">{result.skipped}</span> skipped (invalid rows)</p>
-            </div>
-            <div className="flex justify-end">
-              <button onClick={() => { onDone(); onClose(); }} className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-semibold text-black hover:brightness-110">
-                Done
-              </button>
-            </div>
-          </>
+          <div className="rounded-control bg-tint/5 p-4 text-sm" role="status">
+            <p><span className="font-semibold text-neon-lime">{result.created}</span> created</p>
+            <p><span className="font-semibold text-amber-300">{result.duplicates}</span> possible duplicates flagged</p>
+            <p><span className="text-ink-muted">{result.skipped}</span> skipped (invalid rows)</p>
+          </div>
         )}
 
-        {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
       </div>
-    </div>
+    </Dialog>
   );
 }

@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import {
   DndContext,
   DragEndEvent,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   useDroppable,
@@ -13,11 +15,21 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { DEMO_ACTION_DISABLED_MESSAGE } from "@/lib/demo";
 import { leadDisplayName } from "@/lib/lead-display";
+import { Skeleton } from "@/components/ui/Skeleton";
 
+/**
+ * Every lead status is a column, so no lead is ever hidden or shown under the wrong stage
+ * (the board used to fold VERIFIED / FOLLOW_UP / CONVERTED / NOT_RELEVANT into "NEW" and drop NURTURE).
+ */
 const STAGES = [
-  "NEW", "RESEARCHING", "QUALIFIED", "CONTACTED", "REPLIED",
-  "MEETING", "PROPOSAL", "NEGOTIATION", "WON", "LOST",
+  "NEW", "RESEARCHING", "VERIFIED", "QUALIFIED", "CONTACTED", "FOLLOW_UP", "REPLIED",
+  "MEETING", "PROPOSAL", "NEGOTIATION", "WON", "CONVERTED", "LOST", "NURTURE", "NOT_RELEVANT",
 ] as const;
+
+const stageLabel = (s: string) => s.replace(/_/g, " ");
+
+/** The leads API caps a page at 100; the board says so when the workspace has more. */
+const BOARD_PAGE_SIZE = 100;
 
 interface Card {
   id: string;
@@ -35,7 +47,24 @@ function cardTitle(card: Card): string {
   return leadDisplayName(card);
 }
 
-function DraggableCard({ card }: { card: Card }) {
+/** Keeps the nested stage menu from starting a drag. */
+const stopDrag = {
+  onMouseDown: (e: React.SyntheticEvent) => e.stopPropagation(),
+  onTouchStart: (e: React.SyntheticEvent) => e.stopPropagation(),
+  onKeyDown: (e: React.SyntheticEvent) => e.stopPropagation(),
+};
+
+function DraggableCard({
+  card,
+  stage,
+  canWrite,
+  onMove,
+}: {
+  card: Card;
+  stage: string;
+  canWrite: boolean;
+  onMove: (cardId: string, toStage: string) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
   });
@@ -45,26 +74,38 @@ function DraggableCard({ card }: { card: Card }) {
   };
   const opportunityTone =
     card.opportunityType === "HIGH"
-      ? "bg-[#D4AF37]/15 text-[#D4AF37]"
+      ? "bg-neon-cyan/15 text-neon-cyan"
       : card.opportunityType === "MEDIUM"
         ? "bg-amber-400/15 text-amber-300"
-        : "bg-white/10 text-white/50";
+        : "bg-tint/10 text-ink-muted";
+  const title = cardTitle(card);
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...listeners}
       {...attributes}
-      className="cursor-grab rounded-xl border border-white/10 bg-[#16283f] p-3 shadow transition hover:border-[#D4AF37]/40 active:cursor-grabbing"
+      // The card contains links and a menu, so it must not claim the "button" role dnd-kit adds by default.
+      role="group"
+      aria-label={title}
+      className={`rounded-xl border border-line bg-surface-2 p-3 shadow transition hover:border-neon-cyan/40 ${
+        canWrite ? "cursor-grab active:cursor-grabbing" : ""
+      }`}
     >
-      <p className="text-sm font-semibold">{cardTitle(card)}</p>
-      <p className="truncate text-xs text-white/50">{card.phone ?? "—"}</p>
+      <Link
+        href={`/leads/${card.id}`}
+        {...stopDrag}
+        className="block text-sm font-semibold text-ink hover:text-neon-cyan hover:underline"
+      >
+        {title}
+      </Link>
+      <p className="truncate text-xs text-ink-muted">{card.phone ?? "—"}</p>
       <div className="mt-2 flex items-center justify-between gap-2">
         <span
           className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
             card.websiteStatus === "NO_WEBSITE"
-              ? "bg-[#D4AF37]/15 text-[#D4AF37]"
-              : "bg-white/10 text-white/40"
+              ? "bg-neon-cyan/15 text-neon-cyan"
+              : "bg-tint/10 text-ink-dim"
           }`}
         >
           {card.websiteStatus === "NO_WEBSITE" ? "NO WEBSITE" : card.website ? "HAS WEBSITE" : "—"}
@@ -73,45 +114,74 @@ function DraggableCard({ card }: { card: Card }) {
           {card.opportunityType ?? "—"}
         </span>
         <span
-          className={`text-sm font-bold ${
+          className={`text-sm font-semibold ${
             card.leadScore >= 70
-              ? "text-emerald-400"
+              ? "text-neon-lime"
               : card.leadScore >= 40
                 ? "text-amber-400"
-                : "text-white/50"
+                : "text-ink-muted"
           }`}
         >
           {card.leadScore}
         </span>
       </div>
+      {canWrite && (
+        // The reliable way to move a card on phones and with a keyboard; dragging is the shortcut.
+        <label className="mt-2 block">
+          <span className="sr-only">Move {title} to stage</span>
+          <select
+            value={stage}
+            onChange={(e) => onMove(card.id, e.target.value)}
+            {...stopDrag}
+            className="min-h-9 w-full rounded-md border border-line bg-black/30 px-2 text-[11px] text-ink-muted outline-none focus:border-neon-cyan"
+          >
+            {STAGES.map((s) => (
+              <option key={s} value={s}>
+                Move to: {stageLabel(s)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
     </div>
   );
 }
 
-function Column({ stage, cards }: { stage: string; cards: Card[] }) {
+function Column({
+  stage,
+  cards,
+  canWrite,
+  onMove,
+}: {
+  stage: string;
+  cards: Card[];
+  canWrite: boolean;
+  onMove: (cardId: string, toStage: string) => void;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   return (
-    <div
+    <section
       ref={setNodeRef}
-      className={`flex w-64 shrink-0 flex-col rounded-2xl border p-3 transition ${
-        isOver ? "border-[#D4AF37]/60 bg-[#D4AF37]/5" : "border-white/10 bg-white/[0.03]"
+      aria-label={`${stageLabel(stage)}, ${cards.length} leads`}
+      className={`flex max-h-[calc(100dvh-17rem)] min-h-[14rem] w-64 shrink-0 flex-col rounded-card border p-3 transition ${
+        isOver ? "border-neon-cyan/60 bg-neon-cyan/5" : "border-line bg-tint/[0.04]"
       }`}
     >
       <div className="mb-3 flex items-center justify-between px-1">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-white/70">{stage}</h3>
-        <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/60">{cards.length}</span>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">{stageLabel(stage)}</h2>
+        <span className="rounded-full bg-tint/10 px-2 py-0.5 text-xs text-ink-muted">{cards.length}</span>
       </div>
       <div className="flex-1 space-y-2 overflow-y-auto">
         {cards.map((c) => (
-          <DraggableCard key={c.id} card={c} />
+          <DraggableCard key={c.id} card={c} stage={stage} canWrite={canWrite} onMove={onMove} />
         ))}
         {cards.length === 0 && (
-          <p className="rounded-lg border border-dashed border-white/10 p-3 text-center text-xs text-white/30">
-            Drop leads here
+          <p className="rounded-lg border border-dashed border-line p-3 text-center text-xs text-ink-dim">
+            {canWrite ? "Drop leads here" : "No leads"}
           </p>
         )}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -129,16 +199,21 @@ export function Kanban({
   demo?: boolean;
 }) {
   const [cards, setCards] = useState<Record<string, Card[]>>({});
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sourceType, setSourceType] = useState("");
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  // Mouse drags after 6px; touch drags after a short press, so swiping the board still scrolls it.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
 
   useEffect(() => {
     (async () => {
       try {
         const params = new URLSearchParams({
-          pageSize: "100",
+          pageSize: String(BOARD_PAGE_SIZE),
           sort: "leadScore",
           order: "desc",
           ...(sourceType ? { sourceType } : {}),
@@ -150,12 +225,13 @@ export function Kanban({
         const data = await res.json();
         const grouped: Record<string, Card[]> = {};
         for (const s of STAGES) grouped[s] = [];
-        grouped["NURTURE"] = [];
         for (const l of data.leads as (Card & { status: string })[]) {
-          const key = grouped[l.status] ? l.status : "NEW";
-          grouped[key].push(l);
+          // Unknown statuses cannot be placed honestly, so they are not shown under another stage.
+          if (grouped[l.status]) grouped[l.status].push(l);
         }
         setCards(grouped);
+        setTotal(typeof data.total === "number" ? data.total : (data.leads as unknown[]).length);
+        setError(null);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load pipeline.");
       } finally {
@@ -164,94 +240,126 @@ export function Kanban({
     })();
   }, [orgId, apiBase, sourceType]);
 
-  async function onDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || !canWrite) return;
-    // Demo mode: cards are inspect-only. Block the move up front with a clear
-    // message instead of attempting a write that would be rejected.
-    if (demo) {
-      setError(`${DEMO_ACTION_DISABLED_MESSAGE} — card moves are not saved in demo mode.`);
-      return;
-    }
-    const toStage = String(over.id);
-    const cardId = String(active.id);
-
-    // Find source stage + card, optimistically move.
-    let fromStage = "";
-    let card: Card | undefined;
-    for (const [stage, list] of Object.entries(cards)) {
-      const found = list.find((c) => c.id === cardId);
-      if (found) {
-        fromStage = stage;
-        card = found;
-        break;
+  const moveCard = useCallback(
+    async (cardId: string, toStage: string) => {
+      if (!canWrite || !(STAGES as readonly string[]).includes(toStage)) return;
+      // Demo mode: cards are inspect-only. Block the move up front with a clear
+      // message instead of attempting a write that would be rejected.
+      if (demo) {
+        setError(`${DEMO_ACTION_DISABLED_MESSAGE} — card moves are not saved in demo mode.`);
+        return;
       }
-    }
-    if (!card || fromStage === toStage) return;
 
-    setCards((prev) => ({
-      ...prev,
-      [fromStage]: prev[fromStage].filter((c) => c.id !== cardId),
-      [toStage]: [card!, ...prev[toStage]],
-    }));
+      // Find source stage + card, optimistically move.
+      let fromStage = "";
+      let card: Card | undefined;
+      for (const [stage, list] of Object.entries(cards)) {
+        const found = list.find((c) => c.id === cardId);
+        if (found) {
+          fromStage = stage;
+          card = found;
+          break;
+        }
+      }
+      if (!card || fromStage === toStage) return;
 
-    try {
-      const res = await fetch(`${apiBase}/leads/${cardId}`, {
-        method: "PATCH",
-        headers: { "x-org-id": orgId, "Content-Type": "application/json" },
-        body: JSON.stringify({ status: toStage }),
-      });
-      if (!res.ok) throw new Error();
-    } catch {
-      // Roll back on failure.
+      setError(null);
       setCards((prev) => ({
         ...prev,
-        [toStage]: prev[toStage].filter((c) => c.id !== cardId),
-        [fromStage]: [card!, ...prev[fromStage]],
+        [fromStage]: prev[fromStage].filter((c) => c.id !== cardId),
+        [toStage]: [card!, ...prev[toStage]],
       }));
-      setError("Could not move the card. Please try again.");
-    }
+
+      try {
+        const res = await fetch(`${apiBase}/leads/${cardId}`, {
+          method: "PATCH",
+          headers: { "x-org-id": orgId, "Content-Type": "application/json" },
+          body: JSON.stringify({ status: toStage }),
+        });
+        if (!res.ok) throw new Error();
+      } catch {
+        // Roll back on failure.
+        setCards((prev) => ({
+          ...prev,
+          [toStage]: prev[toStage].filter((c) => c.id !== cardId),
+          [fromStage]: [card!, ...prev[fromStage]],
+        }));
+        setError("Could not move the card. Please try again.");
+      }
+    },
+    [apiBase, canWrite, cards, demo, orgId],
+  );
+
+  function onDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over) return;
+    void moveCard(String(active.id), String(over.id));
   }
 
-  if (loading) return <p className="py-10 text-center text-white/40">Loading pipeline…</p>;
+  if (loading)
+    return (
+      <div role="status" aria-busy="true" className="flex gap-3 overflow-hidden">
+        <span className="sr-only">Loading pipeline…</span>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="w-64 shrink-0 rounded-card border border-line p-3">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="mt-4 h-20 w-full" />
+            <Skeleton className="mt-2 h-20 w-full" />
+            <Skeleton className="mt-2 h-20 w-full" />
+          </div>
+        ))}
+      </div>
+    );
   if (error && Object.keys(cards).length === 0)
-    return <p role="alert" className="py-10 text-center text-red-400">{error}</p>;
+    return <p role="alert" className="py-10 text-center text-red-300">{error}</p>;
+
+  const shown = Object.values(cards).reduce((n, list) => n + list.length, 0);
 
   return (
     <div className="min-w-0">
       {error && (
-        <p role="alert" className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+        <p role="alert" className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
           {error}
         </p>
       )}
       {!canWrite && (
-        <p className="mb-3 text-sm text-white/40">You have view-only access — cards cannot be moved.</p>
+        <p className="mb-3 text-sm text-ink-muted">You have view-only access — cards cannot be moved.</p>
       )}
-      <div className="mb-3 flex items-center gap-2">
-        <label htmlFor="kanban-source" className="text-xs text-white/40">
-          Source:
-        </label>
-        <select
-          id="kanban-source"
-          value={sourceType}
-          onChange={(e) => setSourceType(e.target.value)}
-          aria-label="Filter pipeline by source"
-          className="rounded-lg border border-white/10 bg-black/30 px-3 py-1.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-        >
-          <option value="">All sources</option>
-          <option value="INSTAGRAM">Instagram</option>
-          <option value="GOOGLE_BUSINESS">Google Maps</option>
-          <option value="WEB_SEARCH">Google Search</option>
-          <option value="CSV">CSV</option>
-          <option value="MANUAL">Manual</option>
-        </select>
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex items-center gap-2">
+          <label htmlFor="kanban-source" className="text-xs text-ink-muted">
+            Source
+          </label>
+          <select
+            id="kanban-source"
+            value={sourceType}
+            onChange={(e) => {
+              setLoading(true);
+              setSourceType(e.target.value);
+            }}
+            className="min-h-10 rounded-control border border-line bg-black/30 px-3 text-sm text-ink outline-none focus:border-neon-cyan"
+          >
+            <option value="">All sources</option>
+            <option value="INSTAGRAM">Instagram</option>
+            <option value="GOOGLE_BUSINESS">Google Maps</option>
+            <option value="WEB_SEARCH">Google Search</option>
+            <option value="CSV">CSV</option>
+            <option value="MANUAL">Manual</option>
+          </select>
+        </div>
+        <p className="text-xs text-ink-muted" role="status">
+          {total > shown
+            ? `Showing the ${shown.toLocaleString("en-IN")} highest-scoring of ${total.toLocaleString("en-IN")} leads. Use Leads to browse the rest.`
+            : `${shown.toLocaleString("en-IN")} ${shown === 1 ? "lead" : "leads"}`}
+          {canWrite && " · Drag a card, or use its “Move to” menu."}
+        </p>
       </div>
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
         {/* Board scrolls horizontally inside its own viewport; columns keep
             a usable minimum width and the page itself never overflows. */}
         <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-4">
           {STAGES.map((s) => (
-            <Column key={s} stage={s} cards={cards[s] ?? []} />
+            <Column key={s} stage={s} cards={cards[s] ?? []} canWrite={canWrite} onMove={moveCard} />
           ))}
         </div>
       </DndContext>

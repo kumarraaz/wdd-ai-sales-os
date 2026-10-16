@@ -1,28 +1,29 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
-import { getDemoSession } from "@/lib/demo-session";
+import type { Metadata } from "next";
+import { DemoUnavailable } from "@/components/app/DemoUnavailable";
 import { InstagramOutreachAssistant } from "@/components/outreach/InstagramOutreachAssistant";
-import { db } from "@/lib/db";
+import { DemoBadge } from "@/components/ui/Badge";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { getPageContext } from "@/lib/page-context";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Outreach studio" };
 
 export default async function InstagramOutreachPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  const demo = await getDemoSession();
-  if (!session?.user && !demo) redirect("/login");
+  const ctx = await getPageContext();
 
-  // Resolve the workspace org id the same way API routes do (x-org-id header
-  // is a client concern; here we take the user's first workspace).
-  let orgId = "";
-  if (session?.user) {
-    const membership = await db.membership.findFirst({
-      where: { userId: session.user.id },
-      select: { organizationId: true },
-      orderBy: { createdAt: "asc" },
-    });
-    orgId = membership?.organizationId ?? "";
+  if (ctx.demo) {
+    return (
+      <div className="space-y-5">
+        <PageHeader title="Instagram outreach" badge={<DemoBadge />} />
+        <DemoUnavailable what="Outreach">
+          Outreach drafts are prepared for real prospects in a real workspace, and you review and send every message
+          yourself. Nothing is sent from demo mode.
+        </DemoUnavailable>
+      </div>
+    );
   }
 
-  return <InstagramOutreachAssistant orgId={orgId} />;
+  // The active workspace comes from the same cookie + membership check as every other page
+  // (this page used to always take the user's first workspace).
+  return <InstagramOutreachAssistant orgId={ctx.organizationId} />;
 }

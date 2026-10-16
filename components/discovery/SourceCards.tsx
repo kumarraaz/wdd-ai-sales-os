@@ -20,8 +20,8 @@ export interface CatalogSource {
 }
 
 const DOT: Record<CatalogSource["availability"], string> = {
-  CONNECTED: "bg-emerald-400",
-  NOT_CONFIGURED: "bg-white/25",
+  CONNECTED: "bg-neon-lime",
+  NOT_CONFIGURED: "bg-tint/25",
   FREE_LIMIT_REACHED: "bg-red-400",
   LIMITED: "bg-amber-400",
   ERROR: "bg-red-400",
@@ -37,7 +37,7 @@ const AVAIL_LABEL: Record<CatalogSource["availability"], string> = {
 
 export function SourceStatusDot({ availability }: { availability: CatalogSource["availability"] }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-white/70">
+    <span className="inline-flex items-center gap-1.5 text-xs text-ink-muted">
       <span className={`inline-block h-2 w-2 rounded-full ${DOT[availability]}`} />
       {AVAIL_LABEL[availability]}
     </span>
@@ -72,8 +72,8 @@ export function SourceCards({
           onClick={() => onModeChange("all")}
           className={`rounded-lg border px-4 py-2 text-sm font-semibold ${
             mode === "all"
-              ? "border-[#D4AF37] bg-[#D4AF37]/15 text-[#D4AF37]"
-              : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+              ? "border-neon-cyan bg-neon-cyan/15 text-neon-cyan"
+              : "border-line bg-tint/5 text-ink-muted hover:bg-tint/10"
           }`}
         >
           All enabled sources
@@ -83,8 +83,8 @@ export function SourceCards({
           onClick={() => onModeChange("custom")}
           className={`rounded-lg border px-4 py-2 text-sm font-semibold ${
             mode === "custom"
-              ? "border-[#D4AF37] bg-[#D4AF37]/15 text-[#D4AF37]"
-              : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+              ? "border-neon-cyan bg-neon-cyan/15 text-neon-cyan"
+              : "border-line bg-tint/5 text-ink-muted hover:bg-tint/10"
           }`}
         >
           Choose primary + fallbacks
@@ -101,21 +101,21 @@ export function SourceCards({
               key={s.id}
               className={`rounded-xl border p-4 ${
                 isPrimary
-                  ? "border-[#D4AF37] bg-[#D4AF37]/10"
+                  ? "border-neon-cyan bg-neon-cyan/10"
                   : isFallback
-                    ? "border-white/25 bg-white/5"
-                    : "border-white/10 bg-white/5"
+                    ? "border-line-strong bg-tint/5"
+                    : "border-line bg-tint/5"
               }`}
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="font-semibold text-white">{s.label}</div>
+                <div className="font-semibold text-ink">{s.label}</div>
                 <SourceStatusDot availability={s.availability} />
               </div>
-              <p className="mt-1 text-xs text-white/50">{s.description}</p>
+              <p className="mt-1 text-xs text-ink-muted">{s.description}</p>
               {s.usage.display && (
-                <p className="mt-2 text-xs text-white/60">
+                <p className="mt-2 text-xs text-ink-muted">
                   Usage: <span className="font-mono">{s.usage.display}</span>
-                  <span className="text-white/40"> · {s.usage.resetLabel}</span>
+                  <span className="text-ink-dim"> · {s.usage.resetLabel}</span>
                 </p>
               )}
               {s.reason && s.availability !== "CONNECTED" && (
@@ -129,8 +129,8 @@ export function SourceCards({
                     onClick={() => onPrimaryChange(s.id)}
                     className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
                       isPrimary
-                        ? "bg-[#D4AF37] text-black"
-                        : "bg-white/10 text-white/70 hover:bg-white/20 disabled:opacity-40"
+                        ? "bg-neon-cyan text-[#021614]"
+                        : "bg-tint/10 text-ink-muted hover:bg-tint/20 disabled:opacity-40"
                     }`}
                   >
                     {isPrimary ? "★ Primary" : "Set primary"}
@@ -142,8 +142,8 @@ export function SourceCards({
                       onClick={() => onFallbackToggle(s.id)}
                       className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
                         isFallback
-                          ? "bg-white/25 text-white"
-                          : "bg-white/10 text-white/70 hover:bg-white/20 disabled:opacity-40"
+                          ? "bg-tint/25 text-ink"
+                          : "bg-tint/10 text-ink-muted hover:bg-tint/20 disabled:opacity-40"
                       }`}
                     >
                       {isFallback ? "✓ Fallback" : "Add fallback"}
@@ -158,24 +158,24 @@ export function SourceCards({
 
       {others.length > 0 && (
         <div>
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/40">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-dim">
             Reference / manual sources (not searchable)
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {others.map((s) => (
-              <div key={s.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <div key={s.id} className="rounded-xl border border-line bg-tint/[0.04] p-4">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="font-semibold text-white/80">{s.label}</div>
+                  <div className="font-semibold text-ink">{s.label}</div>
                   <SourceStatusDot availability={s.availability} />
                 </div>
-                <p className="mt-1 text-xs text-white/50">{s.description}</p>
+                <p className="mt-1 text-xs text-ink-muted">{s.description}</p>
                 {s.reason && (
                   <p className="mt-1 text-xs text-amber-200/70">{s.reason}</p>
                 )}
                 {s.id === "csv-import" && (
                   <Link
                     href="/leads"
-                    className="mt-2 inline-block text-xs font-semibold text-[#D4AF37] hover:underline"
+                    className="mt-2 inline-block text-xs font-semibold text-neon-cyan hover:underline"
                   >
                     Go to Leads (CSV import lives there) →
                   </Link>

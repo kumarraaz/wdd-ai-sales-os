@@ -93,37 +93,37 @@ export function NotificationBell({ apiBase }: { apiBase: string }) {
         onClick={() => setOpen((v) => !v)}
         aria-label="Notifications"
         title="Notifications"
-        className="relative rounded-lg p-2 text-white/60 transition hover:bg-white/10 hover:text-white"
+        className="relative rounded-lg p-2 text-ink-muted transition hover:bg-tint/10 hover:text-ink"
       >
         <Bell size={18} />
         {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#D4AF37] px-1 text-[10px] font-bold text-black">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-neon-cyan px-1 text-[10px] font-semibold text-[#021614]">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
       {open && (
-        <div className="absolute right-0 z-30 mt-2 w-80 overflow-hidden rounded-xl border border-white/10 bg-[#0D1B2A] shadow-2xl">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
-            <p className="text-sm font-semibold text-white">Notifications</p>
+        <div className="absolute right-0 z-30 mt-2 w-80 overflow-hidden rounded-xl border border-line bg-[#0D1B2A] shadow-2xl">
+          <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
+            <p className="text-sm font-semibold text-ink">Notifications</p>
             {unreadCount > 0 && (
-              <button onClick={markAllRead} className="text-xs text-[#D4AF37] hover:underline">
+              <button onClick={markAllRead} className="text-xs text-neon-cyan hover:underline">
                 Mark all read
               </button>
             )}
           </div>
           <div className="max-h-80 overflow-y-auto">
             {items.length === 0 && (
-              <p className="px-4 py-6 text-center text-sm text-white/40">No notifications yet.</p>
+              <p className="px-4 py-6 text-center text-sm text-ink-dim">No notifications yet.</p>
             )}
             {items.map((n) => (
               <div
                 key={n.id}
-                className={`border-b border-white/5 px-4 py-3 ${n.readAt ? "opacity-60" : ""}`}
+                className={`border-b border-line/60 px-4 py-3 ${n.readAt ? "opacity-60" : ""}`}
               >
-                <p className="text-sm font-medium text-white">{n.title}</p>
+                <p className="text-sm font-medium text-ink">{n.title}</p>
                 {n.body && (
-                  <p className="mt-1 whitespace-pre-line text-xs text-white/60">{n.body}</p>
+                  <p className="mt-1 whitespace-pre-line text-xs text-ink-muted">{n.body}</p>
                 )}
                 <div className="mt-2 flex items-center gap-3">
                   {n.link && (
@@ -133,7 +133,7 @@ export function NotificationBell({ apiBase }: { apiBase: string }) {
                         markRead(n.id);
                         setOpen(false);
                       }}
-                      className="text-xs font-medium text-[#D4AF37] hover:underline"
+                      className="text-xs font-medium text-neon-cyan hover:underline"
                     >
                       View
                     </Link>
@@ -141,7 +141,7 @@ export function NotificationBell({ apiBase }: { apiBase: string }) {
                   {!n.readAt && (
                     <button
                       onClick={() => markRead(n.id)}
-                      className="text-xs text-white/40 hover:text-white"
+                      className="text-xs text-ink-dim hover:text-ink"
                     >
                       Dismiss
                     </button>

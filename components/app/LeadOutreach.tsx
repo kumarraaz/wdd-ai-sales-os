@@ -81,14 +81,14 @@ export function LeadOutreach({ leadId, apiBase }: { leadId: string; apiBase: str
   if (!lead) return null;
 
   const btn =
-    "rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/85 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40";
+    "rounded-lg border border-line bg-tint/5 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-tint/10 disabled:cursor-not-allowed disabled:opacity-40";
   const btnGold =
-    "rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-black hover:brightness-110 disabled:opacity-40";
+    "rounded-lg bg-neon-cyan px-4 py-2.5 text-sm font-semibold text-[#021614] hover:brightness-110 disabled:opacity-40";
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-      <h3 className="text-lg font-semibold text-white">Outreach</h3>
-      <p className="mt-1 text-xs text-white/50">
+    <div className="rounded-2xl border border-line bg-tint/[0.03] p-5">
+      <h3 className="text-lg font-semibold text-ink">Outreach</h3>
+      <p className="mt-1 text-xs text-ink-muted">
         Manual outreach only — nothing is sent automatically. Open the profile, copy the AI-drafted message, paste and send it yourself.
       </p>
 
@@ -147,8 +147,8 @@ export function LeadOutreach({ leadId, apiBase }: { leadId: string; apiBase: str
         )}
       </div>
 
-      <div className="mt-4 border-t border-white/10 pt-4">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/40">
+      <div className="mt-4 border-t border-line pt-4">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-dim">
           Copy a personalized message draft
         </div>
         <div className="flex flex-wrap gap-2">
@@ -166,7 +166,7 @@ export function LeadOutreach({ leadId, apiBase }: { leadId: string; apiBase: str
         </div>
       </div>
 
-      {notice && <p className="mt-3 text-sm text-emerald-300">{notice}</p>}
+      {notice && <p className="mt-3 text-sm text-neon-lime">{notice}</p>}
     </div>
   );
 }
