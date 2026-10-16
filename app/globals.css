@@ -37,6 +37,31 @@
   --color-charcoal-950: #141412;
 }
 
+/* WDD cinematic auth palette — single source of truth for the login page. */
+:root {
+  --wdd-navy: #0D1B2A;
+  --wdd-gold: #D4AF37;
+  --bg-primary: #08090D;
+  --bg-card: #121218;
+  --bg-input: #19191F;
+  --text-primary: #F8F7F4;
+  --text-muted: #96949D;
+  --accent-amber: #F59A35;
+  --border-subtle: rgba(255, 255, 255, 0.09);
+}
+
+@theme inline {
+  --color-wdd-gold: var(--wdd-gold);
+  --color-wdd-bg: var(--bg-primary);
+  --color-wdd-card: var(--bg-card);
+  --color-wdd-input: var(--bg-input);
+  --color-wdd-text: var(--text-primary);
+  --color-wdd-muted: var(--text-muted);
+  --color-wdd-amber: var(--accent-amber);
+  --color-wdd-line: var(--border-subtle);
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+}
+
 html {
   scroll-behavior: smooth;
 }

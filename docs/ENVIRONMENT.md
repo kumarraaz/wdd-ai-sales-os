@@ -52,8 +52,7 @@ the deterministic keyword matcher (labeled honestly in the UI).
 
 | Variable | Purpose |
 |---|---|
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth. When unset, the Google button is hidden (never faked). |
-| `NEXT_PUBLIC_GOOGLE_OAUTH` | Set to `"true"` to show the Google sign-in button (requires the above). |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth. The login page shows the Google button only when both are set on the server (never faked). The old `NEXT_PUBLIC_GOOGLE_OAUTH` flag is no longer read and can be removed. |
 
 ## Sessions
 
