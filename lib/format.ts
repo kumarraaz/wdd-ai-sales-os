@@ -11,6 +11,5 @@ export function pct(n: number, digits = 1): string {
   return `${sign}${Math.abs(n).toFixed(digits)}%`;
 }
 
-export function cn(...parts: Array<string | false | null | undefined>): string {
-  return parts.filter(Boolean).join(" ");
-}
+// Single implementation lives in ./cn (shared with the app design system).
+export { cn } from "./cn";
